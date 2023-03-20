@@ -1,13 +1,13 @@
 ##
 #   Functions for omicsapp
 ##
-
+s
 blankfiltration <- function(dat, seq, xbf, keepis) {
-  dat[seq[,1] %in% "Blank"][is.na(dat[seq[,1] %in% "Blank"])] <- 0
-  bf <- apply(dat[seq[,1] %in% "Blank"], 1, mean) * xbf < apply(dat[seq[,1] %in% "QC"], 1, mean, na.rm = TRUE)
-  if(keepis == TRUE){
-    is <- grepl("\\(IS\\)", toupper(dat[seq[,1] %in% "Name"][,1]))
-    dat <- dat[bf|is,]
+  dat[seq[, 1] %in% "Blank"][is.na(dat[seq[, 1] %in% "Blank"])] <- 0
+  bf <- apply(dat[seq[, 1] %in% "Blank"], 1, mean) * xbf < apply(dat[seq[, 1] %in% "QC"], 1, mean, na.rm = TRUE)
+  if(keepis){
+    is <- grepl("\\(IS\\)", toupper(dat[seq[, 1] %in% "Name"][, 1]))
+    dat <- dat[bf|is, ]
   } else {
     dat <- dat[bf, ]
   }
@@ -15,25 +15,25 @@ blankfiltration <- function(dat, seq, xbf, keepis) {
 }
 
 isfunc <- function(dat, seq, is, method, qc) {
-  rt <- which(seq[,1] == "RT")
-  is <- as.numeric(gsub( " .*$", "", is))
-  if(qc == TRUE) {
+  rt <- which(seq[, 1] == "RT")
+  is <- as.numeric(gsub(" .*$", "", is))
+  if(qc) {
     sel <- c("Sample", "QC")
   } else {
     sel <- "Sample"
   }
-  sdat <- dat[seq[,1] %in% sel]
+  sdat <- dat[seq[, 1] %in% sel]
   sdat[sdat == 0] <- NA
-  near <- sapply(dat[,rt],function(y){
-    which.min(abs(dat[is,rt]-y))
+  near <- sapply(dat[, rt], function(y){
+    which.min(abs(dat[is, rt] - y))
   })
   
-  if (method == "Same lipid structure") {
-    name <- dat[seq[,1] %in% "Name"]
-    istype <- gsub(" .*$", "", name[is,])
-    near <- sapply(seq(name[,1]), function(x) {
-      if(gsub( " .*$", "", name[x,1]) %in% istype){
-        which(istype %in% gsub( " .*$", "", name[x,1]))
+  if(method == "Same lipid structure") {
+    name <- dat[seq[, 1] %in% "Name"]
+    istype <- gsub(" .*$", "", name[is, ])
+    near <- sapply(seq(name[, 1]), function(x) {
+      if(gsub(" .*$", "", name[x, 1]) %in% istype){
+        which(istype %in% gsub(" .*$", "", name[x, 1]))
       } else {
         near[x]
       }
@@ -42,18 +42,17 @@ isfunc <- function(dat, seq, is, method, qc) {
   sdat <- sapply(seq(ncol(sdat)), function(j) sapply(seq(nrow(sdat)), function(i) {
     sdat[i,j] / sdat[is,j][near[i]]
   }))
-  
-  dat[seq[,1] %in% sel] <- sdat
+  dat[seq[, 1] %in% sel] <- sdat
   return(dat)
 }
 
 isopti <- function(dat, seq, is, method, qc) {
   iscomb <- Map(combn, list(is), seq_along(is), simplify = FALSE)
   iscomb <- lapply(rapply(iscomb, enquote, how = "unlist"), eval)
-  progressSweetAlert(id = "pbis", title = "Finding best IS combination", value = 0, total = length(iscomb), striped = T,display_pct = T)
-  islow <- lapply(iscomb, function(x){
+  progressSweetAlert(id = "pbis", title = "Finding best IS combination", value = 0, total = length(iscomb), striped = T, display_pct = T)
+  islow <- lapply(iscomb, function(x) {
     isdat <- isfunc(dat, seq, x, method, qc)
-    mean(apply(isdat[,seq[,1] %in% "QC"],1,sd,na.rm = T) / apply(isdat[,seq[,1] %in% "QC"],1, mean,na.rm = T) * 100)
+    mean(apply(isdat[, seq[, 1] %in% "QC"], 1, sd, na.rm = T) / apply(isdat[, seq[,1] %in% "QC"], 1, mean, na.rm = T) * 100)
     #updateProgressBar(id = "pbis", value = which(iscomb %in% iscomb[x]), total = length(iscomb))
   })
   closeSweetAlert()
@@ -61,10 +60,10 @@ isopti <- function(dat, seq, is, method, qc) {
 }
 
 findis <- function(dat){
-  nr <- grepl("\\(IS\\)", toupper(dat[,1]))
+  nr <- grepl("\\(IS\\)", toupper(dat[, 1]))
   if(sum(nr) > 0) {
-    name <- as.vector(dat[nr,1])
-    is <- paste(which(nr)," - ",name)
+    name <- as.vector(dat[nr, 1])
+    is <- paste(which(nr), " - ", name)
     return(is)
   } else {
     return(character(0))
@@ -73,17 +72,17 @@ findis <- function(dat){
 
 identifylabels <- function(data){
   lab <- sapply(names(data), function(x){
-    if(grepl("BLANK", toupper(x)) && is.numeric(data[,x])) {
+    if(grepl("BLANK", toupper(x)) && is.numeric(data[, x])) {
       "Blank"
-    } else if(grepl("QC", toupper(x)) && is.numeric(data[,x])) {
+    } else if(grepl("QC", toupper(x)) && is.numeric(data[, x])) {
       "QC"
     } else if(grepl("NAME", toupper(x))) {
       "Name"
-    } else if(grepl("MASS|M/Z|M.Z", toupper(x)) && is.numeric(data[,x])) {
+    } else if(grepl("MASS|M/Z|M.Z", toupper(x)) && is.numeric(data[, x])) {
       "Mass"
-    } else if(grepl("RT|TIME|RETENTION", toupper(x)) && is.numeric(data[,x])) {
+    } else if(grepl("RT|TIME|RETENTION", toupper(x)) && is.numeric(data[, x])) {
       "RT"
-    } else if(grepl("[[:digit:]]", toupper(x)) && is.numeric(data[,x])) {
+    } else if(grepl("[[:digit:]]", toupper(x)) && is.numeric(data[, x])) {
       "Sample"
     } else {
       "-"
@@ -92,17 +91,17 @@ identifylabels <- function(data){
   if (sum(lab == "Name") > 1) {
     lab[lab == "Name" & duplicated(lab)] <- "-"
   }
-  lab <- factor(lab, levels = c("Name","Blank", "QC", "Sample", "RT", "Mass","Adduct_pos","Adduct_neg","-"))
+  lab <- factor(lab, levels = c("Name", "Blank", "QC", "Sample", "RT", "Mass", "Adduct_pos", "Adduct_neg", "-"))
   return(lab)
 }
 
 imputation <- function(dat, seq, method, minx = 1, onlyqc, remaining) {
   if (onlyqc) {
     datsq <- dat[seq[,1] %in% "QC"]
-    seqsq <- seq[seq[,1] %in% "QC",]
+    seqsq <- seq[seq[,1] %in% "QC", ]
   } else {
     datsq <- dat[seq[,1] %in% c("Sample","QC")]
-    seqsq <- seq[seq[,1] %in% c("Sample", "QC"),]
+    seqsq <- seq[seq[,1] %in% c("Sample", "QC"), ]
   }
   datsq[datsq == 0] <- NA
   seqsq[seqsq[,1] %in% c("QC"),]$class <- "QC"
@@ -110,7 +109,7 @@ imputation <- function(dat, seq, method, minx = 1, onlyqc, remaining) {
  
   if (method == "KNN") {
     datsq <- as.matrix(datsq)
-    knndat <- impute.knn(datsq, k = 10, rowmax = .99, colmax = .99, maxp = 15000) #skal k sættes anderledes evt mindste class -1?
+    knndat <- impute.knn(datsq, k = 10, rowmax = .99, colmax = .99, maxp = 15000) #TODO skal k sættes anderledes evt mindste class -1?
     impsqdat <- as.data.frame(knndat$data)
   } else if (method == "Median") {
     impsqdat <- imp_median(datsq, seqsq)
@@ -121,92 +120,89 @@ imputation <- function(dat, seq, method, minx = 1, onlyqc, remaining) {
   if (sum(is.na(impsqdat)) > 0) {
     if(remaining == "Min/X") {
       for(i in 1:nrow(impsqdat)){
-        impsqdat[i, is.na(impsqdat[i,])] <- min(impsqdat[i,], na.rm = T) / minx
+        impsqdat[i, is.na(impsqdat[i, ])] <- min(impsqdat[i, ], na.rm = T) / minx
       }
     } else if (remaining == "zero") {
       for(i in 1:nrow(impsqdat)){
-        impsqdat[i, is.na(impsqdat[i,])] <- 0
+        impsqdat[i, is.na(impsqdat[i, ])] <- 0
       }
     } else if (remaining == "Median") {
       for(i in 1:nrow(impsqdat)){
-        impsqdat[i, is.na(impsqdat[i,])] <- median(as.numeric(impsqdat[i,]), na.rm = T)
+        impsqdat[i, is.na(impsqdat[i, ])] <- median(as.numeric(impsqdat[i, ]), na.rm = T)
       }
-    } 
-    
+    }
   }
   if (onlyqc) {
-    dat[seq[,1] %in% "QC"] <- impsqdat
+    dat[seq[, 1] %in% "QC"] <- impsqdat
   } else {
-    dat[seq[,1] %in% c("Sample","QC")] <- impsqdat
+    dat[seq[, 1] %in% c("Sample", "QC")] <- impsqdat
   }
   return(dat)
 }
 
-cutoffrm <- function(dat,seq,cutoff,method){
-  cutoff <- cutoff/100
-  if("as whole" %in% method){
-    datm <- dat[seq[,1] %in% c("Sample","QC")]
-    datm[datm == 0] <- NA
+cutoffrm <- function(dat, seq, cutoff, method) {
+  cutoff <- cutoff / 100
+  datm[datm == 0] <- NA
+  if("entire data" %in% method){
+    datm <- dat[seq[, 1] %in% "Sample"]
     keep <- rowSums(!is.na(datm)) / ncol(datm) >= cutoff
-    dat <- dat[keep,]
+    dat <- dat[keep, ]
   }
   if("in QC" %in% method || "in class" %in% method) {
     datm <- NULL
     seqm <- NULL
     if("in QC" %in% method) {
-      datm <- dat[seq[,1] %in% "QC"]
-      seqm <- seq[seq[,1] %in% "QC",]
+      datm <- dat[seq[, 1] %in% "QC"]
+      seqm <- seq[seq[, 1] %in% "QC", ]
     }
     if("in class" %in% method) {
-      datm <- bind_cols(datm,dat[seq[,1] %in% "Sample"])
-      seqm <- bind_rows(seqm,seq[seq[,1] %in% "Sample",])
+      datm <- bind_cols(datm, dat[seq[, 1] %in% "Sample"])
+      seqm <- bind_rows(seqm, seq[seq[, 1] %in% "Sample", ])
     }
     if("QC" %in% seqm$lab) {
-      seqm[seqm[,1] %in% c("QC"),]$class <- "QC"
+      seqm[seqm[, 1] %in% c("QC"),]$class <- "QC"
     }
-    seqm[is.na(seqm$class),4] <- "Sample"
-    datm[datm == 0] <- NA
+    seqm[is.na(seqm$class), 4] <- "Sample"
     class <- as.vector(seqm$class)
     
     freq <- sapply(seq(nrow(datm)), function (i) tapply(as.numeric(datm[i,]), class, function (x) {
-      sum(!is.na(x))/length(x)
+      sum(!is.na(x)) / length(x)
     }))
     
     if(is.null(dim(freq))) {
-      dat <- dat[freq >= cutoff,]
+      dat <- dat[freq >= cutoff, ]
     } else {
       keep <- colSums(freq >= cutoff) == dim(freq)[1]
-      dat <- dat[keep,]
+      dat <- dat[keep, ]
     }
   }
-  #dat[is.na(dat)] <- 0 
+  dat[is.na(dat)] <- 0
   return(dat)
-  
 }
 
 imp_median <- function(dat,seq){
-  datm <- data.frame(seq$class,t(dat))
+  datm <- data.frame(seq$class, t(dat))
   datm <- datm %>%
     group_by(seq.class) %>%
     mutate_if(is.numeric,
               function(x) ifelse(is.na(x),
                                  median(x, na.rm = T),
                                  x))
-  datm <- data.frame(t(datm[,-1]))
+  datm <- data.frame(t(datm[, -1]))
   colnames(datm) <- colnames(dat)
   row.names(datm) <- row.names(dat)
   return(datm)
 }
  
 imp_minx <- function(dat,seq,minx){
-  datm <- data.frame(seq$class,t(dat))
+  datm <- data.frame(seq$class, t(dat))
   datm <- datm %>%
     group_by(seq.class) %>%
     mutate_if(is.numeric,
               function(x) ifelse(is.na(x),
                                  min(x, na.rm = T) / minx ,
                                  x))
-  datm <- data.frame(t(datm[,-1]))
+  datm <- data.frame(t(datm[, -1]))
   colnames(datm) <- colnames(dat)
   row.names(datm) <- row.names(dat)
   datm[datm == "Inf"] <- NA
@@ -214,113 +210,112 @@ imp_minx <- function(dat,seq,minx){
 }
 
 cvmean <- function(dat){
-  mean(apply(dat,1,sd,na.rm = T) / apply(dat,1, mean,na.rm = T), na.rm = T) * 100
+  mean(apply(dat, 1, sd, na.rm = T) / apply(dat, 1, mean, na.rm = T), na.rm = T) * 100
 }
 
 cv <- function(dat){
-  round(apply(dat,1,sd,na.rm = T) / apply(dat,1,mean,na.rm = T) * 100,2)
+  round(apply(dat, 1, sd, na.rm = T) / apply(dat, 1, mean, na.rm = T) * 100, 2)
 }
 
-pcaplot <- function(data,class){
-  data[data==0] <- NA
-  data <- data[complete.cases(data),]
-  class[!is.na(class)] <- paste0("Condition ",class[!is.na(class)])
+pcaplot <- function(data, class) {
+  data[data == 0] <- NA
+  data <- data[complete.cases(data), ]
+  class[!is.na(class)] <- paste0("Condition ", class[!is.na(class)])
   class[is.na(class)] <- "No class"
-  prin <- prcomp(log(t(data)), rank. =2, scale = F)
-  pov <- summary(prin)[["importance"]]["Proportion of Variance",]
-  pov <- round(pov * 100,2)
+  prin <- prcomp(log(t(data)), rank. = 2, scale = F)
+  pov <- summary(prin)[["importance"]]["Proportion of Variance", ]
+  pov <- round(pov * 100, 2)
   components <- prin[["x"]]
   components <- data.frame(components)
-  label <- paste0(row.names(components), ": ",class)
+  label <- paste0(row.names(components), ": ", class)
   col <- colorRampPalette(RColorBrewer::brewer.pal(8, "Set1"))(length(unique(class)))
-  pca <- plot_ly(components, x = ~PC1, y = ~PC2, type = 'scatter', mode = 'markers', text = label, hoverinfo = "text", color = class, colors = col)
-  pca <- pca %>% layout(legend=list(title=list(text='color')),
-                        plot_bgcolor='#e5ecf6',
-                        xaxis = list(title = paste0("PC1 (",pov[1],"% explained var.)"),
+  pca <- plot_ly(components, x = ~PC1, y = ~PC2, type = "scatter", mode = "markers", text = label, hoverinfo = "text", color = class, colors = col)
+  pca <- pca %>% layout(legend = list(title = list(text = "color")),
+                        plot_bgcolor = "#e5ecf6",
+                        xaxis = list(title = paste0("PC1 (", pov[1], "% explained var.)"),
                                      zerolinecolor = "#ffff",
                                      zerolinewidth = 2,
                                      gridcolor='#ffff'),
-                        yaxis = list(title = paste0("PC2 (",pov[2],"% explained var.)"),
+                        yaxis = list(title = paste0("PC2 (", pov[2], "% explained var.)"),
                                      zerolinecolor = "#ffff",
                                      zerolinewidth = 2,
-                                     gridcolor='#ffff'))
-  
+                                     gridcolor = "#ffff"))
   return(pca)
 }
 
 driftcorrection <- function(dat, seq, method, ntree = 500, degree = 2, QCspan) {
-  seqsq <- seq[seq[,1] %in% c("Sample","QC"), ]
-  datsq <- dat[,seq[,1] %in% c("Sample","QC")]
+  seqsq <- seq[seq[, 1] %in% c("Sample", "QC"), ]
+  datsq <- dat[, seq[, 1] %in% c("Sample", "QC")]
   datsqsorted <- datsq %>% select(order(seqsq$order))
-  qcid <- as.numeric(sort(seqsq[seqsq[,1] %in% "QC",]$order))
+  qcid <- as.numeric(sort(seqsq[seqsq[, 1] %in% "QC", ]$order))
   frame <- data.frame("qcid" = 1:ncol(datsq))
   dcdat <- as.matrix(datsqsorted)
-  progressSweetAlert(id = "pbdc", title = "Correcting drift", value = 0, total = nrow(dcdat), striped = T,display_pct = T)
+  progressSweetAlert(id = "pbdc", title = "Correcting drift", value = 0, total = nrow(dcdat), striped = T, display_pct = T)
   if(method == "QC-RFSC (random forrest)") {
     for (i in 1:nrow(dcdat)) {
-      forest <- randomForest(data.frame(qcid), as.numeric(dcdat[i,qcid]), ntree = ntree)
+      forest <- randomForest(data.frame(qcid), as.numeric(dcdat[i, qcid]), ntree = ntree)
       pv <- predict(forest, frame)
-      dcdat[i, ] <- as.numeric(dcdat[i, ])/pv
+      dcdat[i, ] <- as.numeric(dcdat[i, ]) / pv
       updateProgressBar(id = "pbdc", value = i, total = nrow(dcdat))
     }
   }
   if(method == "QC-RLSC (robust LOESS)") {
     for (i in 1:nrow(dcdat)) {
-      loess <- loess(dcdat[i, qcid] ~ qcid, span = QCspan, 
+      loess <- loess(dcdat[i, qcid] ~ qcid, span = QCspan,
                      degree = degree)
       pv <- predict(loess, frame)
-      dcdat[i, ] <- as.numeric(dcdat[i, ])/pv
+      dcdat[i, ] <- as.numeric(dcdat[i, ]) / pv
       updateProgressBar(id = "pbdc", value = i, total = nrow(dcdat))
     }
   }
-  dat[seq[,1] %in% c("Sample","QC")] <- dcdat[,seqsq$order]
+  dat[seq[, 1] %in% c("Sample", "QC")] <- dcdat[, seqsq$order]
   closeSweetAlert()
   return(dat)
 }
 
 findadduct <- function(dat, seq) {
-  names <- dat[,seq[,1] %in% "Name"]
-  reg <- gregexpr("_\\[(.*?)_",names)
+  names <- dat[, seq[, 1] %in% "Name"]
+  reg <- gregexpr("_\\[(.*?)_", names)
   adduct <- regmatches(names, reg)
   adduct <- as.character(adduct)
   adduct[adduct > 0] <- NA
-  adduct <- gsub("^.|.$","",adduct)
-  adduct <- gsub(" ","",adduct)
+  adduct <- gsub("^.|.$", "", adduct)
+  adduct <- gsub(" ", "", adduct)
   return(adduct)
 }
 
 merge.func <- function(dat1, seq1, dat2, seq2, ppmtol, rttol) {
   progressSweetAlert(id = "pb", title = "Work in progress", display_pct = T, value = 0, striped = T)
-  mass <- dat1[,seq1[,1] %in% "Mass"]
-  if("Adduct_pos" %in% seq1[,1]){
-    adduct <- dat1[,seq1[,1] %in% "Adduct_pos"]
+  mass <- dat1[, seq1[, 1] %in% "Mass"]
+  if("Adduct_pos" %in% seq1[, 1]) {
+    adduct <- dat1[, seq1[, 1] %in% "Adduct_pos"]
     ionmode1 <- "pos"
   } else {
-    adduct <- dat1[,seq1[,1] %in% "Adduct_neg"]
+    adduct <- dat1[, seq1[, 1] %in% "Adduct_neg"]
     ionmode1 <- "neg"
   }
-  mass <- monomass(adduct,mass,ionmode1)
-  rt <- dat1[,seq1[,1] %in% "RT"]
-  first <- data.frame(mass,rt)
+  mass <- monomass(adduct, mass, ionmode1)
+  rt <- dat1[, seq1[, 1] %in% "RT"]
+  first <- data.frame(mass, rt)
   updateProgressBar(id = "pb", value = 10)
-  mass <- dat2[,seq2[,1] %in% "Mass"]
-  if("Adduct_pos" %in% seq2[,1]){
-    adduct <- dat2[,seq2[,1] %in% "Adduct_pos"]
+  mass <- dat2[, seq2[, 1] %in% "Mass"]
+  if("Adduct_pos" %in% seq2[, 1]) {
+    adduct <- dat2[, seq2[, 1] %in% "Adduct_pos"]
     ionmode2 <- "pos"
   } else {
-    adduct <- dat2[,seq2[,1] %in% "Adduct_neg"]
+    adduct <- dat2[, seq2[, 1] %in% "Adduct_neg"]
     ionmode2 <- "neg"
   }
-  mass <- monomass(adduct,mass,ionmode2)
-  rt <- dat2[,seq2[,1] %in% "RT"]
-  second <- data.frame(mass,rt)
+  mass <- monomass(adduct, mass, ionmode2)
+  rt <- dat2[, seq2[, 1] %in% "RT"]
+  second <- data.frame(mass, rt)
   updateProgressBar(id = "pb", value = 20)
-  comb <- rbind(first,second)
+  comb <- rbind(first, second)
   distmz <- as.matrix(dist(comb$mass))
   updateProgressBar(id = "pb", value = 30)
   v <- rep(comb$mass, each = dim(distmz)[1])
   updateProgressBar(id = "pb", value = 40)
-  distp <- distmz/v
+  distp <- distmz / v
   updateProgressBar(id = "pb", value = 50)
   distppm <- distp * 10^6
   updateProgressBar(id = "pb", value = 60)
@@ -334,10 +329,10 @@ merge.func <- function(dat1, seq1, dat2, seq2, ppmtol, rttol) {
   updateProgressBar(id = "pb", value = 100)
   colnames(dat2) <- colnames(dat1)
   combineddat <- as.data.frame(rbind(dat1,dat2))
-  combineddat[,"mergeID"] <- mergeid
-  ionmode1 <- rep(ionmode1,nrow(dat1))
-  ionmode2 <- rep(ionmode2,nrow(dat2))
-  combineddat[,"ionmode"] <- c(ionmode1,ionmode2)
+  combineddat[, "mergeID"] <- mergeid
+  ionmode1 <- rep(ionmode1, nrow(dat1))
+  ionmode2 <- rep(ionmode2, nrow(dat2))
+  combineddat[, "ionmode"] <- c(ionmode1, ionmode2)
   closeSweetAlert()
   return(combineddat)
 }
@@ -345,14 +340,14 @@ merge.func <- function(dat1, seq1, dat2, seq2, ppmtol, rttol) {
 monomass <- function(adduct, mz, ionmode) {
   masscorrection <- read.csv("./csvfiles/adducts.csv")
   monomass <- sapply(seq(adduct), function(i) {
-    if(adduct[i] %in% masscorrection[,1]){
-      j <- which(masscorrection[,1] %in% adduct[i])
-      cm <- masscorrection[j,3]
-      mass <- masscorrection[j,2]
-      monomass <- mz[i]*cm - mass
+    if(adduct[i] %in% masscorrection[, 1]) {
+      j <- which(masscorrection[, 1] %in% adduct[i])
+      cm <- masscorrection[j, 3]
+      mass <- masscorrection[j, 2]
+      monomass <- mz[i] * cm - mass
       return(monomass)
     } else if (ionmode == "pos") {
-      return(mz[i] - 1.007276) 
+      return(mz[i] - 1.007276)
     } else {
       return(mz[i] + 1.007276)
     }
@@ -360,18 +355,18 @@ monomass <- function(adduct, mz, ionmode) {
   })
 }
 
-finddup <- function(out_dup,rankings){
-  prio <- apply(out_dup,1, function(x) {
-    duplicaterank(x,rankings)
+finddup <- function(out_dup, rankings){
+  prio <- apply(out_dup, 1, function(x) {
+    duplicaterank(x, rankings)
   })
-  dup_prio <- cbind(out_dup,prio)
+  dup_prio <- cbind(out_dup, prio)
   rows <- NULL
   for(i in unique(dup_prio[,2])) {
-    lowp <- dup_prio[i == dup_prio[,2],][,9] %in% min(dup_prio[i == dup_prio[,2],][,9])
-    mincv <- min(dup_prio[i == dup_prio[,2],][lowp,8])
-    keeprow <- rownames(dup_prio[i == dup_prio[,2],][lowp,][dup_prio[i == dup_prio[,2],][lowp,8] == mincv,])
+    lowp <- dup_prio[i == dup_prio[, 2], ][, 9] %in% min(dup_prio[i == dup_prio[, 2], ][, 9])
+    mincv <- min(dup_prio[i == dup_prio[, 2], ][lowp, 8])
+    keeprow <- rownames(dup_prio[i == dup_prio[, 2], ][lowp, ][dup_prio[i == dup_prio[, 2],][lowp, 8] == mincv, ])
     keeprow <- keeprow[1]
-    rows <- c(rows,keeprow)
+    rows <- c(rows, keeprow)
   }
   numb <- which(rownames(out_dup) %in% rows)
   return(numb)
@@ -379,13 +374,13 @@ finddup <- function(out_dup,rankings){
 
 duplicaterank <- function(duplicate, rankings) {
   j <- sapply(1:10, function(x) {
-    if(rankings[x,1] == "") {
+    if(rankings[x, 1] == "") {
       FALSE
       } else {
         grepl(toupper(rankings[x,1]), toupper(duplicate[5]))
       }
   })
-  if(sum(j) > 0) return(min(rankings[j,2]))
+  if(sum(j) > 0) return(min(rankings[j, 2]))
   else return(10)
 }
 

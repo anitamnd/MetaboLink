@@ -22,16 +22,16 @@ ui <- dashboardPage(
     title = "JLspec",
     titleWidth = 400
   ),
-  
+
   #####
   # Sidebar -------------------------------------------------------------------
   #
-  
+
   dashboardSidebar(
     width = "400",
     useShinyjs(),
     tags$style(HTML(".panel-primary {color: #000000;}")),
-    
+
     fluidPage(
       fluidRow(
         selectizeInput("selectdata1", "Active dataset", choices = NULL, width = "100%", options = list(placeholder = "Please uploade a file to start"))
@@ -39,14 +39,13 @@ ui <- dashboardPage(
         bsCollapse(id = "menu", multiple = FALSE, open = "Data input",
           bsCollapsePanel("Data input", style = "primary",
             fluidRow(style = "padding: 0px;",
-              column(12, fileInput("in_file1", "Select file", accept = c("txt/csv", "text/comma-seperated-values,text/plain", ".csv"), width = "100%"), style = "padding: 0px;")
+              column(12, fileInput("in_file1", "Select file", accept = c("txt/csv", "text/comma-seperated-values, text/plain", ".csv"), width = "100%"), style = "padding: 0px;")
             ),
             fluidRow(style = "margin-right: 0px;",
-              column(6, bsButton("reset","Reset input", width = "100%"), style="padding-left:0px;"),
-              column(6, bsButton("example","Load example", width = "100%"), style="padding-left:0px;")
+              column(6, bsButton("reset", "Reset input", width = "100%"), style = "padding-left:0px;"),
+              column(6, bsButton("example", "Load example", width = "100%"), style = "padding-left:0px;")
             )
           ),
-                         
           bsCollapsePanel("Blank filtration", style = "primary",
             fluidRow(style = "padding: 0px;",
               column(12,
@@ -60,13 +59,12 @@ ui <- dashboardPage(
                      column(6, bsButton("bfsave","Save", width = "100%"), style="padding-left:0px;"),
                      column(6)
             ),
-            
             splitLayout(style = "margin-right: 0px;",
-                     checkboxInput("bfdiscard",label = "Discard blank", value = T, width = "100%"),
-                     checkboxInput("bfnewsave","Save as new file", value = T, width = "100%")
+                     checkboxInput("bfdiscard", label = "Discard blank", value = T, width = "100%"),
+                     checkboxInput("bfnewsave", "Save as new file", value = T, width = "100%")
             ),
             splitLayout(style = "margin-right: 0px;",
-                     checkboxInput("bfkeepis","Keep IS", value = T, width = "100%"),
+                     checkboxInput("bfkeepis", "Keep IS", value = T, width = "100%"),
                      NULL
             )
           ),
@@ -79,14 +77,13 @@ ui <- dashboardPage(
                             prettyCheckboxGroup("mvf_conditions", "", choices = c("in QC","in class","entire data")))
                           ),
                           fluidRow(column(6,
-                                   prettyCheckbox("mvf_newsave","Save as new file", value = T, width = "100%"))
+                                   prettyCheckbox("mvf_newsave", "Save as new file", value = T, width = "100%"))
                           ),
                           fluidRow(style = "margin-right: 0px;",
-                                   column(6, bsButton("mvf_run","Run", width = "100%"), style="padding-left:0px;"),
-                                   column(6, bsButton("mvf_save","Save", width = "100%"), style="padding-left:0px;")
+                                   column(6, bsButton("mvf_run", "Run", width = "100%"), style = "padding-left:0px;"),
+                                   column(6, bsButton("mvf_save", "Save", width = "100%"), style = "padding-left:0px;")
                           )
           ),
-          
           bsCollapsePanel("IS normalization", style = "primary",
             fluidRow(
               selectInput("ismethod", "Method", choices = c("Nearest RT", "Same lipid structure"), selected = "Nearest RT", width = "100%")
@@ -95,17 +92,17 @@ ui <- dashboardPage(
               checkboxGroupInput("isChoose", NULL, choices = NULL, selected = NULL, inline = FALSE)
             ),
             fluidRow(style = "margin-right: 0px;",
-              column(6, bsButton("is","Is normalize", width = "100%"), style="padding-left:0px;"),
-              column(6, bsButton("is_optimize","optimize", width = "100%"), style="padding-left:0px;")
+              column(6, bsButton("is", "Is normalize", width = "100%"), style = "padding-left:0px;"),
+              column(6, bsButton("is_optimize", "optimize", width = "100%"), style = "padding-left:0px;")
             ),
             fluidRow(style = "margin-right: 0px;",
-                     column(6, bsButton("issave","Save", width = "100%"), style="padding-left:0px;"),
+                     column(6, bsButton("issave", "Save", width = "100%"), style = "padding-left:0px;"),
                      column(6)
             ),
             fluidRow(style = "margin-right: 0px;",
-                     column(6, checkboxInput("isqc","Normalize QC", value = T, width = "100%"), style="padding: 0px; margin-top: -10px; margin-left: 10px; margin-right: -10px;"),
-                     column(6, checkboxInput("isnewsave","Save as new file", value = T, width = "100%"), style="padding: 0px; margin-top: -10px; margin-left: 10px; margin-right: -10px;")
-            ) 
+                     column(6, checkboxInput("isqc","Normalize QC", value = T, width = "100%"), style = "padding: 0px; margin-top: -10px; margin-left: 10px; margin-right: -10px;"),
+                     column(6, checkboxInput("isnewsave", "Save as new file", value = T, width = "100%"), style = "padding: 0px; margin-top: -10px; margin-left: 10px; margin-right: -10px;")
+            )
           ),
           bsCollapsePanel("Imputation", style = "primary",
             fluidRow(selectInput("imp_method", "Imputation method", choices = c("KNN", "Min/X", "Median"), width = "100%")),
@@ -116,14 +113,12 @@ ui <- dashboardPage(
                      column(6)
             ),
             fluidRow(style = "margin-right: 0px;",
-                     column(6, checkboxInput("imp_newsave","Save as new file", value = T, width = "100%"), style="padding: 0px; margin-top: -10px; margin-left: 10px; margin-right: -10px;")
+                     column(6, checkboxInput("imp_newsave", "Save as new file", value = T, width = "100%"), style = "padding: 0px; margin-top: -10px; margin-left: 10px; margin-right: -10px;")
             ),
             fluidRow(style = "margin-right: 0px;",
-                     column(6, bsButton("imp_run","Run", width = "100%"), style="padding-left:0px;"),
-                     column(6, bsButton("imp_save","Save", width = "100%"), style="padding-left:0px;")
-                     
+                     column(6, bsButton("imp_run", "Run", width = "100%"), style = "padding-left:0px;"),
+                     column(6, bsButton("imp_save", "Save", width = "100%"), style = "padding-left:0px;")
             )
-
           ),
           bsCollapsePanel("Drift correction", style = "primary",
             fluidRow(selectInput("dc_method", "Signal correction method", choices = c("QC-RFSC (random forrest)", "QC-RLSC (robust LOESS)"), width = "100%")),
@@ -131,20 +126,20 @@ ui <- dashboardPage(
             fluidRow(hidden(div(id = "dc_qcspan_hide", sliderInput("dc_qcspan", "QCspan", min = 0.2 , max = 0.75, value = 0.7, step = 0.05, width = "100%")))),
             fluidRow(hidden(div(id = "dc_degree_hide", sliderInput("dc_degree", "degree", min = 0 , max = 2, value = 2, step = 1, width = "100%")))),                
             fluidRow(style = "margin-right: 0px;",
-              column(6, bsButton("dc_run","Run", width = "100%"), style="padding-left:0px;"),
+              column(6, bsButton("dc_run", "Run", width = "100%"), style = "padding-left:0px;"),
               column(6)
             ),
             fluidRow(style = "margin-right: 0px;",
-              column(6, bsButton("dc_save","Save", width = "100%"), style="padding-left:0px;"),
+              column(6, bsButton("dc_save", "Save", width = "100%"), style = "padding-left:0px;"),
               column(6)
             ),
             fluidRow(style = "margin-right: 0px;",
-              column(6, checkboxInput("dc_newsave","Save as new file", value = T, width = "100%"), style="padding: 0px; margin-top: -10px; margin-left: 10px; margin-right: -10px;")
+              column(6, checkboxInput("dc_newsave", "Save as new file", value = T, width = "100%"), style = "padding: 0px; margin-top: -10px; margin-left: 10px; margin-right: -10px;")
             )
           ),
           bsCollapsePanel("Merge datasets", style = "primary",
             fluidRow(column(12,selectInput("md_select", "Select dataset to merge with", choices = NULL, width = "100%"))),
-            fluidRow(column(6,numericInput("md_ppm","M/z tolerance ppm", min = 0, value = 10)),
+            fluidRow(column(6,numericInput("md_ppm", "M/z tolerance ppm", min = 0, value = 10)),
                      column(6,numericInput("md_rt", "RT tolerance", min = 0, value = 0.1, step = 0.01))
             ),
             fluidRow(column(6,bsButton("md_rankings", "Edit priorities", width = "100%"))),
@@ -152,11 +147,8 @@ ui <- dashboardPage(
           )
         )
     ),
-    
-    sidebarMenu(
-    )
+    sidebarMenu()
   ),
-  
 
   #####
   # Main Body -----------------------------------------------------------------
@@ -167,8 +159,8 @@ ui <- dashboardPage(
                          .modal-lg{ width:1200px}")),
     fluidRow(hidden(div(id = "buttons", style = "padding-bottom: 49px",
       column(3, bsButton("sequence", 
-                         label = "Sequence", 
-                         icon = icon("user"), 
+                         label = "Sequence",
+                         icon = icon("user"),
                          style = "default",
                          block = T)),
       column(3, bsButton("datatable", 
@@ -207,7 +199,6 @@ ui <- dashboardPage(
                                       h4("Order")),
                                column(width = 2,
                                       h4("Class"))
-                               
                              ),
                              uiOutput("sequi")
                     )
@@ -305,24 +296,21 @@ ui <- dashboardPage(
       hidden(
       div(id = "drift_panel",
           column(3, box(width = NULL, DTOutput("dt_drift_panel"))),
-          column(9, box(width = NULL, 
+          column(9, box(width = NULL,
                         fluidRow(
                           column(4,selectizeInput("drift_select", "Select dataset to compare with", choices = NULL, width = "100%", options = list(placeholder = "Select file"))),
                           column(2, style = "margin-top: 25px;", bsButton("drift_1", label = "Individual", block = T)),
                           column(2, style = "margin-top: 25px;", bsButton("drift_2", label = "CV variation", block = T)),
                           column(2, style = "margin-top: 25px;", bsButton("drift_3", label = "CV distribution", block = T))),
-                        ),    
+                        ),
                         uiOutput("drift_ui")
-                    
           )
-      )
-      )
+      ))
     ),
     fluidRow(
       hidden(
         div(id = "info_panel",
-            column(12, box(width = NULL, uiOutput("info_ui"), htmlOutput("cvinfo_ui"))    
-            )
+            column(12, box(width = NULL, uiOutput("info_ui"), htmlOutput("cvinfo_ui")))
         )
       )
     ),
@@ -338,9 +326,7 @@ ui <- dashboardPage(
 server <- function(session, input, output) {
   options(shiny.maxRequestSize=30*1024^2)
   
-
-  
-  #Global variables
+  # Global variables
   rv <- reactiveValues(data = list(), seq = list(), si = NULL, tmp = NULL, tmpseq = NULL, choices = NULL, drift_plot_select = 1)
   rankings <- read.csv("./csvfiles/rankings.csv", stringsAsFactors = F)
   
@@ -355,30 +341,24 @@ server <- function(session, input, output) {
   #  hide("export_panel")
   #}, once = TRUE)
   
-  observeEvent(list(c(input$sequence,input$example,input$in_file1)), {
+  observeEvent(list(c(input$sequence, input$example, input$in_file1)), {
     windowselect("sequence")
   }, ignoreInit = T)
-  
   observeEvent(input$datatable, {
     windowselect("datatable")
   })
-  
   observeEvent(input$pca_button, {
     windowselect("pca")
   })
-  
   observeEvent(input$drift_button, {
     windowselect("drift")
   })
-  
   observeEvent(input$export, {
     windowselect("export")
   })
-  
   observeEvent(input$feature_button, {
     windowselect("feature")
   })
-  
   observeEvent(input$info_button, {
     windowselect("info")
   })
@@ -401,7 +381,7 @@ server <- function(session, input, output) {
     show("buttons")
     #show("sequence_panel")
   })
-  
+
   observeEvent(input$in_seq, {
     try(nseq <- read.csv(input$in_seq$datapath, header = 1, stringsAsFactors = F))
     nseq <- nseq[,c("sample","batch","order","class")]
@@ -412,7 +392,6 @@ server <- function(session, input, output) {
     imseq <- imseq[,-1]
     rv$seq[[rv$si]] <- imseq
   })
-  
   observeEvent(input$reuseseq, {
     try(nseq <- read.csv(input$in_seq$datapath, header = 1, stringsAsFactors = F))
     nseq <- nseq[,c("sample","batch","order","class")]
@@ -423,7 +402,6 @@ server <- function(session, input, output) {
     imseq <- imseq[,-1]
     rv$seq[[rv$si]] <- imseq
   })
-  
   observeEvent(input$seq_edit, {
     showModal(
       modalDialog(title = "Edit colunms", size = "s",easyClose = T,
@@ -440,8 +418,7 @@ server <- function(session, input, output) {
                              prettyCheckbox(paste0("seq_edit_keep",x),NULL, status = "info", value = T)),
                     )
                   }),
-      )
-    )
+    ))
   })
   
   observeEvent(input$class_edit, {
@@ -462,7 +439,7 @@ server <- function(session, input, output) {
       )
     )
   })
-  
+
   ## Duplicates not allowed
   observeEvent(input$seq_edit_confirm, {
     sapply(seq(ncol(rv$data[[rv$si]])), function(x) {
@@ -474,7 +451,7 @@ server <- function(session, input, output) {
     rv$seq[[rv$si]] <- rv$seq[[rv$si]][keep,]
     removeModal()
   })
-  
+
   observeEvent(input$class_edit_confirm, {
     sapply(seq(ncol(rv$data[[rv$si]])), function(x) {
       isolate(colnames(rv$data[[rv$si]])[x] <- input[[paste0("seq_edit_name",x)]])
@@ -486,7 +463,6 @@ server <- function(session, input, output) {
     removeModal()
   })
 
-  
   observeEvent(input$example, {
     dat <- read.csv("Eva pos export from profinder.csv", stringsAsFactors = F)
     lab <- identifylabels(dat)
@@ -514,7 +490,7 @@ server <- function(session, input, output) {
     show("buttons")
     #show("sequence_panel")
   })
-  
+
   ## Observes selected data
   observeEvent(input$selectdata1, ignoreInit = T, {
     # Updates what data is selected.
@@ -532,7 +508,6 @@ server <- function(session, input, output) {
                  numericInput(paste0("ord",rv$si,x),NULL, value = rv$seq[[rv$si]][x,3], min = 0, max = 300)),
           column(width = 2,
                  numericInput(paste0("cla",rv$si,x),NULL,value = rv$seq[[rv$si]][x,4], min = 0, max = 300))
-        
         )
       })
     })
@@ -557,7 +532,7 @@ server <- function(session, input, output) {
         fluidRow(column(3,actionButton("export_edit","Edit", width = "100%")))
        )
     })
-    
+
     output$export_metabo <- renderUI({
       box(title = ".csv for metaboanalyst", width = 4,
           lapply(1:length(rv$choices), function(x){
@@ -1242,8 +1217,6 @@ server <- function(session, input, output) {
       })
     }
   })
-  
 }
-
 # Run the application 
 shinyApp(ui = ui, server = server)
