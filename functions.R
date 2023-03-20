@@ -1,7 +1,6 @@
 ##
 #   Functions for omicsapp
 ##
-s
 blankfiltration <- function(dat, seq, xbf, keepis) {
   dat[seq[, 1] %in% "Blank"][is.na(dat[seq[, 1] %in% "Blank"])] <- 0
   bf <- apply(dat[seq[, 1] %in% "Blank"], 1, mean) * xbf < apply(dat[seq[, 1] %in% "QC"], 1, mean, na.rm = TRUE)
@@ -146,36 +145,46 @@ cutoffrm <- function(dat, seq, cutoff, method) {
   if("entire data" %in% method){
     datm <- dat[seq[, 1] %in% "Sample"]
     keep <- rowSums(!is.na(datm)) / ncol(datm) >= cutoff
-    dat <- dat[keep, ]
+    # dat <- dat[keep, ]
   }
-  if("in QC" %in% method || "in class" %in% method) {
-    datm <- NULL
-    seqm <- NULL
+  # if("in QC" %in% method || "in class" %in% method) {
+    # datm <- NULL
+    # seqm <- NULL
     if("in QC" %in% method) {
       datm <- dat[seq[, 1] %in% "QC"]
-      seqm <- seq[seq[, 1] %in% "QC", ]
+      keep <- rowSums(!is.na(datm)) / ncol(datm) >= cutoff
     }
     if("in class" %in% method) {
-      datm <- bind_cols(datm, dat[seq[, 1] %in% "Sample"])
-      seqm <- bind_rows(seqm, seq[seq[, 1] %in% "Sample", ])
+      datm <- data[seq[, 1] %in% "Sample"]
+      classes <- factor(nseq[, 4], exclude = NA)
+      nseq <- seq[complete.cases(seq), ]
+      keep_m <- matrix(FALSE, nrow(datm), ncol = 6)
+      
+      for(cl in 1:length(levels(classes))) {
+        cl_f <- datm[, nseq[, 4] %in% levels(classes)[cl]]
+        keep_m[, cl] <- rowSums(!is.na(cl_f)) / ncol(cl_f) >= cutoff
+      }
+      keep <- apply(keep_m, 1, function(x) any(x))
+      # dat <- dat[keep,]
     }
-    if("QC" %in% seqm$lab) {
-      seqm[seqm[, 1] %in% c("QC"),]$class <- "QC"
-    }
-    seqm[is.na(seqm$class), 4] <- "Sample"
-    class <- as.vector(seqm$class)
+    # if("QC" %in% seqm$lab) {
+    #   seqm[seqm[, 1] %in% c("QC"),]$class <- "QC"
+    # }
+    # seqm[is.na(seqm$class), 4] <- "Sample"
+    #class <- as.vector(seqm$class)
     
-    freq <- sapply(seq(nrow(datm)), function (i) tapply(as.numeric(datm[i,]), class, function (x) {
-      sum(!is.na(x)) / length(x)
-    }))
+    # freq <- sapply(seq(nrow(datm)), function (i) tapply(as.numeric(datm[i,]), class, function (x) {
+    #   sum(!is.na(x)) / length(x)
+    # }))
     
-    if(is.null(dim(freq))) {
-      dat <- dat[freq >= cutoff, ]
-    } else {
-      keep <- colSums(freq >= cutoff) == dim(freq)[1]
-      dat <- dat[keep, ]
-    }
-  }
+    # if(is.null(dim(freq))) {
+    #   dat <- dat[freq >= cutoff, ]
+    # } else {
+    #   keep <- colSums(freq >= cutoff) == dim(freq)[1]
+    #   dat <- dat[keep, ]
+    # }
+  # }
+  dat <- dat[keep, ]
   dat[is.na(dat)] <- 0
   return(dat)
 }
