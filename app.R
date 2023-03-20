@@ -342,7 +342,7 @@ server <- function(session, input, output) {
   
   #Global variables
   rv <- reactiveValues(data = list(), seq = list(), si = NULL, tmp = NULL, tmpseq = NULL, choices = NULL, drift_plot_select = 1)
-  rankings <- read.csv("rankings.csv", stringsAsFactors = F)
+  rankings <- read.csv("./csvfiles/rankings.csv", stringsAsFactors = F)
   
   #####
   # Dynamic render rules------------------------------------------------------- 
@@ -497,7 +497,7 @@ server <- function(session, input, output) {
     rv$seq[[length(rv$seq) + 1]] <- data.frame(lab,batch,order,class)
     rv$data[[length(rv$data) + 1]] <- dat
     names(rv$data)[length(rv$data)] <- "Lipidomics_pos"
-    dat <- read.csv("Woz export from mzmine pos.csv", stringsAsFactors = F)
+    dat <- read.csv("./csvfiles/Woz export from mzmine pos.csv", stringsAsFactors = F)
     lab <- identifylabels(dat)
     lab[1] <- "Name"
     batch <- c(NA,NA,NA,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,NA,NA,NA,NA)

@@ -343,7 +343,7 @@ merge.func <- function(dat1, seq1, dat2, seq2, ppmtol, rttol) {
 }
 
 monomass <- function(adduct, mz, ionmode) {
-  masscorrection <- read.csv("adducts.csv")
+  masscorrection <- read.csv("./csvfiles/adducts.csv")
   monomass <- sapply(seq(adduct), function(i) {
     if(adduct[i] %in% masscorrection[,1]){
       j <- which(masscorrection[,1] %in% adduct[i])
