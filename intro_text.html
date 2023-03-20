@@ -1,0 +1,23 @@
+<h1 style="text-align: center;">WELCOME TO&nbsp;<strong>JL</strong>spec</h1>
+<h4 style="text-align: center;">An interactive open source software tool for rapid data correction of untargeted metabolomics data.</h4>
+<hr />
+<p style="text-align: left;">JLspec is a graphical user interface which is allowing the usage of different complex functions to an uploaded dataset. The application is designed to be able to accept datasets with columns containing information not related to this part of the workflow and the functions can be run independently of each other and in any order as long as the requirements of the functions are met. </p>
+<hr />
+<p style="text-align: left;">&nbsp;<strong>WHAT YOU CAN DO WITH JLspec:</strong></p>
+<ul>
+<li style="text-align: left;">Remove features based on intensity between blank and QC samples.</li>
+<li style="text-align: left;">Remove features based on missing values.&nbsp;</li>
+<li style="text-align: left;">Normalize features based on internal standards.&nbsp;</li>
+<li style="text-align: left;">Impute missing values with different functions .&nbsp;</li>
+<li style="text-align: left;">Correcting signal drift using QC samples.&nbsp;</li>
+<li style="text-align: left;">Merge datasets with different ionmode and remove duplicates.&nbsp;</li>
+</ul>
+<hr />
+<p style="text-align: left;">To start, upload a dataset or press "Load example" for a sample dataset to be loaded into the application.&nbsp;</p>
+<p style="text-align: left;">For the dataset, each row should represent a single feature with columns for each sample. The features should have a column with a unique name and to use all features they should also have a column with retention time and a column with mass to charge ratio. The order of the columns is not important and can be specified within the application. </p>
+<p style="text-align: left;">When uploading a sequence file the columns must be named “sample”, “batch”, “class”, and “order”. “sample” should contain the names of the samples and must be consistent with the sample names (columns) in the datafile. “batch” must be numeric and should contain the analysis blocks or batches. “class” is the different groups of the samples and QC samples should be labeled NA. Order is the injection sequence of the samples.</p>
+<hr />
+<p style="text-align: left;">&nbsp;</p>
+<hr /> Source code available here: <a href="https://bitbucket.org/Jolem/jlspec/src/master/">https://bitbucket.org/Jolem/jlspec/src/master/</a>
+<p style="text-align: left;"><strong>This version might still have the occasional crash, if you are experiencing trouble please reach out.</span></strong></p>
+<p style="text-align: center;"><span style="color: #000000;">Molecular Metabolism and Metabolomics | c</span><span style="color: #000000;">contact: <a href="https://bitbucket.org/Jolem/jlspec/src/master/">https://bitbucket.org/Jolem/jlspec/src/master/</a></p>
