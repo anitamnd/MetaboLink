@@ -14,6 +14,8 @@ library(shinyWidgets)
 library(writexl)
 library(igraph)
 library(stringi)
+library(BiocManager)
+options(repos = BiocManager::repositories())
 source("functions.R")
 source("plotfunctions.R")
 
