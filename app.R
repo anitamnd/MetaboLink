@@ -13,6 +13,7 @@ library(randomForest)
 library(shinyWidgets)
 library(writexl)
 library(igraph)
+library(stringi)
 source("functions.R")
 source("plotfunctions.R")
 
@@ -22,9 +23,7 @@ ui <- dashboardPage(
     titleWidth = 400
   ),
 
-  #####
-  # Sidebar -------------------------------------------------------------------
-  #
+  #### Sidebar ####
 
   dashboardSidebar(
     width = "400",
@@ -183,9 +182,7 @@ ui <- dashboardPage(
     sidebarMenu()
   ),
 
-  #####
-  # Main Body -----------------------------------------------------------------
-  #
+  #### Main Body ####
 
   dashboardBody(
     tags$head(tags$style(".modal-sm{ width:300px}
@@ -205,19 +202,19 @@ ui <- dashboardPage(
         block = T
       )),
       column(3, dropdownButton(
-        inputId = "plot2", circle = F, width = "100%",
+        inputId = "plot2", circle = FALSE, width = "100%",
         label = "Explore data",
-        bsButton("pca_button", label = "PCA", icon = icon("thumbs-up"), block = T),
-        bsButton("drift_button", label = "Feature drift", block = T),
-        bsButton("feature_button", label = "Feature Viewer", block = T),
-        bsButton("info_button", label = "Dataset-Info", block = T)
+        bsButton("pca_button", label = "PCA", icon = icon("thumbs-up"), block = TRUE),
+        bsButton("drift_button", label = "Feature drift", block = TRUE),
+        bsButton("feature_button", label = "Feature Viewer", block = TRUE),
+        bsButton("info_button", label = "Dataset-Info", block = TRUE)
       )),
       tags$style(type = "text/css", "#plot2 {width:100%}"),
       column(3, bsButton("export",
         label = "Export",
         icon = icon("thumbs-up"),
         style = "default",
-        block = T
+        block = TRUE
       )),
     ))),
     fluidRow(
@@ -247,7 +244,7 @@ ui <- dashboardPage(
                 ),
                 column(
                   width = 2,
-                  h4("Class")
+                  h4("Group")
                 )
               ),
               uiOutput("sequi")
@@ -270,7 +267,7 @@ ui <- dashboardPage(
               actionButton("seq_edit", "Edit", width = 100)
             ),
             box(
-              width = NULL, title = "Class nicknames",
+              width = NULL, title = "Group nicknames",
               actionButton("class_edit", "Edit", width = 100)
             ),
             box(
@@ -473,6 +470,7 @@ server <- function(session, input, output) {
     imseq <- imseq[, -1]
     rv$seq[[rv$si]] <- imseq
   })
+
   observeEvent(input$reuseseq, {
     try(nseq <- read.csv(input$in_seq$datapath, header = 1, stringsAsFactors = FALSE))
     nseq <- nseq[, c("sample", "batch", "order", "class")]
@@ -483,6 +481,7 @@ server <- function(session, input, output) {
     imseq <- imseq[, -1]
     rv$seq[[rv$si]] <- imseq
   })
+
   observeEvent(input$seq_edit, {
     showModal(
       modalDialog(
@@ -511,15 +510,16 @@ server <- function(session, input, output) {
   observeEvent(input$class_edit, {
     showModal(
       modalDialog(
-        title = "Edit class Nicknames", size = "s", easyClose = TRUE,
+        title = "Edit Group Nicknames", size = "s", easyClose = TRUE,
         footer = list(actionButton("class_edit_confirm", "Confirm"), modalButton("Dismiss")),
         fluidRow(
-          column(width = 3, h4("Class")),
+          column(width = 3, h4("Group")),
           column(width = 9, h4("Nickname"))
-        ),
+        ), 
         lapply(seq(unique(rv$seq[[rv$si]][, 4][!is.na(rv$seq[[rv$si]][, 4])])), function(x) {
+          group <- sort(unique(rv$seq[[rv$si]][, 4][!is.na(rv$seq[[rv$si]][, 4])]))[x]
           fluidRow(
-            column(width = 2, h5(sort(unique(rv$seq[[rv$si]][, 4][!is.na(rv$seq[[rv$si]][, 4])]))[x])),
+            column(width = 2, h5(stri_extract_first_regex(group, "[0-9]+"))),
             column(
               width = 10,
               textInput(paste0("edit_nickname", x), NULL, value = NULL)
@@ -543,18 +543,18 @@ server <- function(session, input, output) {
   })
 
   observeEvent(input$class_edit_confirm, {
+    groups <- rv$seq[[rv$si]][, 4]
     sapply(seq(ncol(rv$data[[rv$si]])), function(x) {
-      isolate(colnames(rv$data[[rv$si]])[x] <- input[[paste0("seq_edit_name", x)]])
-      isolate(row.names(rv$seq[[rv$si]])[x] <- input[[paste0("seq_edit_name", x)]])
+      if(!is.na(groups[x])) {
+        isolate(rv$seq[[rv$si]][, 4][x] <- paste(rv$seq[[rv$si]][, 4][x], input[[paste0("edit_nickname", groups[x])]], sep = " - "))
+      }
     })
-    keep <- sapply(seq(ncol(rv$data[[rv$si]])), function(x) input[[paste0("seq_edit_keep", x)]])
-    rv$data[[rv$si]] <- rv$data[[rv$si]][, keep]
-    rv$seq[[rv$si]] <- rv$seq[[rv$si]][keep, ]
     removeModal()
+    show("sequence_panel")
   })
 
   observeEvent(input$example, {
-    dat <- read.csv("Eva pos export from profinder.csv", stringsAsFactors = FALSE)
+    dat <- read.csv("./csvfiles/Eva pos export from profinder.csv", stringsAsFactors = FALSE)
     lab <- identifylabels(dat)
     lab[5] <- "-"
     batch <- c(NA, NA, NA, NA, NA, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, NA, NA, NA, 1, 1, 1, 1, 1)
@@ -606,7 +606,7 @@ server <- function(session, input, output) {
           ),
           column(
             width = 2,
-            numericInput(paste0("cla", rv$si, x), NULL, value = rv$seq[[rv$si]][x, 4], min = 0, max = 300)
+            textInput(paste0("cla", rv$si, x), NULL, value = rv$seq[[rv$si]][x, 4])
           )
         )
       })
