@@ -143,17 +143,20 @@ imputation <- function(dat, seq, method, minx = 1, onlyqc, remaining) {
 
 cutoffrm <- function(dat, seq, cutoff, method) {
   cutoff <- cutoff / 100
-  datm[datm == 0] <- NA
+  # dat[dat == 0] <- NA
   if ("entire data" %in% method) {
     datm <- dat[seq[, 1] %in% "Sample"]
+    datm[datm == 0] <- NA
     keep <- rowSums(!is.na(datm)) / ncol(datm) >= cutoff
   }
   if ("in QC" %in% method) {
     datm <- dat[seq[, 1] %in% "QC"]
+    datm[datm == 0] <- NA
     keep <- rowSums(!is.na(datm)) / ncol(datm) >= cutoff
   }
   if ("in class" %in% method) {
     datm <- data[seq[, 1] %in% "Sample"]
+    datm[datm == 0] <- NA
     classes <- factor(nseq[, 4], exclude = NA)
     nseq <- seq[complete.cases(seq), ]
     keep_m <- matrix(FALSE, nrow(datm), ncol = 6)
@@ -182,7 +185,7 @@ cutoffrm <- function(dat, seq, cutoff, method) {
   # }
   # }
   dat <- dat[keep, ]
-  dat[dat[is.na(dat)]] <- 0
+  # dat[dat[is.na(dat)]] <- 0
   return(dat)
 }
 
