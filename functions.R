@@ -157,7 +157,7 @@ cutoffrm <- function(dat, seq, cutoff, method) {
   if ("in class" %in% method) {
     datm <- dat[seq[, 1] %in% "Sample"]
     datm[datm == 0] <- NA
-    classes <- factor(nseq[, 4], exclude = NA)
+    classes <- factor(seq[, 4], exclude = NA)
     nseq <- seq[complete.cases(seq), ]
     keep_m <- matrix(FALSE, nrow(datm), ncol = 6)
 
