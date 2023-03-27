@@ -155,7 +155,7 @@ cutoffrm <- function(dat, seq, cutoff, method) {
     keep <- rowSums(!is.na(datm)) / ncol(datm) >= cutoff
   }
   if ("in class" %in% method) {
-    datm <- data[seq[, 1] %in% "Sample"]
+    datm <- dat[seq[, 1] %in% "Sample"]
     datm[datm == 0] <- NA
     classes <- factor(nseq[, 4], exclude = NA)
     nseq <- seq[complete.cases(seq), ]
