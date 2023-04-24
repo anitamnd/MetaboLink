@@ -178,6 +178,13 @@ ui <- dashboardPage(
           ),
           fluidRow(column(6, bsButton("md_rankings", "Edit priorities", width = "100%"))),
           fluidRow(column(6, bsButton("md_run", "Run", width = "100%")))
+        ),
+        bsCollapsePanel("Statistical analysis",
+          style = "primary",
+          fluidRow(style = "margin-right: 0px;",
+            column(6, bsButton("stat_preprocess","Preprocess", width = "100%"), style="padding-left:0px;"),
+            column(6, bsButton("stat_limma","Test", width = "100%"), style="padding-left:0px;")
+          )
         )
       )
     ),
@@ -445,7 +452,8 @@ server <- function(session, input, output) {
 
   ## Observes file input and creates a new dataset from input.
   observeEvent(input$in_file1, {
-    try(dat <- read.csv(input$in_file1$datapath, header = 1, stringsAsFactors = F, check.names = FALSE))
+    try(dat <- read.csv(input$in_file1$datapath, header = 1, stringsAsFactors = F, check.names = FALSE, encoding = "UTF-8"))
+
     lab <- identifylabels(dat)
     batch <- NA
     order <- NA
@@ -548,7 +556,7 @@ server <- function(session, input, output) {
     groups <- rv$seq[[rv$si]][, 4]
     sapply(seq(ncol(rv$data[[rv$si]])), function(x) {
       if(!is.na(groups[x])) {
-        isolate(rv$seq[[rv$si]][, 4][x] <- paste(rv$seq[[rv$si]][, 4][x], input[[paste0("edit_nickname", groups[x])]], sep = " - "))
+        isolate(rv$seq[[rv$si]][, 4][x] <- paste(rv$seq[[rv$si]][, 4][x], input[[paste0("edit_nickname", groups[x])]], sep = ": "))
       }
     })
     removeModal()
@@ -1252,6 +1260,11 @@ server <- function(session, input, output) {
 
   observeEvent(input$drift_3, {
     rv$drift_plot_select <- 3
+  })
+
+  observeEvent(input$stat_limma, {
+    # rv$stat_limma <- input$stat_limma
+    
   })
 
   output$drift_ui <- renderUI({
