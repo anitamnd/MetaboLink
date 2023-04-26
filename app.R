@@ -335,6 +335,13 @@ ui <- dashboardPage(
             12,
             fluidRow(checkboxGroupInput("export_xml_list", "Choose sheets", choices = NULL, selected = NULL)),
             fluidRow(downloadButton("export_xml", "Export combined .xlsx"))
+          )),
+          box(title = "Statistical Testing", width = 4, column(
+            12,
+            fluidRow(actionButton("send_polystest", "Send to PolySTest")),
+            fluidRow(span(textOutput("connection_polystest"), style="color:#33DD33;")),
+            fluidRow(textInput("url_vsclust",label="URL",value="http://computproteomics.bmb.sdu.dk:443/app_direct/PolySTest/")),
+            fluidRow(disabled(actionButton("retrieve_polystest", "Retrieve results from PolySTest")))
           ))
         )
       )
@@ -652,6 +659,17 @@ server <- function(session, input, output) {
         lapply(1:length(rv$choices), function(x) {
           fluidRow(column(12, downloadLink(paste0("dwn_metabo", x), paste0(rv$choices[x], "_metabo.csv"))))
         })
+      )
+    })
+
+    output$export_polyStest <- renderUI({
+      box(
+        title = "go to polyStest", width = 4,
+        lapply(1:length(rv$choices), function(x) {
+          fluidRow(column(12, downloadLink(paste0("dwn_metabo", x), paste0(rv$choices[x], "_metabo.csv"))))
+        }),
+        actionButton("polyStest", "polyStest", width = "60%")
+        
       )
     })
 
