@@ -178,13 +178,6 @@ ui <- dashboardPage(
           ),
           fluidRow(column(6, bsButton("md_rankings", "Edit priorities", width = "100%"))),
           fluidRow(column(6, bsButton("md_run", "Run", width = "100%")))
-        ),
-        bsCollapsePanel("Statistical analysis",
-          style = "primary",
-          fluidRow(style = "margin-right: 0px;",
-            column(6, bsButton("stat_preprocess","Preprocess", width = "100%"), style="padding-left:0px;"),
-            column(6, bsButton("stat_limma","Test", width = "100%"), style="padding-left:0px;")
-          )
         )
       )
     ),
@@ -210,7 +203,7 @@ ui <- dashboardPage(
         style = "default",
         block = T
       )),
-      column(3, dropdownButton(
+      column(2, dropdownButton(
         inputId = "plot2", circle = FALSE, width = "100%",
         label = "Explore data",
         bsButton("pca_button", label = "PCA", icon = icon("thumbs-up"), block = TRUE),
@@ -218,8 +211,14 @@ ui <- dashboardPage(
         bsButton("feature_button", label = "Feature Viewer", block = TRUE),
         bsButton("info_button", label = "Dataset-Info", block = TRUE)
       )),
+      column(2, bsButton("statistics_button",
+        label = "Statistics",
+        icon = icon("thumbs-up"),
+        style = "default",
+        block = T
+      )),
       tags$style(type = "text/css", "#plot2 {width:100%}"),
-      column(3, bsButton("export",
+      column(2, bsButton("export",
         label = "Export",
         icon = icon("thumbs-up"),
         style = "default",
@@ -328,6 +327,16 @@ ui <- dashboardPage(
     fluidRow(
       hidden(
         div(
+          id = "statistics_panel",
+          fluidPage(
+            h3("Data treatmetn pre-submission")
+          )
+        )
+      )
+    ),
+    fluidRow(
+      hidden(
+        div(
           id = "export_panel",
           uiOutput("export_ui"),
           uiOutput("export_metabo"),
@@ -335,13 +344,6 @@ ui <- dashboardPage(
             12,
             fluidRow(checkboxGroupInput("export_xml_list", "Choose sheets", choices = NULL, selected = NULL)),
             fluidRow(downloadButton("export_xml", "Export combined .xlsx"))
-          )),
-          box(title = "Statistical Testing", width = 4, column(
-            12,
-            fluidRow(actionButton("send_polystest", "Send to PolySTest")),
-            fluidRow(span(textOutput("connection_polystest"), style="color:#33DD33;")),
-            fluidRow(textInput("url_vsclust",label="URL",value="http://computproteomics.bmb.sdu.dk:443/app_direct/PolySTest/")),
-            fluidRow(disabled(actionButton("retrieve_polystest", "Retrieve results from PolySTest")))
           ))
         )
       )
@@ -455,6 +457,9 @@ server <- function(session, input, output) {
   })
   observeEvent(input$info_button, {
     windowselect("info")
+  })
+  observeEvent(input$statistics_button, {
+    windowselect("statistics")
   })
 
   ## Observes file input and creates a new dataset from input.
@@ -659,17 +664,6 @@ server <- function(session, input, output) {
         lapply(1:length(rv$choices), function(x) {
           fluidRow(column(12, downloadLink(paste0("dwn_metabo", x), paste0(rv$choices[x], "_metabo.csv"))))
         })
-      )
-    })
-
-    output$export_polyStest <- renderUI({
-      box(
-        title = "go to polyStest", width = 4,
-        lapply(1:length(rv$choices), function(x) {
-          fluidRow(column(12, downloadLink(paste0("dwn_metabo", x), paste0(rv$choices[x], "_metabo.csv"))))
-        }),
-        actionButton("polyStest", "polyStest", width = "60%")
-        
       )
     })
 

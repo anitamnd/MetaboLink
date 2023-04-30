@@ -418,6 +418,7 @@ windowselect <- function(input) {
   if (input == "feature") show("boxplot_panel") else hide("boxplot_panel")
   if (input == "sequence") show("sequence_panel") else hide("sequence_panel")
   if (input == "datatable") show("datatable_panel") else hide("datatable_panel")
+  if (input == "statistics") show("statistics_panel") else hide("statistics_panel")
   if (input == "export") show("export_panel") else hide("export_panel")
   if (input == "info") show("info_panel") else hide("info_panel")
 }
