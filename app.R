@@ -329,7 +329,26 @@ ui <- dashboardPage(
         div(
           id = "statistics_panel",
           fluidPage(
-            h3("Data treatmetn pre-submission")
+            h3("Data treatment pre-submission"),
+            fluidRow(
+              column(4, id="pr_c1",
+                  h4("Add or delete columns"),
+                  switchInput("add_na_columns", "Fill with empty columns", 
+                             value=FALSE, labelWidth = 50),
+              ),
+              column(3, id="pr_c2",
+                  h4("Data manipulation and adjustments"),
+                  column(10,checkboxInput("logtrafo", "Is the data already log-transformed?", value=F)),
+                  column(10,checkboxInput("norm_qc", "Normalize data?", value=F)),
+              ),
+              column(4, id="pr_c3",
+                  h4("Summary"),
+                  actionButton("send_polystest", "Send to PolySTest"),
+                  span(textOutput("connection_polystest"), style="color:#33DD33;"),     
+                  textInput("url_polystest",label="URL",value="http://computproteomics.bmb.sdu.dk:443/app_direct/PolySTest/"),
+                  disabled(actionButton("retrieve_polystest", "Retrieve results from PolySTest"))
+              )
+            )
           )
         )
       )
