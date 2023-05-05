@@ -143,7 +143,6 @@ imputation <- function(dat, seq, method, minx = 1, onlyqc, remaining) {
 
 cutoffrm <- function(dat, seq, cutoff, method) {
   cutoff <- cutoff / 100
-  # dat[dat == 0] <- NA
   if ("entire data" %in% method) {
     datm <- dat[seq[, 1] %in% "Sample"]
     datm[datm == 0] <- NA
@@ -167,27 +166,9 @@ cutoffrm <- function(dat, seq, cutoff, method) {
     }
     keep <- apply(keep_m, 1, function(x) any(x))
   }
-  # if("QC" %in% seqm$lab) {
-  #   seqm[seqm[, 1] %in% c("QC"),]$class <- "QC"
-  # }
-  # seqm[is.na(seqm$class), 4] <- "Sample"
-  # class <- as.vector(seqm$class)
-
-  # freq <- sapply(seq(nrow(datm)), function (i) tapply(as.numeric(datm[i,]), class, function (x) {
-  #   sum(!is.na(x)) / length(x)
-  # }))
-
-  # if(is.null(dim(freq))) {
-  #   dat <- dat[freq >= cutoff, ]
-  # } else {
-  #   keep <- colSums(freq >= cutoff) == dim(freq)[1]
-  #   dat <- dat[keep, ]
-  # }
-  # }
   dat <- dat[keep, ]
-  # dat[dat[is.na(dat)]] <- 0
   return(dat)
-}
+} #TODO if you don't select anything?
 
 imp_median <- function(dat, seq) {
   datm <- data.frame(seq$class, t(dat))
@@ -409,6 +390,22 @@ duplicaterank <- function(duplicate, rankings) {
   } else {
     return(10)
   }
+}
+
+## Statistics
+# Order columns by group
+# Check replicates and adds empty columns if necessary
+addNAColumns <- function(dat, seq, groups, maxreps) {
+  tdat <- dat[,1]
+  for(cl in 1:length(levels(groups))) {
+    cl_f <- dat[, seq[, 4] %in% levels(groups)[cl]]
+    tdat <- cbind(tdat, cl_f)
+    if(length(cl_f) < maxreps) {
+      tdat <- cbind(tdat, t(rep(NA, maxreps - length(cl_f))))
+    }
+    colnames(tdat)[(ncol(tdat)-maxreps+1):ncol(tdat)] <- rep(paste("G", levels(groups)[cl], sep = "_"), maxreps)
+  }
+  return(tdat)
 }
 
 windowselect <- function(input) {

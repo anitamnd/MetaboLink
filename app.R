@@ -2,6 +2,9 @@ library(shiny)
 library(shinydashboard)
 library(shinyBS)
 library(shinyjs)
+library(shinyalert)
+library(spsComps)
+library(jsonlite)
 library(DT)
 library(dplyr)
 library(plotly)
@@ -26,7 +29,7 @@ ui <- dashboardPage(
   ),
 
   #### Sidebar ####
-
+  
   dashboardSidebar(
     width = "400",
     useShinyjs(),
@@ -189,6 +192,9 @@ ui <- dashboardPage(
   dashboardBody(
     tags$head(tags$style(".modal-sm{ width:300px}
                          .modal-lg{ width:1200px}")),
+    tags$head(tags$script(src="CallShiny.js")),
+    useShinyjs(),  # Include shinyjs
+    extendShinyjs(script="CallShiny.js", functions=c("retrieve_results","send_message","run_button")),
     fluidRow(hidden(div(
       id = "buttons", style = "padding-bottom: 49px",
       column(3, bsButton("sequence",
@@ -329,26 +335,24 @@ ui <- dashboardPage(
         div(
           id = "statistics_panel",
           fluidPage(
-            h3("Data treatment pre-submission"),
+            # h3("Data treatment pre-submission"),
             fluidRow(
-              column(4, id="pr_c1",
-                  h4("Add or delete columns"),
-                  switchInput("add_na_columns", "Fill with empty columns", 
-                             value=FALSE, labelWidth = 50),
-              ),
-              column(3, id="pr_c2",
+              column(6, id="pr_c1",
                   h4("Data manipulation and adjustments"),
-                  column(10,checkboxInput("logtrafo", "Is the data already log-transformed?", value=F)),
-                  column(10,checkboxInput("norm_qc", "Normalize data?", value=F)),
+                  column(10,checkboxInput("logtrafo", "Log-transform data", value=F)),
+                  column(10,checkboxInput("norm_qc", "Normalize data", value=F)),
+                  actionButton("adjust_button", "Transform data")          
               ),
-              column(4, id="pr_c3",
+              column(5, id="pr_c3",
                   h4("Summary"),
                   actionButton("send_polystest", "Send to PolySTest"),
                   span(textOutput("connection_polystest"), style="color:#33DD33;"),     
                   textInput("url_polystest",label="URL",value="http://computproteomics.bmb.sdu.dk:443/app_direct/PolySTest/"),
                   disabled(actionButton("retrieve_polystest", "Retrieve results from PolySTest"))
               )
-            )
+            ),
+            br(),
+            fluidRow(column(12, box(width = NULL, DTOutput("stats_table"))))
           )
         )
       )
@@ -439,7 +443,7 @@ server <- function(session, input, output) {
 
   # Global variables
   rv <- reactiveValues(data = list(), seq = list(), si = NULL, tmp = NULL,
-              tmpseq = NULL, choices = NULL, drift_plot_select = 1)
+              tmpseq = NULL, statsdata = NULL, choices = NULL, drift_plot_select = 1)
   rankings <- read.csv("./csvfiles/rankings.csv", stringsAsFactors = FALSE)
 
   #####
@@ -489,6 +493,9 @@ server <- function(session, input, output) {
     batch <- NA
     order <- NA
     class <- NA
+    rv$tmp <- NULL
+    rv$tmpseq <- NULL
+    rv$statsdata <- NULL
     rv$seq[[length(rv$seq) + 1]] <- data.frame(lab, batch, order, class)
     rv$data[[length(rv$data) + 1]] <- dat
     names(rv$data)[length(rv$data)] <- substr(input$in_file1$name, 1, nchar(input$in_file1$name) - 4)
@@ -498,12 +505,16 @@ server <- function(session, input, output) {
     updateSelectInput(session, "selectpca2", choices = rv$choices, selected = rv$choices[length(rv$choices)])
     updateTabItems(session, "tabs", selected = "Datainput")
     show("buttons")
-    # show("sequence_panel")
   })
 
+#TODO join these 2?
   observeEvent(input$in_seq, {
-    try(nseq <- read.csv(input$in_seq$datapath, header = 1, stringsAsFactors = FALSE))
-    nseq <- nseq[, c("sample", "batch", "order", "class")]
+    shinyCatch( {
+      nseq <- read.csv(input$in_seq$datapath, header = 1, stringsAsFactors = FALSE)
+      nseq <- nseq[, c("sample", "batch", "order", "class")]
+    },
+      blocking_level = 'message'
+    )
     seq <- rv$seq[[rv$si]]
     imseq <- data.frame("sample" = row.names(seq), seq)
     imseq <- left_join(imseq[, 1:2], nseq, by = "sample")
@@ -619,7 +630,6 @@ server <- function(session, input, output) {
     updateSelectInput(session, "selectpca2", choices = rv$choices)
     updateTabItems(session, "tabs", selected = "Datainput")
     show("buttons")
-    # show("sequence_panel")
   })
 
   ## Observes selected data
@@ -660,6 +670,9 @@ server <- function(session, input, output) {
     output$dt_boxplot_panel <- renderDT(rv$data[[rv$si]][rv$seq[[rv$si]][, 1] %in% "Name"], rownames = FALSE, options = list(
       autoWidth = TRUE, scrollY = "700px", pageLength = 20
     ))
+    # statistics
+    output$stats_table <-  renderDT(rv$statsdata, rownames = FALSE, options = list(scrollX = TRUE, scrollY = "700px", pageLength = 20))
+
     if (sum(rv$seq[[rv$si]][, 1] %in% "Name") == 1) {
       is <- findis(rv$data[[rv$si]][rv$seq[[rv$si]][, 1] %in% "Name"])
       updateCheckboxGroupInput(session, "isChoose", choices = is, selected = is)
@@ -1293,9 +1306,46 @@ server <- function(session, input, output) {
     rv$drift_plot_select <- 3
   })
 
-  observeEvent(input$stat_limma, {
-    # rv$stat_limma <- input$stat_limma
-    
+  ## Statistics
+
+  observeEvent(input$adjust_button, {
+    if(is.null(rv$statsdata)) {
+      tdata <- rv$data[[rv$si]][, rv$seq[[rv$si]][, 1] %in% c("Name",  "Sample")]
+      rv$statsdata <- tdata
+    }
+    else {
+      tdata <- rv$statsdata
+    }
+    tseq <- rv$seq[[rv$si]][rv$seq[[rv$si]][, 1] %in% c("Name",  "Sample"), ]
+    if(input$norm_qc) {
+      tdata[, -1] <- t(t(tdata[, -1]) - colMeans(as.matrix(tdata[,-1]), na.rm=T))
+    }
+    if(input$logtrafo) {
+      tdata[, -1] <- log2(tdata[, -1])
+    }
+    rv$statsdata <- tdata
+  })
+
+  observeEvent(input$send_polystest, {
+    if(is.null(rv$statsdata)) {
+      shinyalert("Oops!", "No data to send, please adjust data first.")
+    }
+    else {
+      tdata <- rv$statsdata
+      tseq <- rv$seq[[rv$si]][rv$seq[[rv$si]][, 1] %in% c("Name",  "Sample"), ]
+      groups <- factor(tseq[, 4], exclude = NA)
+      NumReps <- max(table(groups))
+      NumCond <- length(levels(groups))
+
+      tdata <- addNAColumns(tdata, tseq, groups, NumReps)
+
+
+      PolySTestMessage <- toJSON(list(numrep=NumReps, numcond=NumCond, grouped=F, paired=input$paired, firstquantcol=2, 
+                                    expr_matrix=as.list(as.data.frame(tdata))))
+      updateTextInput(session, "app_log", value="Opening PolySTest and data upload ...")
+      js$send_message(url=input$url_polystest, dat=PolySTestMessage, tool="PolySTest")
+      enable("retrieve_polystest")
+    }
   })
 
   output$drift_ui <- renderUI({
