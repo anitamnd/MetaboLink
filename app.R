@@ -1064,14 +1064,22 @@ server <- function(session, input, output) {
   })
 
   observeEvent(input$dc_run, {
-    dc_seq <- rv$seq[[rv$si]]
-    dc_dat <- driftcorrection(
-      dat = rv$data[[rv$si]],
-      seq = dc_seq,
-      method = input$dc_method,
-      ntree = input$dc_ntree,
-      QCspan = input$dc_qcspan
-    )
+    dc_dat <- rv$data[[rv$si]]
+    dc_seq <- rv$seq[[rv$si]]  
+    dat_qc <- dc_dat[, dc_seq[, 1] %in% "QC"]
+
+    if(any(colSums(!is.na(dat_qc)) == nrow(dat_qc))) {
+      sendSweetAlert(session = session, title = "Error", text = "QCs cannot have missing values.", type = "error")
+    }
+    else {
+      dc_dat <- driftcorrection(
+        dat = dc_dat,
+        seq = dc_seq,
+        method = input$dc_method,
+        ntree = input$dc_ntree,
+        QCspan = input$dc_qcspan
+      )
+    }
     rv$tmpdata <- dc_dat
     rv$tmpseq <- dc_seq
     updateSelectInput(session, "selectpca1", selected = "Unsaved data", choices = c("Unsaved data", rv$choices))
