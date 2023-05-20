@@ -1,6 +1,3 @@
-##
-#   Functions for omicsapp
-##
 blankfiltration <- function(dat, seq, xbf, keepis) {
   dat[seq[, 1] %in% "Blank"][is.na(dat[seq[, 1] %in% "Blank"])] <- 0
   bf <- apply(dat[seq[, 1] %in% "Blank"], 1, mean) * xbf < apply(dat[seq[, 1] %in% "QC"], 1, mean, na.rm = TRUE)
@@ -397,13 +394,13 @@ duplicaterank <- function(duplicate, rankings) {
 # Check replicates and adds empty columns if necessary
 addNAColumns <- function(dat, seq, groups, maxreps) {
   tdat <- dat[,1]
-  for(cl in 1:length(levels(groups))) {
-    cl_f <- dat[, seq[, 4] %in% levels(groups)[cl]]
-    tdat <- cbind(tdat, cl_f)
-    if(length(cl_f) < maxreps) {
-      tdat <- cbind(tdat, t(rep(NA, maxreps - length(cl_f))))
+  for(group in 1:length(levels(groups))) {
+    groupdat <- dat[, seq[, 4] %in% levels(groups)[group]]
+    tdat <- cbind(tdat, groupdat)
+    if(length(groupdat) < maxreps) {
+      tdat <- cbind(tdat, t(rep(NA, maxreps - length(groupdat))))
     }
-    colnames(tdat)[(ncol(tdat)-maxreps+1):ncol(tdat)] <- rep(paste("G", levels(groups)[cl], sep = "_"), maxreps)
+    colnames(tdat)[(ncol(tdat)-maxreps+1):ncol(tdat)] <- rep(paste("G", levels(groups)[group], sep = "_"), maxreps)
   }
   return(tdat)
 }
