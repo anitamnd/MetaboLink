@@ -123,7 +123,7 @@ ui <- dashboardPage(
           fluidRow(
             style = "margin-right: 0px;",
             column(6, bsButton("issave", "Save", width = "100%"), style = "padding-left:0px;"),
-            column(6)
+            column(6, bsButton("isremove", "Remove IS", width = "100%"), style = "padding-left:0px;"),
           ),
           fluidRow(
             style = "margin-right: 0px;",

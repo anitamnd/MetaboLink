@@ -35,7 +35,7 @@ server <- function(session, input, output) {
   ## Observes file input and creates a new dataset from input.
   observeEvent(input$in_file, {
     try(dat <- read.csv(input$in_file$datapath, header = 1, stringsAsFactors = F, check.names = FALSE, encoding = "UTF-8"))
-
+    
     lab <- identifylabels(dat)
     batch <- NA
     order <- NA
@@ -436,7 +436,7 @@ server <- function(session, input, output) {
     } else if (sum(rv$seq[[rv$si]][, 1] %in% "Name") != 1) {
       showNotification("Data must have exactly 1 \"Name\" column", type = "error")
     } else if (is.null(input$isChoose)) {
-      showNotification("No intern standars selected", type = "error")
+      showNotification("No internal standards selected", type = "error")
     } else {
       isseq <- rv$seq[[rv$si]]
       isdat <- isfunc(
@@ -446,8 +446,14 @@ server <- function(session, input, output) {
         method = input$ismethod,
         qc = input$isqc
       )
-      rv$tmpdata <- isdat
+      
+      usedIsNo <- as.numeric(gsub(" .*$", "", input$isChoose))
+      unusedIs <- setdiff(usedIsNo, as.numeric(gsub(" .*$", "", findis(isdat))))
+      
+      rv$tmpdata <- isdat[-unusedIs, ]
       rv$tmpseq <- isseq
+      
+      updateCheckboxGroupInput(session, "isChoose", choices = input$isChoose, selected = input$isChoose)
       updateSelectInput(session, "selectpca1", selected = "Unsaved data", choices = c("Unsaved data", rv$choices))
       output$dttable <- renderDataTable(rv$tmpdata, rownames = FALSE, options = list(scrollX = TRUE, scrollY = "700px", pageLength = 20))
     }
@@ -486,6 +492,11 @@ server <- function(session, input, output) {
       rv$tmpdata <- NULL
       rv$tmpseq <- NULL
     }
+  })
+
+  #TODO
+  observeEvent(input$isremove, {
+    
   })
 
   observeEvent(input$mvf_run, {
