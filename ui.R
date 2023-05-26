@@ -4,7 +4,6 @@ library(shinyBS)
 library(shinyjs)
 library(shinyalert)
 library(shinyWidgets)
-install.packages("spsComps")
 library(spsComps) #new
 library(DT)
 library(dplyr)
@@ -117,13 +116,13 @@ ui <- dashboardPage(
           ),
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, bsButton("is", "Is normalize", width = "100%"), style = "padding-left:0px;"),
-            column(6, bsButton("is_optimize", "optimize", width = "100%"), style = "padding-left:0px;")
+            column(6, bsButton("is", "IS normalize", width = "100%"), style = "padding-left:0px;"),
+            column(6, bsButton("is_optimize", "Optimize", width = "100%"), style = "padding-left:0px;")
           ),
           fluidRow(
             style = "margin-right: 0px;",
             column(6, bsButton("issave", "Save", width = "100%"), style = "padding-left:0px;"),
-            column(6, bsButton("isremove", "Remove IS", width = "100%"), style = "padding-left:0px;"),
+            column(6, bsButton("isremove", "Remove IS", width = "100%"), style = "padding-left:0px;")
           ),
           fluidRow(
             style = "margin-right: 0px;",

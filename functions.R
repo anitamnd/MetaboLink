@@ -11,7 +11,6 @@ blankfiltration <- function(dat, seq, xbf, keepis) {
 }
 
 isfunc <- function(dat, seq, is, method, qc) {
-  #TODO to which internal standard each feature was normalized
   rt <- which(seq[, 1] == "RT")
   isname <- is
   is <- as.numeric(gsub(" .*$", "", is))
@@ -22,9 +21,6 @@ isfunc <- function(dat, seq, is, method, qc) {
   }
   sdat <- dat[seq[, 1] %in% sel]
   sdat[sdat == 0] <- NA
-  print(1)
-  print(class(sdat))
-  # which of the selected internal standards has the retention time closest to each of the features 
   near <- sapply(dat[, rt], function(y) {
     which.min(abs(dat[is, rt] - y))
   })

@@ -3,7 +3,7 @@ server <- function(session, input, output) {
 
   # Global variables
   rv <- reactiveValues(data = list(), seq = list(), si = NULL, tmp = NULL,
-              tmpseq = NULL, statsdata = NULL, choices = NULL, drift_plot_select = 1)
+              tmpseq = NULL, statsdata = NULL, choices = NULL, is = NULL, drift_plot_select = 1)
   rankings <- read.csv("./csvfiles/rankings.csv", stringsAsFactors = FALSE)
 
   observeEvent(list(c(input$sequence, input$example, input$in_file)), {
@@ -220,6 +220,7 @@ server <- function(session, input, output) {
 
     if (sum(rv$seq[[rv$si]][, 1] %in% "Name") == 1) {
       is <- findis(rv$data[[rv$si]][rv$seq[[rv$si]][, 1] %in% "Name"])
+      rv$is <- is
       updateCheckboxGroupInput(session, "isChoose", choices = is, selected = is)
     }
   })
@@ -446,13 +447,17 @@ server <- function(session, input, output) {
         method = input$ismethod,
         qc = input$isqc
       )
+
+      unusedIs <- rv$is[!(rv$is %in% input$isChoose)]
+      unusedIs <-  as.numeric(gsub(" .*$", "", unusedIs))
       
-      usedIsNo <- as.numeric(gsub(" .*$", "", input$isChoose))
-      unusedIs <- setdiff(usedIsNo, as.numeric(gsub(" .*$", "", findis(isdat))))
-      
-      rv$tmpdata <- isdat[-unusedIs, ]
+      if(length(unusedIs) > 0) {
+        rv$tmpdata <- isdat[-unusedIs, ]
+      } else {
+        rv$tmpdata <- isdat
+      }
       rv$tmpseq <- isseq
-      
+      rv$is <- input$isChoose
       updateCheckboxGroupInput(session, "isChoose", choices = input$isChoose, selected = input$isChoose)
       updateSelectInput(session, "selectpca1", selected = "Unsaved data", choices = c("Unsaved data", rv$choices))
       output$dttable <- renderDataTable(rv$tmpdata, rownames = FALSE, options = list(scrollX = TRUE, scrollY = "700px", pageLength = 20))
@@ -494,9 +499,11 @@ server <- function(session, input, output) {
     }
   })
 
-  #TODO
   observeEvent(input$isremove, {
-    
+    dat <- rv$data[[rv$si]]
+    rmdat <- rv$data[[rv$si]][rv$seq[[rv$si]][, 1] %in% "Name"]
+    dat <- dat[!grepl("\\(IS\\)", toupper(rmdat[ , 1])), ]
+    rv$data[[rv$si]] <- dat
   })
 
   observeEvent(input$mvf_run, {
