@@ -4,8 +4,8 @@ library(shinyBS)
 library(shinyjs)
 library(shinyalert)
 library(shinyWidgets)
+install.packages("spsComps")
 library(spsComps) #new
-# library(jsonlite) #new
 library(DT)
 library(dplyr)
 library(plotly)
@@ -16,7 +16,7 @@ library(impute)
 library(randomForest)
 library(writexl)
 library(igraph)
-# library(stringi) #new
+library(stringi) #new
 library(BiocManager)
 options(repos = BiocManager::repositories())
 source("functions.R")
