@@ -926,10 +926,10 @@ server <- function(session, input, output) {
       tdata <- addNAColumns(tdata, tseq, groups, NumReps)
 
 
-      PolySTestMessage <- toJSON(list(numrep=NumReps, numcond=NumCond, grouped=F, paired=input$paired, firstquantcol=2, 
-                                    expr_matrix=as.list(as.data.frame(tdata))))
-      updateTextInput(session, "app_log", value="Opening PolySTest and data upload ...")
-      js$send_message(url=input$url_polystest, dat=PolySTestMessage, tool="PolySTest")
+      #PolySTestMessage <- toJSON(list(numrep=NumReps, numcond=NumCond, grouped=F, paired=input$paired, firstquantcol=2, 
+      #                              expr_matrix=as.list(as.data.frame(tdata))))
+      #updateTextInput(session, "app_log", value="Opening PolySTest and data upload ...")
+      #js$send_message(url=input$url_polystest, dat=PolySTestMessage, tool="PolySTest")
       enable("retrieve_polystest")
     }
   })
