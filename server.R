@@ -1,4 +1,4 @@
-server <- function(session, input, output) {
+function(session, input, output) {
   options(shiny.maxRequestSize = 30 * 1024^2)
 
   # Global variables
