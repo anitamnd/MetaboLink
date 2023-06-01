@@ -34,8 +34,9 @@ server <- function(session, input, output) {
 
   ## Observes file input and creates a new dataset from input
   observeEvent(input$in_file, {
-    try(dat <- read.csv(input$in_file$datapath, header = 1, stringsAsFactors = F, check.names = FALSE, encoding = "UTF-8"))
-    
+    #TODO deal with this "try" thing
+    try(dat <- read.csv(input$in_file$datapath, header = 1, stringsAsFactors = F, check.names = FALSE))
+    dat <- as.data.frame(apply(dat, c(1,2), function(x) { stri_trans_general(x, "latin-ascii") })) # Convert to ascii to be able to deal with special characters
     lab <- identifylabels(dat)
     batch <- NA
     order <- NA
@@ -900,10 +901,12 @@ server <- function(session, input, output) {
       tdata <- rv$statsdata
     }
     tseq <- rv$seq[[rv$si]][rv$seq[[rv$si]][, 1] %in% c("Name",  "Sample"), ]
+    #TODO mean scale
+    # does order matter here?
     if(input$norm_qc) {
       tdata[, -1] <- t(t(tdata[, -1]) - colMeans(as.matrix(tdata[,-1]), na.rm=T))
     }
-    if(input$logtrafo) {
+    if(input$logtrans) {
       tdata[, -1] <- log2(tdata[, -1])
     }
     rv$statsdata <- tdata
