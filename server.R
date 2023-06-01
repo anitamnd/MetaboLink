@@ -1,4 +1,4 @@
-function(session, input, output) {
+shinyServer(function(session, input, output) {
   options(shiny.maxRequestSize = 30 * 1024^2)
 
   # Global variables
@@ -1086,3 +1086,4 @@ function(session, input, output) {
     }
   })
 }
+)
