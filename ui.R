@@ -4,7 +4,7 @@ library(shinyBS)
 library(shinyjs)
 library(shinyalert)
 library(shinyWidgets)
-# library(spsComps)
+library(spsComps)
 library(DT)
 library(dplyr)
 library(plotly)
@@ -29,7 +29,7 @@ dashboardPage(
 
   #### Sidebar ####
   
-  dashboardSidebar(
+  shinyUI(dashboardSidebar(
     width = "400",
     useShinyjs(),
     tags$style(HTML(".panel-primary {color: #000000;}")),
@@ -403,4 +403,5 @@ dashboardPage(
       )
     )
   )
+)
 )
