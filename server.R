@@ -32,7 +32,7 @@ server <- function(session, input, output) {
     windowselect("statistics")
   })
 
-  ## Observes file input and creates a new dataset from input.
+  ## Observes file input and creates a new dataset from input
   observeEvent(input$in_file, {
     try(dat <- read.csv(input$in_file$datapath, header = 1, stringsAsFactors = F, check.names = FALSE, encoding = "UTF-8"))
     
@@ -185,7 +185,7 @@ server <- function(session, input, output) {
       lapply(1:ncol(rv$data[[rv$si]]), function(x) {
         fluidRow(
           column(
-            width = 4,
+            width = 2,
             p(strong(colnames(rv$data[[rv$si]])[x]))
           ),
           column(
@@ -203,6 +203,11 @@ server <- function(session, input, output) {
           column(
             width = 2,
             textInput(paste0("cla", rv$si, x), NULL, value = rv$seq[[rv$si]][x, 4])
+          ),
+          column(
+            width = 2
+            #textInput(paste0("lab", rv$si, x), NULL, value = rv$seq[[rv$si]][x, 5])
+            #TODO
           )
         )
       })
@@ -215,7 +220,7 @@ server <- function(session, input, output) {
     output$dt_boxplot_panel <- renderDT(rv$data[[rv$si]][rv$seq[[rv$si]][, 1] %in% "Name"], rownames = FALSE, options = list(
       autoWidth = TRUE, scrollY = "700px", pageLength = 20
     ))
-    # statistics
+    # Statistics
     output$stats_table <-  renderDT(rv$statsdata, rownames = FALSE, options = list(scrollX = TRUE, scrollY = "700px", pageLength = 20))
 
     if (sum(rv$seq[[rv$si]][, 1] %in% "Name") == 1) {
@@ -713,61 +718,61 @@ server <- function(session, input, output) {
     }
     else {
 
-    if (sum(seq1[, 1] %in% c("Adduct_pos", "Adduct_neg")) != 1 || sum(seq2[, 1] %in% c("Adduct_pos", "Adduct_neg")) != 1) {
-      sendSweetAlert(session = session, title = "Error", text = "Each dataset must contain exactly one adduct column labeled in the sequence file.", type = "error")
-    } else if (ncol(dat1) != ncol(dat2)) {
-      sendSweetAlert(session = session, title = "Error", text = "Datasets must have the same number of colunms", type = "error")
-    } else {
-      merged_dat <<- merge.func(
-        dat1 = dat1,
-        seq1 = seq1,
-        dat2 = dat2,
-        seq2 = seq2,
-        ppmtol = input$md_ppm,
-        rttol = input$md_rt
-      )
-      clustn <- data.frame(table(merged_dat$mergeID))
-      dub_clust <- clustn[clustn$Freq > 1, ]
-      dub_dat <- merged_dat[merged_dat$mergeID %in% dub_clust[, 1], ]
-      dub_qc <- dub_dat[, seq1[, 1] %in% "QC"]
-      cov <- cv(dub_qc)
-      nclust <- sapply(dub_dat$mergeID, function(x) {
-        table(dub_dat$mergeID)[names(table(dub_dat$mergeID)) == x]
-      })
-
-      out_dub <- data.frame(
-        "nClust" = nclust,
-        "Cluster_ID" = dub_dat$mergeID,
-        "Ion_mode" = dub_dat$ionmode,
-        "Adductor" = dub_dat$add,
-        "Name" = dub_dat[, which(seq1[, 1] %in% "Name")],
-        "RT" = dub_dat[, which(seq1[, 1] %in% "RT")],
-        "Mass" = dub_dat[, which(seq1[, 1] %in% "Mass")],
-        "CV" = cov
-      )
-      out_dub <- out_dub[order(out_dub[, 1], out_dub[, 2], decreasing = T), ]
-      md_dup <<- out_dub
-      cluster_ends <- which(!duplicated(out_dub[, 2]))
-      output$md_modal_dt <- renderDataTable(
-        {
-          datatable(out_dub,
-            rownames = F,
-            options = list(dom = "t", autowidth = T, paging = F),
-            selection = list(selected = finddup(out_dub, rankings))
-          ) %>% formatStyle(1:8, `border-top` = styleRow(cluster_ends, "solid 2px"))
-        },
-        server = T
-      )
-
-      showModal(
-        modalDialog(
-          title = "Select features to keep", size = "l",
-          p(paste0(length(unique(dub_dat$mergeID))), " duplcicate clusters found, of those ", paste0(length(unique(out_dub[out_dub[, 1] > 2, ][, 2]))), " consists of more than 2 features."),
-          DTOutput("md_modal_dt"),
-          footer = list(actionButton("md_modal_go", "Remove duplicates"), modalButton("Dismiss"))
+      if (sum(seq1[, 1] %in% c("Adduct_pos", "Adduct_neg")) != 1 || sum(seq2[, 1] %in% c("Adduct_pos", "Adduct_neg")) != 1) {
+        sendSweetAlert(session = session, title = "Error", text = "Each dataset must contain exactly one adduct column labeled in the sequence file.", type = "error")
+      } else if (ncol(dat1) != ncol(dat2)) {
+        sendSweetAlert(session = session, title = "Error", text = "Datasets must have the same number of colunms", type = "error")
+      } else {
+        merged_dat <<- merge.func(
+          dat1 = dat1,
+          seq1 = seq1,
+          dat2 = dat2,
+          seq2 = seq2,
+          ppmtol = input$md_ppm,
+          rttol = input$md_rt
         )
-      )
-    }
+        clustn <- data.frame(table(merged_dat$mergeID))
+        dub_clust <- clustn[clustn$Freq > 1, ]
+        dub_dat <- merged_dat[merged_dat$mergeID %in% dub_clust[, 1], ]
+        dub_qc <- dub_dat[, seq1[, 1] %in% "QC"]
+        cov <- cv(dub_qc)
+        nclust <- sapply(dub_dat$mergeID, function(x) {
+          table(dub_dat$mergeID)[names(table(dub_dat$mergeID)) == x]
+        })
+
+        out_dub <- data.frame(
+          "nClust" = nclust,
+          "Cluster_ID" = dub_dat$mergeID,
+          "Ion_mode" = dub_dat$ionmode,
+          "Adductor" = dub_dat$add,
+          "Name" = dub_dat[, which(seq1[, 1] %in% "Name")],
+          "RT" = dub_dat[, which(seq1[, 1] %in% "RT")],
+          "Mass" = dub_dat[, which(seq1[, 1] %in% "Mass")],
+          "CV" = cov
+        )
+        out_dub <- out_dub[order(out_dub[, 1], out_dub[, 2], decreasing = T), ]
+        md_dup <<- out_dub
+        cluster_ends <- which(!duplicated(out_dub[, 2]))
+        output$md_modal_dt <- renderDataTable(
+          {
+            datatable(out_dub,
+              rownames = F,
+              options = list(dom = "t", autowidth = T, paging = F),
+              selection = list(selected = finddup(out_dub, rankings))
+            ) %>% formatStyle(1:8, `border-top` = styleRow(cluster_ends, "solid 2px"))
+          },
+          server = T
+        )
+
+        showModal(
+          modalDialog(
+            title = "Select features to keep", size = "l",
+            p(paste0(length(unique(dub_dat$mergeID))), " duplcicate clusters found, of those ", paste0(length(unique(out_dub[out_dub[, 1] > 2, ][, 2]))), " consists of more than 2 features."),
+            DTOutput("md_modal_dt"),
+            footer = list(actionButton("md_modal_go", "Remove duplicates"), modalButton("Dismiss"))
+          )
+        )
+      }
     }
   })
 

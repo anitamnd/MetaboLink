@@ -21,6 +21,7 @@ isfunc <- function(dat, seq, is, method, qc) {
   }
   sdat <- dat[seq[, 1] %in% sel]
   sdat[sdat == 0] <- NA
+  is <- is[complete.cases(sdat[is, ])] # remove IS with missing values
   near <- sapply(dat[, rt], function(y) {
     which.min(abs(dat[is, rt] - y))
   })
@@ -31,6 +32,7 @@ isfunc <- function(dat, seq, is, method, qc) {
   if (method == "Same lipid structure") {
     name <- dat[seq[, 1] %in% "Name"]
     istype <- gsub(" .*$", "", name[is, ])
+    # istype <- istype[complete.cases(sdat[is, ])]
     near <- sapply(seq(name[, 1]), function(x) {
       if (gsub(" .*$", "", name[x, 1]) %in% istype) {
         which(istype %in% gsub(" .*$", "", name[x, 1]))
