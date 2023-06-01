@@ -417,6 +417,11 @@ addNAColumns <- function(dat, seq, groups, maxreps) {
   return(tdat)
 }
 
+qcNormalization <- function() {
+  #TODO
+  
+}
+
 windowselect <- function(input) {
   hide("welcome_panel")
   if (input == "pca") show("pca_panel") else hide("pca_panel")
