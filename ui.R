@@ -21,7 +21,7 @@ options(repos = BiocManager::repositories())
 source("functions.R")
 source("plotfunctions.R")
 
-dashboardPage(
+shinyUI(dashboardPage(
   dashboardHeader(
     title = "JLspec",
     titleWidth = 400
@@ -29,7 +29,7 @@ dashboardPage(
 
   #### Sidebar ####
   
-  shinyUI(dashboardSidebar(
+  dashboardSidebar(
     width = "400",
     useShinyjs(),
     tags$style(HTML(".panel-primary {color: #000000;}")),
