@@ -21,7 +21,7 @@ options(repos = BiocManager::repositories())
 source("functions.R")
 source("plotfunctions.R")
 
-ui <- dashboardPage(
+dashboardPage(
   dashboardHeader(
     title = "JLspec",
     titleWidth = 400
