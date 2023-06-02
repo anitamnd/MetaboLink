@@ -36,7 +36,7 @@ shinyUI(dashboardPage(
     fluidPage(
       fluidRow(
         selectizeInput("selectdata1", "Active dataset", choices = NULL, width = "100%",
-                        options = list(placeholder = "Please uploade a file to start"))
+                        options = list(placeholder = "Please upload a file to start"))
       ),
       bsCollapse(
         id = "menu", multiple = FALSE, open = "Data input",
@@ -85,7 +85,7 @@ shinyUI(dashboardPage(
           ),
           fluidRow(column(
             6,
-            prettyCheckboxGroup("mvf_conditions", "", choices = c("in QC", "in class", "entire data"))
+            prettyCheckboxGroup("mvf_conditions", "", choices = c("in QC", "in group", "entire data"))
           )),
           fluidRow(column(
             6,
@@ -227,7 +227,7 @@ shinyUI(dashboardPage(
               title = textOutput("diboxtitle"), width = NULL,
               fluidRow(
                 column(
-                  width = 4,
+                  width = 2,
                   h4("Sample")
                 ),
                 column(
@@ -245,6 +245,10 @@ shinyUI(dashboardPage(
                 column(
                   width = 2,
                   h4("Group")
+                ),
+                column(
+                  width = 2,
+                  h4("Time")
                 )
               ),
               uiOutput("sequi")

@@ -25,14 +25,9 @@ isfunc <- function(dat, seq, is, method, qc) {
   near <- sapply(dat[, rt], function(y) {
     which.min(abs(dat[is, rt] - y))
   })
-  # make a substring from the start of the annotation and until the first white space. 
-  # If thissubstring matches any of the substrings from the internal standards, it will 
-  # prioritize normalizing to this. If no substring matches are found, it will 
-  # normalize to the internal standard with the most similar retention time
   if (method == "Same lipid structure") {
     name <- dat[seq[, 1] %in% "Name"]
     istype <- gsub(" .*$", "", name[is, ])
-    # istype <- istype[complete.cases(sdat[is, ])]
     near <- sapply(seq(name[, 1]), function(x) {
       if (gsub(" .*$", "", name[x, 1]) %in% istype) {
         which(istype %in% gsub(" .*$", "", name[x, 1]))
@@ -69,7 +64,6 @@ isopti <- function(dat, seq, is, method, qc) {
 }
 
 findis <- function(dat) {
-  #TODO grey out IS with missing values
   nr <- grepl("\\(IS\\)", toupper(dat[, 1]))
   if (sum(nr) > 0) {
     name <- as.vector(dat[nr, 1])
@@ -162,7 +156,7 @@ cutoffrm <- function(dat, seq, cutoff, method) {
     datm[datm == 0] <- NA
     keep <- rowSums(!is.na(datm)) / ncol(datm) >= cutoff
   }
-  if ("in class" %in% method) {
+  if ("in group" %in% method) {
     datm <- dat[seq[, 1] %in% "Sample"]
     datm[datm == 0] <- NA
     classes <- factor(seq[, 4], exclude = NA)
