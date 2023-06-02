@@ -508,7 +508,7 @@ shinyServer(function(session, input, output) {
   observeEvent(input$isremove, {
     dat <- rv$data[[rv$si]]
     rmdat <- rv$data[[rv$si]][rv$seq[[rv$si]][, 1] %in% "Name"]
-    dat <- dat[!grepl("\\(IS\\)", toupper(rmdat[ , 1])), ]
+    dat <- dat[!grepl("\\(IS\\)", toupffper(rmdat[ , 1])), ]
     rv$data[[rv$si]] <- dat
   })
 
@@ -638,7 +638,7 @@ shinyServer(function(session, input, output) {
     dc_seq <- rv$seq[[rv$si]]  
     dat_qc <- dc_dat[, dc_seq[, 1] %in% "QC"]
 
-    if(any(colSums(!is.na(dat_qc)) == nrow(dat_qc))) {
+    if(any(colSums(!is.na(dat_qc)) != nrow(dat_qc))) {
       sendSweetAlert(session = session, title = "Error", text = "QCs cannot have missing values.", type = "error")
     }
     else {
