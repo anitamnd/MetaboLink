@@ -21,7 +21,7 @@ options(repos = BiocManager::repositories())
 source("functions.R")
 source("plotfunctions.R")
 
-ui <- dashboardPage(
+shinyUI(dashboardPage(
   dashboardHeader(
     title = "JLspec",
     titleWidth = 400
@@ -36,7 +36,7 @@ ui <- dashboardPage(
     fluidPage(
       fluidRow(
         selectizeInput("selectdata1", "Active dataset", choices = NULL, width = "100%",
-                        options = list(placeholder = "Please uploade a file to start"))
+                        options = list(placeholder = "Please upload a file to start"))
       ),
       bsCollapse(
         id = "menu", multiple = FALSE, open = "Data input",
@@ -85,7 +85,7 @@ ui <- dashboardPage(
           ),
           fluidRow(column(
             6,
-            prettyCheckboxGroup("mvf_conditions", "", choices = c("in QC", "in class", "entire data"))
+            prettyCheckboxGroup("mvf_conditions", "", choices = c("in QC", "in group", "entire data"))
           )),
           fluidRow(column(
             6,
@@ -227,7 +227,7 @@ ui <- dashboardPage(
               title = textOutput("diboxtitle"), width = NULL,
               fluidRow(
                 column(
-                  width = 4,
+                  width = 2,
                   h4("Sample")
                 ),
                 column(
@@ -245,6 +245,10 @@ ui <- dashboardPage(
                 column(
                   width = 2,
                   h4("Group")
+                ),
+                column(
+                  width = 2,
+                  h4("Time")
                 )
               ),
               uiOutput("sequi")
@@ -403,4 +407,5 @@ ui <- dashboardPage(
       )
     )
   )
+)
 )
