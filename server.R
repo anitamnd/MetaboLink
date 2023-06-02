@@ -36,7 +36,7 @@ shinyServer(function(session, input, output) {
   observeEvent(input$in_file, {
     #TODO deal with this "try" thing
     try(dat <- read.csv(input$in_file$datapath, header = 1, stringsAsFactors = F, check.names = FALSE))
-    dat <- as.data.frame(apply(dat, c(1,2), function(x) { stri_trans_general(x, "latin-ascii") })) # Convert to ascii to be able to deal with special characters
+    # dat <- as.data.frame(apply(dat, c(1,2), function(x) { stri_trans_general(x, "latin-ascii") })) # Convert to ascii to be able to deal with special characters
     lab <- identifylabels(dat)
     batch <- NA
     order <- NA
