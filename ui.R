@@ -16,6 +16,11 @@ library(randomForest)
 library(writexl)
 library(igraph)
 library(stringi)
+library(stringr)
+library(MetaboAnalystR)
+library(jsonlite)
+library(limma)
+#devtools::install_github("xia-lab/MetaboAnalystR", build = TRUE, build_vignettes = FALSE)
 library(BiocManager)
 options(repos = BiocManager::repositories())
 source("functions.R")
@@ -167,6 +172,20 @@ shinyUI(dashboardPage(
             column(6, bsButton("md_rankings", "Edit priorities", width = "100%"), style = "padding-left:0px;"),
             column(6, bsButton("md_run", "Run", width = "100%"), style = "padding-left:0px;")
           )
+        ),
+        bsCollapsePanel("QC normalization", #NEW TODO ANITA
+          style = "primary",
+          fluidRow(selectInput("pool_sample", "Pooled sample", choices = c("QC", "X", "Y"), width = "100%")),
+          fluidRow(
+            style = "margin-right: 0px;",
+            column(6, checkboxInput("logtrans", "Log-transform", value = T, width = "100%"), style = "padding: 0px; margin-top: -30px; margin-left: 10px; margin-right: -10px;"),
+            column(6, checkboxInput("meanscale", "Mean scale", value = T, width = "100%"), style = "padding: 0px; margin-top: -30px; margin-left: 10px; margin-right: -10px;")
+          ),
+          fluidRow(
+            style = "margin-right: 0px;",
+            column(6, bsButton("qcnorm_save", "Save", width = "100%"), style = "padding-left:0px;"),
+            column(6, bsButton("qcnorm_run", "Run", width = "100%"), style = "padding-left:0px;")
+          )
         )
       )
     ),
@@ -317,22 +336,47 @@ shinyUI(dashboardPage(
           id = "statistics_panel",
           fluidPage(
             fluidRow(
-              column(6, id="pr_c1",
-                  h4("Data manipulation and adjustments"),
-                  column(10,checkboxInput("norm_qc", "Normalization by a pooled sample (QC)", value=F)),
-                  column(10,checkboxInput("logtrans", "Log-transform data", value=F)),
-                  column(10,checkboxInput("mean_scale", "Mean scale", value=F)),                  
-                  actionButton("adjust_button", "Transform data") #TODO save button      
+              column(6, id="pr_c2",
+                  h4("Statistical tests"),
+                  column(10, span(htmlOutput("input_stats"),
+                                div(style = "display:inline-block;",
+                                    title = "Edit in sequence panel",
+                                    icon("info-circle")))),
+                  
+                  column(10, bsCollapsePanel("Time series", style="default", #TODO remove?
+                    htmlOutput("time_info"),
+                    uiOutput("stat_comparisons"),
+                    div(style="padding-right: 10px; padding-left: 0px;",id="comps",
+       
+        fluidRow(
+          column(4,align="center",style="padding:0px;",selectInput("sel1", label=NULL,
+                                                                   choices = NULL, selected = NULL)),
+          column(2,h5("vs")),
+          column(4,align="center",style="padding:0px;",selectInput("sel2", label=NULL,
+                                                                   choices = NULL, selected = NULL))
+          #column(2,align="center",style="padding:0px;",actionButton(paste("selb_",el,sep=""),label=NULL,icon =icon("trash")))
+        )),
+                    actionButton("addComp", "Add new comparison")
+                  )),
+                  #TODO Identified times (sequence)? only in samples - easy? sequence is not ordered!
+                  # maybe I'll need a simple sequence file afterall
+                  # How to show the results?
+                  actionButton("run_stats", "Run test"),  #TODO save button
+                  #bsTooltip("button","Run statistical tests and their evaluation",trigger="hover"),
+                  actionButton("run_stats", "Save")      
               ),
               column(5, id="pr_c3",
                   h4("Summary"),
+                  checkboxInput(inputId="is_paired", label="Paired tests?", value=F),
                   actionButton("send_polystest", "Send to PolySTest"),
                   span(textOutput("connection_polystest"), style="color:#33DD33;"),     
                   textInput("url_polystest",label="URL",value="http://computproteomics.bmb.sdu.dk:443/app_direct/PolySTest/"),
                   disabled(actionButton("retrieve_polystest", "Retrieve results from PolySTest"))              )
             ),
             br(),
-            fluidRow(column(12, box(width = NULL, DTOutput("stats_table"))))
+            fluidRow(column(12, box(width = NULL, DTOutput("stats_table")))),
+            br(),
+            fluidRow(column(12, box(width = NULL, DTOutput("results_table")))) #TODO
     )))),
     fluidRow(
       hidden(

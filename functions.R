@@ -15,7 +15,7 @@ isfunc <- function(dat, seq, is, method, qc) {
   isname <- is
   is <- as.numeric(gsub(" .*$", "", is))
   if (qc) {
-    sel <- c("Sample", "QC")
+    sel <- c("Sample", "QC") 
   } else {
     sel <- "Sample"
   }
@@ -396,24 +396,55 @@ duplicaterank <- function(duplicate, rankings) {
 }
 
 ## Statistics
-# Order columns by group
-# Check replicates and adds empty columns if necessary
+
 addNAColumns <- function(dat, seq, groups, maxreps) {
-  tdat <- dat[,1]
-  for(group in 1:length(levels(groups))) {
-    groupdat <- dat[, seq[, 4] %in% levels(groups)[group]]
+  
+   # Order columns by group
+   # Check replicates and adds empty columns if necessary
+   # Adds row with group name for MetaboAnalystR
+
+  tdat <- dat[,1] # only first column (names?)
+  rgroup <- c("")
+  rtime <- c("")
+  for(group in 1:length(groups)) { #TODO for group in groups
+    groupdat <- dat[, seq[, 4] %in% groups[group]]
+    time <- seq[seq[, 4] %in% groups[group], 5] # rows with this group but only time info - append?
     tdat <- cbind(tdat, groupdat)
     if(length(groupdat) < maxreps) {
-      tdat <- cbind(tdat, t(rep(NA, maxreps - length(groupdat))))
+      fcol <- t(rep(NA, maxreps - length(groupdat)))
+      tdat <- cbind(tdat, fcol)
     }
-    colnames(tdat)[(ncol(tdat)-maxreps+1):ncol(tdat)] <- rep(paste("G", levels(groups)[group], sep = "_"), maxreps)
+    rgroup <- append(rgroup, rep(paste("g", groups[group], sep = ""), maxreps))
+    rtime <- append(rtime, t(time))
+    print(rtime)
   }
+
+  tdat <- rbind(rgroup, tdat)
+  colnames(tdat) <- paste(colnames(tdat), rgroup, paste("t", rtime, sep=""), sep = "_")
+  print(colnames(tdat))
   return(tdat)
 }
 
-qcNormalization <- function() {
-  #TODO
+metaboTransform <- function(dat, log, mean) {
+  logn <- if (log) "LogNorm" else NULL
+  meanc <- if (mean) "MeanCenter" else NULL
+
+  write.csv(dat, file = "ma_temp.csv", row.names=FALSE)
+
+  mSet<-InitDataObjects("pktable", "stat", FALSE)
+  mSet<-Read.TextData(mSet, "ma_temp.csv", "colu", "disc") # duplicates not allowed
+  mSet<-SanityCheckData(mSet)
+  mSet<-ReplaceMin(mSet)
+  mSet<-SanityCheckData(mSet)
+  mSet<-FilterVariable(mSet, "none", -1, "F", 25, F)
+  mSet<-PreparePrenormData(mSet)
+  mSet<-Normalization(mSet, "GroupPQN", logn, meanc, "QC", ratio=FALSE, ratioNum=20)
+
+  file.remove("ma_temp.csv")
   
+  dat <- cbind(dat[-1,1], t(mSet[["dataSet"]][["norm"]]))
+  
+  return(dat)
 }
 
 windowselect <- function(input) {
