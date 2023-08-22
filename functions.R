@@ -14,14 +14,10 @@ isfunc <- function(dat, seq, is, method, qc) {
   rt <- which(seq[, 1] == "RT")
   isname <- is
   is <- as.numeric(gsub(" .*$", "", is))
-  if (qc) {
-    sel <- c("Sample", "QC") 
-  } else {
-    sel <- "Sample"
-  }
+  sel <- if (qc) c("Sample", "QC") else "Sample"
   sdat <- dat[seq[, 1] %in% sel]
   sdat[sdat == 0] <- NA
-  is <- is[complete.cases(sdat[is, ])] # remove IS with missing values
+  is <- is[complete.cases(sdat[is, ])]
   near <- sapply(dat[, rt], function(y) {
     which.min(abs(dat[is, rt] - y))
   })
@@ -36,12 +32,11 @@ isfunc <- function(dat, seq, is, method, qc) {
       }
     })
   }
-  sapply(seq(ncol(sdat)), function(j) {
+  sdat <- sapply(seq(ncol(sdat)), function(j) {
     sapply(seq(nrow(sdat)), function(i) {
       sdat[i, j] <- sdat[i, j] / sdat[is, j][near[i]]
     })
   })
-
   isnorm <- sapply(seq(nrow(sdat)), function(x) {
     isname[near[x]]
   })
@@ -146,6 +141,9 @@ imputation <- function(dat, seq, method, minx = 1, onlyqc, remaining) {
 
 cutoffrm <- function(dat, seq, cutoff, method) {
   cutoff <- cutoff / 100
+  if(is.null(method))
+    return(dat)
+  
   if ("entire data" %in% method) {
     datm <- dat[seq[, 1] %in% "Sample"]
     datm[datm == 0] <- NA
@@ -168,10 +166,10 @@ cutoffrm <- function(dat, seq, cutoff, method) {
       keep_m[, cl] <- rowSums(!is.na(cl_f)) / ncol(cl_f) >= cutoff
     }
     keep <- apply(keep_m, 1, function(x) any(x))
-  }
+  } 
   dat <- dat[keep, ]
   return(dat)
-} #TODO if you don't select anything?
+}
 
 imp_median <- function(dat, seq) {
   datm <- data.frame(seq$class, t(dat))
@@ -395,37 +393,33 @@ duplicaterank <- function(duplicate, rankings) {
   }
 }
 
-## Statistics
+# Statistics
 
-addNAColumns <- function(dat, seq, groups, maxreps) {
-  
-   # Order columns by group
-   # Check replicates and adds empty columns if necessary
-   # Adds row with group name for MetaboAnalystR
-
-  tdat <- dat[,1] # only first column (names?)
+addcols <- function(dat, seq, groups, maxreps) {
+  tdat <- dat[,1]
   rgroup <- c("")
   rtime <- c("")
-  for(group in 1:length(groups)) { #TODO for group in groups
+  for(group in 1:length(groups)) {
     groupdat <- dat[, seq[, 4] %in% groups[group]]
-    time <- seq[seq[, 4] %in% groups[group], 5] # rows with this group but only time info - append?
+    time <- seq[seq[, 4] %in% groups[group], 5]
     tdat <- cbind(tdat, groupdat)
     if(length(groupdat) < maxreps) {
       fcol <- t(rep(NA, maxreps - length(groupdat)))
       tdat <- cbind(tdat, fcol)
     }
     rgroup <- append(rgroup, rep(paste("g", groups[group], sep = ""), maxreps))
-    rtime <- append(rtime, t(time))
-    print(rtime)
+    if(any(complete.cases(seq[, 5])))
+      rtime <- append(rtime, t(time))
   }
-
   tdat <- rbind(rgroup, tdat)
-  colnames(tdat) <- paste(colnames(tdat), rgroup, paste("t", rtime, sep=""), sep = "_")
-  print(colnames(tdat))
+  if(any(complete.cases(seq[, 5])))
+    colnames(tdat) <- paste(colnames(tdat), rgroup, paste("t", rtime, sep=""), sep = "_")
+  else
+    colnames(tdat) <- paste(colnames(tdat), rgroup, sep = "_")
   return(tdat)
 }
 
-metaboTransform <- function(dat, log, mean) {
+mrtrans <- function(dat, log, mean) {
   logn <- if (log) "LogNorm" else NULL
   meanc <- if (mean) "MeanCenter" else NULL
 
@@ -441,10 +435,38 @@ metaboTransform <- function(dat, log, mean) {
   mSet<-Normalization(mSet, "GroupPQN", logn, meanc, "QC", ratio=FALSE, ratioNum=20)
 
   file.remove("ma_temp.csv")
-  
   dat <- cbind(dat[-1,1], t(mSet[["dataSet"]][["norm"]]))
-  
   return(dat)
+}
+
+ts_test <- function(dat, s1, s2) {
+  library(limma)
+  library(statmod)
+  header_dat <- colnames(dat)
+  group <- sapply(strsplit(header_dat,split="_"),`[`,2)
+  time <- sapply(strsplit(header_dat,split="_"),`[`,3)
+  group_time <- paste(group, time,sep="_")
+  colnames(dat) <- group_time
+  group <- factor(group)
+  time <- factor(time)
+  group_time <- factor(group_time)
+
+  design <- model.matrix(~0+group_time)
+  colnames(design) <- levels(group_time)
+  features <- rownames(dat)
+  dat <- matrix(as.numeric(dat), ncol = ncol(dat))
+  rownames(dat) <- features
+  #TODO colnames need to match with design and s1 and s2?
+  fit <- lmFit(dat, design)
+  contrast_table <- makeContrasts(contrasts=paste("c1 = ", s1, "-", s2), levels = design)
+  print(contrast_table)
+  fit <- contrasts.fit(fit, contrast_table)
+  fit <- eBayes(fit)
+  
+  print(topTable(fit, adjust="BH"))
+  results <- topTable(fit, adjust="BH", number=Inf)
+  detach(package:limma,unload=TRUE)
+  return(results)
 }
 
 windowselect <- function(input) {

@@ -3,7 +3,9 @@ shinyServer(function(session, input, output) {
 
   # Global variables
   rv <- reactiveValues(data = list(), seq = list(), si = NULL, tmp = NULL, tmpseq = NULL, 
-                statsdata = NULL, choices = NULL, is = NULL, group_time = NULL, drift_plot_select = 1)
+                 choices = NULL, drift_plot_select = 1)
+
+  st <- reactiveValues(statsdata = list(), statsresults = list(), groups = list(), NumReps = c(), NumCond = c())
   
   rankings <- read.csv("./csvfiles/rankings.csv", stringsAsFactors = FALSE)
 
@@ -33,19 +35,21 @@ shinyServer(function(session, input, output) {
     windowselect("statistics")
   })
 
-  ## Observes file input and creates a new dataset from input
+  # Observes file input and creates a new dataset from input
   observeEvent(input$in_file, {
-    #TODO deal with this "try" thing
     try(dat <- read.csv(input$in_file$datapath, header = 1, stringsAsFactors = F, check.names = FALSE))
     lab <- identifylabels(dat)
     batch <- NA
     order <- NA
     class <- NA
     time <- NA
-    rv$time <- NULL
     rv$tmp <- NULL
     rv$tmpseq <- NULL
-    rv$statsdata <- NULL
+    st$statsdata[[length(st$statsdata) + 1]] <- data.frame()
+    st$statsresults[[length(st$statsresults) + 1]] <- data.frame()
+    st$groups[[length(st$groups) + 1]] <- NA
+    st$NumReps[[length(st$NumReps) + 1]] <- NA
+    st$NumCond[[length(st$NumCond) + 1]] <- NA
     rv$seq[[length(rv$seq) + 1]] <- data.frame(lab, batch, order, class, time)
     rv$data[[length(rv$data) + 1]] <- dat
     names(rv$data)[length(rv$data)] <- substr(input$in_file$name, 1, nchar(input$in_file$name) - 4)
@@ -155,25 +159,39 @@ shinyServer(function(session, input, output) {
   })
 
   observeEvent(input$example, {
+    # Lipidomics
     dat <- read.csv("./csvfiles/Eva pos export from profinder.csv", stringsAsFactors = FALSE)
     lab <- identifylabels(dat)
     lab[5] <- "-"
     batch <- c(NA, NA, NA, NA, NA, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, NA, NA, NA, 1, 1, 1, 1, 1)
     order <- c(NA, NA, NA, NA, NA, 11, 16, 13, 15, 14, 6, 8, 5, 4, 10, 9, 3, NA, NA, NA, 1, 2, 7, 12, 17)
     class <- c(NA, NA, NA, NA, NA, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, NA, NA, NA, NA, NA, NA, NA, NA)
-    rv$seq[[length(rv$seq) + 1]] <- data.frame(lab, batch, order, class)
+    time <- rep(NA, length(class))
+    rv$seq[[length(rv$seq) + 1]] <- data.frame(lab, batch, order, class, time)
     rv$data[[length(rv$data) + 1]] <- dat
     names(rv$data)[length(rv$data)] <- "Lipidomics_pos"
+    st$statsdata[[length(st$statsdata) + 1]] <- data.frame()
+    st$statsresults[[length(st$statsresults) + 1]] <- data.frame()
+    st$groups[[length(st$groups) + 1]] <- NA
+    st$NumReps[[length(st$NumReps) + 1]] <- NA
+    st$NumCond[[length(st$NumCond) + 1]] <- NA
+    # Metabolomics
     dat <- read.csv("./csvfiles/Woz export from mzmine pos.csv", stringsAsFactors = FALSE)
     lab <- identifylabels(dat)
     lab[1] <- "Name"
     batch <- c(NA, NA, NA, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, NA, NA, NA, NA)
     order <- c(NA, NA, NA, 10, 28, 46, 19, 49, 47, 48, 2, 37, 1, 57, 42, 18, 15, 23, 56, 30, 13, 52, 44, 36, 51, 41, 5, 27, 25, 39, 17, 11, 33, 21, 43, 40, 32, 20, 12, 45, 35, 8, 29, 4, 7, 9, 50, 24, 53, 38, 54, 55, 6, 22, 34, 16, 14, 26, 3, 31, NA, NA, NA, NA)
     class <- c(NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 2, 6, 5, 2, 4, 2, 1, 3, 1, 3, 3, 4, 5, 3, 4, 1, 1, 6, 5, 2, 5, 6, 3, 6, 2, 5, 3, 4, 2, 1, 4, 1, 5, 6, 1, 2, 4, 5, 6, 6, 5, 1, 2, 4, 6, 3, NA, NA, NA, NA)
-    rv$seq[[length(rv$seq) + 1]] <- data.frame(lab, batch, order, class)
+    time <- rep(NA, length(class))
+    rv$seq[[length(rv$seq) + 1]] <- data.frame(lab, batch, order, class, time)
     rv$data[[length(rv$data) + 1]] <- dat
     names(rv$data)[length(rv$data)] <- "Metabolomics_pos"
     rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
+    st$statsdata[[length(st$statsdata) + 1]] <- data.frame()
+    st$statsresults[[length(st$statsresults) + 1]] <- data.frame()
+    st$groups[[length(st$groups) + 1]] <- NA
+    st$NumReps[[length(st$NumReps) + 1]] <- NA
+    st$NumCond[[length(st$NumCond) + 1]] <- NA
     updateSelectInput(session, "selectdata1", choices = rv$choices, selected = rv$choices[length(rv$choices)])
     updateSelectInput(session, "selectpca1", choices = rv$choices)
     updateSelectInput(session, "selectpca2", choices = rv$choices)
@@ -222,13 +240,18 @@ shinyServer(function(session, input, output) {
     output$dt_boxplot_panel <- renderDT(rv$data[[rv$si]][rv$seq[[rv$si]][, 1] %in% "Name"], rownames = FALSE, options = list(
       autoWidth = TRUE, scrollY = "700px", pageLength = 20
     ))
-    # Statistics
-    output$stats_table <-  renderDT(rv$statsdata, rownames = FALSE, options = list(scrollX = TRUE, scrollY = "700px", pageLength = 20))
 
     if (sum(rv$seq[[rv$si]][, 1] %in% "Name") == 1) {
       is <- findis(rv$data[[rv$si]][rv$seq[[rv$si]][, 1] %in% "Name"])
-      rv$is <- is
       updateCheckboxGroupInput(session, "isChoose", choices = is, selected = is)
+    }
+    # Statistics
+    output$stats_table <-  renderDT(st$statsdata[[rv$si]], rownames = FALSE, options = list(scrollX = TRUE, scrollY = "700px", pageLength = 20))
+    output$results_table <- renderDT(st$statsresults[[rv$si]], rownames = TRUE, options = list(scrollX = TRUE, scrollY = TRUE, pageLength = 20))
+
+    if(is.na(st$groups[[rv$si]])) {
+      output$input_stats <- renderText("")
+      shinyjs::enable("load_sdata")
     }
   })
 
@@ -239,7 +262,6 @@ shinyServer(function(session, input, output) {
         lapply(1:length(rv$choices), function(x) {
           fluidRow(column(12, downloadLink(paste0("dwn", x), paste0(rv$choices[x], ".csv"))))
         }),
-        fluidRow(column(12, downloadLink("stats", paste0("stats", ".csv")))), #TODO
         fluidRow(column(3, actionButton("export_edit", "Edit", width = "100%")))
       )
     })
@@ -250,6 +272,14 @@ shinyServer(function(session, input, output) {
         lapply(1:length(rv$choices), function(x) {
           fluidRow(column(12, downloadLink(paste0("dwn_metabo", x), paste0(rv$choices[x], "_metabo.csv"))))
         })
+      )
+    })
+
+    output$export_stats <- renderUI({
+      box(
+        title = "Statistics data table and results", width = 4,
+        fluidRow(column(12, downloadLink("stats", paste0("data_table", ".csv")))),
+        fluidRow(column(12, downloadLink("results", paste0("results", ".csv"))))
       )
     })
 
@@ -264,15 +294,6 @@ shinyServer(function(session, input, output) {
       )
     })
     
-    output[["stats"]] <- downloadHandler(
-        filename = function() {
-          paste0("stats", ".csv")
-        },
-        content = function(file) {
-          write.csv(rv$statsdata, file, row.names = FALSE)
-        }
-      )
-
     lapply(1:length(rv$choices), function(x) {
       dat <- rv$data[[x]]
       seq <- rv$seq[[x]]
@@ -289,6 +310,23 @@ shinyServer(function(session, input, output) {
         }
       )
     })
+
+    output[["stats"]] <- downloadHandler(
+        filename = function() {
+          paste0("stats", ".csv")
+        },
+        content = function(file) {
+          write.csv(st$statsdata, file, row.names = FALSE)
+        }
+    )
+    output[["results"]] <- downloadHandler(
+        filename = function() {
+          paste0("results", ".csv")
+        },
+        content = function(file) {
+          write.csv(st$statsresults[[rv$si]], file, row.names = TRUE)
+        }
+    )
 
     output$seq_download <- downloadHandler(
       filename <- function() {
@@ -434,6 +472,11 @@ shinyServer(function(session, input, output) {
         rv$data[[length(rv$data) + 1]] <- rv$tmpdata
         rv$seq[[length(rv$seq) + 1]] <- rv$tmpseq
         names(rv$data)[length(rv$data)] <- paste0(names(rv$data)[rv$si], "_", input$xbf, "xb")
+        st$statsdata[[length(st$statsdata) + 1]] <- data.frame()
+        st$statsresults[[length(st$statsresults) + 1]] <- data.frame()
+        st$groups[[length(st$groups) + 1]] <- NA
+        st$NumReps[[length(st$NumReps) + 1]] <- NA
+        st$NumCond[[length(st$NumCond) + 1]] <- NA
       } else {
         rv$data[[rv$si]] <- rv$tmpdata
         rv$seq[[rv$si]] <- rv$tmpseq
@@ -464,19 +507,8 @@ shinyServer(function(session, input, output) {
         method = input$ismethod,
         qc = input$isqc
       )
-
-      # unusedIs <- rv$is[!(rv$is %in% input$isChoose)]
-      # unusedIs <-  as.numeric(gsub(" .*$", "", unusedIs))
-      
-      # if(length(unusedIs) > 0) {
-      #   rv$tmpdata <- isdat[-unusedIs, ]
-      # } else {
-      #   rv$tmpdata <- isdat
-      # }
       rv$tmpdata <- isdat
       rv$tmpseq <- isseq
-      rv$is <- input$isChoose
-      updateCheckboxGroupInput(session, "isChoose", choices = input$isChoose, selected = input$isChoose)
       updateSelectInput(session, "selectpca1", selected = "Unsaved data", choices = c("Unsaved data", rv$choices))
       output$dttable <- renderDataTable(rv$tmpdata, rownames = FALSE, options = list(scrollX = TRUE, scrollY = "700px", pageLength = 20))
     }
@@ -503,6 +535,11 @@ shinyServer(function(session, input, output) {
         rv$data[[length(rv$data) + 1]] <- rv$tmpdata
         rv$seq[[length(rv$seq) + 1]] <- rv$tmpseq
         names(rv$data)[length(rv$data)] <- paste0(names(rv$data)[rv$si], "_is")
+        st$statsdata[[length(st$statsdata) + 1]] <- data.frame()
+        st$statsresults[[length(st$statsresults) + 1]] <- data.frame()
+        st$groups[[length(st$groups) + 1]] <- NA
+        st$NumReps[[length(st$NumReps) + 1]] <- NA
+        st$NumCond[[length(st$NumCond) + 1]] <- NA
       } else {
         rv$data[[rv$si]] <- rv$tmpdata
         rv$seq[[rv$si]] <- rv$tmpseq
@@ -520,8 +557,9 @@ shinyServer(function(session, input, output) {
   observeEvent(input$isremove, {
     dat <- rv$data[[rv$si]]
     rmdat <- rv$data[[rv$si]][rv$seq[[rv$si]][, 1] %in% "Name"]
-    dat <- dat[!grepl("\\(IS\\)", toupffper(rmdat[ , 1])), ]
+    dat <- dat[!grepl("\\(IS\\)", toupper(rmdat[ , 1])), ]
     rv$data[[rv$si]] <- dat
+    updateCheckboxGroupInput(session, "isChoose", choices = character(0), selected = NULL)
   })
 
   observeEvent(input$mvf_run, {
@@ -555,6 +593,11 @@ shinyServer(function(session, input, output) {
         rv$data[[length(rv$data) + 1]] <- rv$tmpdata
         rv$seq[[length(rv$seq) + 1]] <- rv$tmpseq
         names(rv$data)[length(rv$data)] <- paste0(names(rv$data)[rv$si], "_mvr")
+        st$statsdata[[length(st$statsdata) + 1]] <- data.frame()
+        st$statsresults[[length(st$statsresults) + 1]] <- data.frame()
+        st$groups[[length(st$groups) + 1]] <- NA
+        st$NumReps[[length(st$NumReps) + 1]] <- NA
+        st$NumCond[[length(st$NumCond) + 1]] <- NA
       } else {
         rv$data[[rv$si]] <- rv$tmpdata
         rv$seq[[rv$si]] <- rv$tmpseq
@@ -615,10 +658,15 @@ shinyServer(function(session, input, output) {
     if (is.null(rv$tmpdata)) {
       showNotification("Imputate first", type = "error")
     } else {
-      if (input$imp_newsave) {
+      if(input$imp_newsave) {
         rv$data[[length(rv$data) + 1]] <- rv$tmpdata
         rv$seq[[length(rv$seq) + 1]] <- rv$tmpseq
         names(rv$data)[length(rv$data)] <- paste0(names(rv$data)[rv$si], "_imp")
+        st$statsdata[[length(st$statsdata) + 1]] <- data.frame()
+        st$statsresults[[length(st$statsresults) + 1]] <- data.frame()
+        st$groups[[length(st$groups) + 1]] <- NA
+        st$NumReps[[length(st$NumReps) + 1]] <- NA
+        st$NumCond[[length(st$NumCond) + 1]] <- NA
       } else {
         rv$data[[rv$si]] <- rv$tmpdata
         rv$seq[[rv$si]] <- rv$tmpseq
@@ -676,6 +724,12 @@ shinyServer(function(session, input, output) {
         rv$data[[length(rv$data) + 1]] <- rv$tmpdata
         rv$seq[[length(rv$seq) + 1]] <- rv$tmpseq
         names(rv$data)[length(rv$data)] <- paste0(names(rv$data)[rv$si], "_dc")
+        st$statsdata[[length(st$statsdata) + 1]] <- data.frame()
+        st$statsresults[[length(st$statsresults) + 1]] <- data.frame()
+        st$groups[[length(st$groups) + 1]] <- NA
+        st$NumReps[[length(st$NumReps) + 1]] <- NA
+        st$NumCond[[length(st$NumCond) + 1]] <- NA
+
       } else {
         rv$data[[rv$si]] <- rv$tmpdata
         rv$seq[[rv$si]] <- rv$tmpseq
@@ -802,6 +856,11 @@ shinyServer(function(session, input, output) {
       rv$data[[length(rv$data) + 1]] <- dat[, seq(ncol(dat) - 2)]
       rv$seq[[length(rv$seq) + 1]] <- rv$seq[[rv$si]]
       names(rv$data)[length(rv$data)] <- paste0(names(rv$data)[rv$si], "_merged")
+        st$statsdata[[length(st$statsdata) + 1]] <- data.frame()
+        st$statsresults[[length(st$statsresults) + 1]] <- data.frame()
+        st$groups[[length(st$groups) + 1]] <- NA
+        st$NumReps[[length(st$NumReps) + 1]] <- NA
+        st$NumCond[[length(st$NumCond) + 1]] <- NA
     } else if (isFALSE(input$md_newsave)) {
       rv$data[[rv$si]] <- dat[, seq(ncol(dat) - 2)]
       names(rv$data)[rv$si] <- paste0(names(rv$data)[rv$si], "_merged")
@@ -900,150 +959,6 @@ shinyServer(function(session, input, output) {
 
   observeEvent(input$drift_3, {
     rv$drift_plot_select <- 3
-  })
-
-  ##TODO 
-  observeEvent(input$qcnorm_run, {
-    if(is.null(rv$statsdata)) {
-      tdata <- rv$data[[rv$si]][, rv$seq[[rv$si]][, 1] %in% c("Name",  "Sample", "QC")]
-      rv$statsdata <- tdata
-    }
-    else {
-      tdata <- rv$statsdata
-    }
-
-    #TODO Atm, metaboanalyst replaces the columns with missing values with actual values - Miss test makes no sense like this
-    # Do all this in addNAcolumns function? (No?) + don't want to normalize button
-    tdataNA <- rv$data[[rv$si]][, rv$seq[[rv$si]][, 1] %in% c("Name",  "Sample")]
-    tseqNA <- rv$seq[[rv$si]][rv$seq[[rv$si]][, 1] %in% c("Name",  "Sample"), ]
-    groups <- factor(tseqNA[, 4], exclude = NA)
-    NumReps <- max(table(groups))
-    groups <- levels(groups)
-    NumCond <- length(groups)
-    tdataNA <- addNAColumns(tdataNA, tseqNA, groups, NumReps)
-
-    # Join QCs and rest of the data frame 
-    tdataQC <- rv$data[[rv$si]][, rv$seq[[rv$si]][, 1] %in% "QC"]
-    tdataQC <- rbind(rep("QC", ncol(tdataQC)), tdataQC)
-    tdata <- cbind(tdataNA, tdataQC)
-
-    if(input$qcnorm_run) {
-      tdata <- metaboTransform(tdata, input$logtrans, input$meanscale)
-      print(colnames(tdata))
-      #TODO unable not normalize button
-    }
-
-    # else remove first row and QC 
-
-
-    rv$statsdata <- tdata
-  
-    #Groups
-    output$input_stats <- renderText({ 
-      paste(NumCond, " groups were detected<br/>", 
-        paste("<i>Condition ", 1:NumCond,":</i>", 
-        sapply(0:(NumCond-1), function(x) paste(colnames(tdata)[(2:(NumReps+1))+x*NumReps],collapse=", ")),
-        "<br/>",collapse=""))
-    })
-
-    #Time
-    if(any(complete.cases(tseqNA[, 5]))) {
-      output$time_info <- renderText({ 
-        paste(length(unique(tseqNA[, 5])), " different time points detected.<br/>")
-      })
-      #insertUI("#stat_comparisons","afterEnd",ui=tagList(addCompUIs(1,colnames(tdata))), immediate=T)
-      updateSelectInput(session, "sel1", label = NULL, choices = colnames(tdata), selected = NULL)
-      updateSelectInput(session, "sel2", label = NULL, choices = colnames(tdata), selected = NULL)
-    } else {
-      output$time_info <- renderText({"Data does not contain information on time series."})
-    }
-  })
-
-  ## Comparisons
-  # adding default UI elements for comparisons
-  # addCompUIs <- function(el, samples) {
-  #   print("addCompUIs")
-  #   div(style="padding-right: 10px; padding-left: 0px;",id=paste("selall_",el,sep=""),
-  #       fluidRow(
-  #         column(12,align="left",style="padding:0px;",div(p(paste("Comparison ", el, ":",sep="")),h6(style = "display:inline;", icon("question-circle"))),
-  #                id=paste("selt_",el,sep=""),style="padding:0px;")
-  #       ),
-  #       fluidRow(
-  #         column(4,align="center",style="padding:0px;",selectInput(paste("sels_",el,sep=""), label=NULL,
-  #                                                                  choices = samples, selected = NULL)),
-  #         column(2,h5("vs")),
-  #         column(4,align="center",style="padding:0px;",selectInput(paste("selr_",el,sep=""), label=NULL,
-  #                                                                  choices = samples, selected = NULL)),
-  #         column(2,align="center",style="padding:0px;",actionButton(paste("selb_",el,sep=""),label=NULL,icon =icon("trash")))
-  #       ))
-  # }
-
-
-  ## Statistics
-  #TODO Limma
-  observeEvent(input$run_stats, {
-    dat <- rv$statsdata
-    
-    s1 <- str_extract(input$sel1, "_(.*)")
-    s1 <- substr(s1, 2, nchar(s1))
-    s2 <- str_extract(input$sel2, "_(.*)")
-    s2 <- substr(s2, 2, nchar(s2))
-    print(s1)    
-    # make a function out of this?
-
-    dat <- dat[, -1] # remove column with rownames - TODO why do we have an extra column?
-
-    header_dat <- colnames(dat)
-  
-    group <- sapply(strsplit(header_dat,split="_"),`[`,2) #strsplit splits the header vector which are seperated by _. The `[`,1) splits the list in a list only taking one list (i.e. in this case the group)
-    time <- sapply(strsplit(header_dat,split="_"),`[`,3)
-    #sample <- sapply(strsplit(header_tise,split="_"),`[`,2)
-    group_time <- paste(group, time,sep="_") #A 4th vector is made to make sure the limma function do not compare pooled pre and post samples
-
-    group <- factor(group) #Makes the vectors into factors
-    time <- factor(time)
-    #sample <- factor(sample)
-    group_time <- factor(group_time)
-
-    design <- model.matrix(~0+group_time) #This creates the model.matrix for how the samples are divided into the different groups
-    colnames(design) <- levels(group_time)
-    print(design)
-    fit <- lmFit(dat,design)
-
-    
-    contrast_table <- makeContrasts(c1=s1 - s2,
-                                  levels=design)
-
-    fit <- contrasts.fit(fit,contrast_table)
-    fit <- eBayes(fit)
-    print(fit)
-
-  })
-
-
-  observeEvent(input$send_polystest, {
-    if(is.null(rv$statsdata)) {
-      shinyalert("Oops!", "No data to send, please adjust data first.")
-    }
-    else {
-      # tdata <- rv$statsdata
-      tseq <- rv$seq[[rv$si]][rv$seq[[rv$si]][, 1] %in% c("Name",  "Sample"), ]
-      groups <- factor(tseq[, 4], exclude = NA)
-      NumReps <- max(table(groups))
-      NumCond <- length(levels(groups))
-
-      # tdata <- addNAColumns(tdata, tseq, groups, NumReps)
-      # TODO remove 1st column (row?) if data was not transformed? && remove QCs
-      tdata <- rv$statsdata
-      # tdata <- tdata[!colnames(tdata) %in% "QC"]
-      # print(colnames(tdata))
-
-      PolySTestMessage <- toJSON(list(numrep=NumReps, numcond=NumCond, grouped=F, paired=input$paired, firstquantcol=2, 
-                                    expr_matrix=as.list(as.data.frame(tdata))))
-      updateTextInput(session, "app_log", value="Opening PolySTest and data upload ...")
-      js$send_message(url=input$url_polystest, dat=PolySTestMessage, tool="PolySTest")
-      enable("retrieve_polystest")
-    }
   })
 
   output$drift_ui <- renderUI({
@@ -1197,5 +1112,132 @@ shinyServer(function(session, input, output) {
       })
     }
   })
+
+  
+  # Load Statistics Data
+  group_timeUI <- function(names, time) {
+    NumCond <- st$NumCond[[rv$si]]
+    NumReps <- st$NumReps[[rv$si]]
+    output$input_stats <- renderText({ 
+      paste(NumCond, " groups were detected<br/>", 
+        paste("<i>Condition ", 1:NumCond,":</i>", 
+        sapply(0:(NumCond-1), function(x) paste(names[(2:(NumReps+1))+x*NumReps],collapse=", ")),
+        "<br/>",collapse=""))
+    })
+    if(any(complete.cases(time))) {
+      #insertUI("#stat_comparisons","afterEnd",ui=tagList(addCompUIs(1,colnames(tdata))), immediate=T)
+      updateSelectInput(session, "sel1", label = NULL, choices = names, selected = NULL)
+      updateSelectInput(session, "sel2", label = NULL, choices = names, selected = NULL)
+    } else {
+      output$time_info <- renderText({"Data does not contain information on time series."})
+    }
+  }
+
+  group_data <- function(dat, seq) {
+    groups <- factor(seq[, 4], exclude = NA)
+    NumReps <- max(table(groups))
+    groups <- levels(groups)
+    NumCond <- length(groups)
+    st$groups[[rv$si]] <- groups
+    st$NumReps[[rv$si]] <- NumReps
+    st$NumCond[[rv$si]] <- NumCond
+    dat <- addcols(dat, seq, groups, NumReps)
+    return(dat)
+  }
+
+  observeEvent(input$qcnorm_run, {
+    tdataNA <- rv$data[[rv$si]][, rv$seq[[rv$si]][, 1] %in% c("Name",  "Sample")]
+    tseqNA <- rv$seq[[rv$si]][rv$seq[[rv$si]][, 1] %in% c("Name",  "Sample"), ]
+    #group_data(tseqNA[, 4])
+    #tdataNA <- addcols(tdataNA, tseqNA, st$groups[[rv$si]], st$NumReps[[rv$si]])
+    tdataNA <- group_data(tdataNA, tseqNA)
+
+    # Join QCs and rest of the data frame 
+    tdataQC <- rv$data[[rv$si]][, rv$seq[[rv$si]][, 1] %in% "QC"]
+    tdataQC <- rbind(rep("QC", ncol(tdataQC)), tdataQC)
+    tdata <- cbind(tdataNA, tdataQC)
+    labels <- tdata[1, ]
+
+    tdata <- mrtrans(tdata, input$logtrans, input$meanscale)    
+    tdata <- tdata[, !(labels %in% "QC")]
+    st$statsdata[[rv$si]] <- tdata
+  
+    group_timeUI(colnames(tdata), tseqNA[,5])
+    shinyjs::disable("load_sdata")
+    shinyjs::enable("send_polystest")
+  })
+
+  observeEvent(input$load_sdata, {
+    tdata <- rv$data[[rv$si]][, rv$seq[[rv$si]][, 1] %in% c("Name",  "Sample")]
+    tseq <- rv$seq[[rv$si]][rv$seq[[rv$si]][, 1] %in% c("Name",  "Sample"), ]
+    tdata <- group_data(tdata, tseq)
+    st$statsdata[[rv$si]] <- tdata[-1, ]
+    group_timeUI(colnames(tdata), tseq[,5])
+    shinyjs::disable("load_sdata")
+    shinyjs::enable("send_polystest")
+  })
+
+  # Statistics
+  observeEvent(input$run_stats, {
+    library(stringr)
+    dat <- st$statsdata[[rv$si]]
+    s1 <- str_extract(input$sel1, "_(.*)")
+    s1 <- substr(s1, 2, nchar(s1))
+    s2 <- str_extract(input$sel2, "_(.*)")
+    s2 <- substr(s2, 2, nchar(s2))
+
+    rownames(dat) <- dat[,1]
+    dat <- dat[, -1]
+    dat <- ts_test(dat, s1, s2)
+    st$statsresults[[rv$si]] <- dat
+  })
+
+  # Send to PolySTest
+  observeEvent(input$send_polystest, {
+    if(is.null(st$statsdata[[rv$si]])) {
+      shinyalert("Oops!", "No data to send, please adjust data first.")
+    }
+    else {
+      tdata <- st$statsdata[[rv$si]]
+      PolySTestMessage <- toJSON(list(numrep=st$NumReps[[rv$si]], numcond=st$NumCond[[rv$si]], grouped=F, paired=input$paired, firstquantcol=2, 
+                                    expr_matrix=as.list(as.data.frame(tdata))))
+      updateTextInput(session, "app_log", value="Opening PolySTest and data upload ...")
+      js$send_message(url=input$url_polystest, dat=PolySTestMessage, tool="PolySTest")
+      enable("retrieve_polystest")
+    }
+  })
+
+  # Get results from PolySTest
+  observeEvent(input$retrieve_polystest, isolate({
+    updateTextInput(session, "app_log", value="Getting PolySTest results")
+    js$retrieve_results(url=input$url_polystest, dat="Retrieve results", tool="PolySTest")
+  }))
+
+  # Merging PolySTest results into result table
+  observeEvent(input$polystest_results, isolate({
+    print("Processing PolySTest results")
+    if (is.list(input$polystest_results)) {
+      print("data table received")
+      tdata <- NULL
+      print(names(input$polystest_results[[1]]))
+      for (n in names(input$polystest_results[[1]])) {
+        if(is.null(tdata)) {
+          tdata <- as.numeric(input$polystest_results[[1]][[n]])
+          next
+        }
+        tdata <- cbind(tdata, as.numeric(input$polystest_results[[1]][[n]]))
+      }
+      print("tdata")
+      print(st$statsresults[[rv$si]])
+      colnames(tdata) <- names(input$polystest_results[[1]])
+      if(nrow(st$statsresults[[rv$si]]) == 0) {
+      #if (is.null(st$statsresults[[rv$si]])) {
+        st$statsresults[[rv$si]] <- tdata
+      } else {
+        st$statsresults[[rv$si]] <- cbind(st$statsresults[[rv$si]], tdata)
+      }
+      updateTextInput(session, "app_log", value="Processed PolySTest results")
+    }
+  }))
 }
 )

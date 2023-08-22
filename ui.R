@@ -16,11 +16,8 @@ library(randomForest)
 library(writexl)
 library(igraph)
 library(stringi)
-library(stringr)
 library(MetaboAnalystR)
 library(jsonlite)
-library(limma)
-#devtools::install_github("xia-lab/MetaboAnalystR", build = TRUE, build_vignettes = FALSE)
 library(BiocManager)
 options(repos = BiocManager::repositories())
 source("functions.R")
@@ -32,16 +29,18 @@ shinyUI(dashboardPage(
     titleWidth = 400
   ),
 
-  #### Sidebar ####
-  
+  # Sidebar 
+
   dashboardSidebar(
     width = "400",
     useShinyjs(),
     tags$style(HTML(".panel-primary {color: #000000;}")),
     fluidPage(
       fluidRow(
-        selectizeInput("selectdata1", "Active dataset", choices = NULL, width = "100%",
-                        options = list(placeholder = "Please upload a file to start"))
+        selectizeInput("selectdata1", "Active dataset",
+          choices = NULL, width = "100%",
+          options = list(placeholder = "Please upload a file to start")
+        )
       ),
       bsCollapse(
         id = "menu", multiple = FALSE, open = "Data input",
@@ -49,8 +48,10 @@ shinyUI(dashboardPage(
           style = "primary",
           fluidRow(
             style = "padding: 0px;",
-            column(12, fileInput("in_file", "Select file", accept = c("txt/csv", "text/comma-seperated-values, text/plain", ".csv"),
-                      width = "100%"), style = "padding: 0px;")
+            column(12, fileInput("in_file", "Select file",
+              accept = c("txt/csv", "text/comma-seperated-values, text/plain", ".csv"),
+              width = "100%"
+            ), style = "padding: 0px;")
           ),
           fluidRow(
             style = "margin-right: 0px;",
@@ -117,13 +118,13 @@ shinyUI(dashboardPage(
           ),
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, bsButton("is", "IS normalize", width = "100%"), style = "padding-left:0px;"),
+            column(6, bsButton("is", "Normalize", width = "100%"), style = "padding-left:0px;"),
             column(6, bsButton("is_optimize", "Optimize", width = "100%"), style = "padding-left:0px;")
           ),
           fluidRow(
             style = "margin-right: 0px;",
             column(6, bsButton("isremove", "Remove IS", width = "100%"), style = "padding-left:0px;"),
-            column(6, bsButton("issave", "Save", width = "100%"), style = "padding-left:0px;")          
+            column(6, bsButton("issave", "Save", width = "100%"), style = "padding-left:0px;")
           )
         ),
         bsCollapsePanel("Imputation",
@@ -173,7 +174,7 @@ shinyUI(dashboardPage(
             column(6, bsButton("md_run", "Run", width = "100%"), style = "padding-left:0px;")
           )
         ),
-        bsCollapsePanel("QC normalization", #NEW TODO ANITA
+        bsCollapsePanel("QC normalization",
           style = "primary",
           fluidRow(selectInput("pool_sample", "Pooled sample", choices = c("QC", "X", "Y"), width = "100%")),
           fluidRow(
@@ -183,8 +184,8 @@ shinyUI(dashboardPage(
           ),
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, bsButton("qcnorm_save", "Save", width = "100%"), style = "padding-left:0px;"),
-            column(6, bsButton("qcnorm_run", "Run", width = "100%"), style = "padding-left:0px;")
+            column(6, bsButton("qcnorm_run", "Run", width = "100%"), style = "padding-left:0px;"),
+            column(6, bsButton("qcnorm_save", "Save", width = "100%"), style = "padding-left:0px;") #TODO
           )
         )
       )
@@ -192,25 +193,25 @@ shinyUI(dashboardPage(
     sidebarMenu()
   ),
 
-  #### Main Body ####
-  
+  # Main Body
+
   dashboardBody(
     tags$head(tags$style(".modal-sm{ width:300px}
                          .modal-lg{ width:1200px}")),
-    tags$head(tags$script(src="CallShiny.js")),
-    useShinyjs(),  # Include shinyjs
-    extendShinyjs(script="CallShiny.js", functions=c("retrieve_results","send_message","run_button")),
+    tags$head(tags$script(src = "CallShiny.js")),
+    useShinyjs(), # Include shinyjs
+    extendShinyjs(script = "CallShiny.js", functions = c("retrieve_results", "send_message", "run_button")),
     fluidRow(hidden(div(
       id = "buttons", style = "padding-bottom: 49px",
       column(3, bsButton("sequence",
         label = "Sequence",
-        icon = icon("user"),
+        icon = icon("tags"),
         style = "default",
         block = T
       )),
       column(3, bsButton("datatable",
         label = "Data table",
-        icon = icon("spinner", class = "spinner-box"),
+        icon = icon("table"),
         style = "default",
         block = T
       )),
@@ -224,14 +225,14 @@ shinyUI(dashboardPage(
       )),
       column(2, bsButton("statistics_button",
         label = "Statistics",
-        icon = icon("thumbs-up"),
+        icon = icon("clipboard"),
         style = "default",
         block = T
       )),
       tags$style(type = "text/css", "#plot2 {width:100%}"),
       column(2, bsButton("export",
         label = "Export",
-        icon = icon("thumbs-up"),
+        icon = icon("download"),
         style = "default",
         block = TRUE
       )),
@@ -278,7 +279,8 @@ shinyUI(dashboardPage(
             box(
               width = NULL, title = "Upload sequence file", status = "danger",
               fileInput("in_seq", "Select file", accept = c("txt/csv", "text/comma-seperated-values,text/plain", ".csv"), width = "100%"),
-              column(6, actionButton("updateseq", label = "Update", width = "100%")), column(6, actionButton("reuseseq", label = "Re-use sequence", width = "100%"))
+              column(6, actionButton("updateseq", label = "Update", width = "100%")), 
+              column(6, actionButton("reuseseq", label = "Re-use sequence", width = "100%"))
             ),
             box(
               width = NULL, title = "Extract adducts from name",
@@ -308,7 +310,10 @@ shinyUI(dashboardPage(
           column(
             width = 12,
             box(width = NULL, DTOutput("dttable"))
-    )))),
+          )
+        )
+      )
+    ),
     fluidRow(
       hidden(
         div(
@@ -329,55 +334,64 @@ shinyUI(dashboardPage(
               tabBox(tabPanel(title = "Første panel", htmlOutput("info1"))),
               tabBox(tabPanel(title = "second", htmlOutput("info2")))
             )
-    )))),
+          )
+        )
+      )
+    ),
     fluidRow(
       hidden(
         div(
           id = "statistics_panel",
           fluidPage(
             fluidRow(
-              column(6, id="pr_c2",
-                  h4("Statistical tests"),
-                  column(10, span(htmlOutput("input_stats"),
-                                div(style = "display:inline-block;",
-                                    title = "Edit in sequence panel",
-                                    icon("info-circle")))),
-                  
-                  column(10, bsCollapsePanel("Time series", style="default", #TODO remove?
-                    htmlOutput("time_info"),
-                    uiOutput("stat_comparisons"),
-                    div(style="padding-right: 10px; padding-left: 0px;",id="comps",
-       
-        fluidRow(
-          column(4,align="center",style="padding:0px;",selectInput("sel1", label=NULL,
-                                                                   choices = NULL, selected = NULL)),
-          column(2,h5("vs")),
-          column(4,align="center",style="padding:0px;",selectInput("sel2", label=NULL,
-                                                                   choices = NULL, selected = NULL))
-          #column(2,align="center",style="padding:0px;",actionButton(paste("selb_",el,sep=""),label=NULL,icon =icon("trash")))
-        )),
-                    actionButton("addComp", "Add new comparison")
-                  )),
-                  #TODO Identified times (sequence)? only in samples - easy? sequence is not ordered!
-                  # maybe I'll need a simple sequence file afterall
-                  # How to show the results?
-                  actionButton("run_stats", "Run test"),  #TODO save button
-                  #bsTooltip("button","Run statistical tests and their evaluation",trigger="hover"),
-                  actionButton("run_stats", "Save")      
+              column(6,
+                id = "pr_c2",
+                h4("Summary"),
+                column(12, actionButton("load_sdata", "Load data")),
+                column(12, span(htmlOutput("input_stats"))),
+                column(12, bsCollapsePanel("Time series",
+                  style = "default", #TODO
+                  htmlOutput("time_info"),
+                  uiOutput("stat_comparisons"),
+                  div(
+                    style = "padding-right: 10px; padding-left: 0px;", id = "comps",
+                    fluidRow(
+                      column(4, align = "center", style = "padding:0px;", selectInput("sel1",
+                        label = NULL,
+                        choices = NULL, selected = NULL
+                      )),
+                      column(2, h5("vs")),
+                      column(4, align = "center", style = "padding:0px;", selectInput("sel2",
+                        label = NULL,
+                        choices = NULL, selected = NULL
+                      ))
+                      # column(2,align="center",style="padding:0px;",actionButton(paste("selb_",el,sep=""),label=NULL,icon =icon("trash")))
+                    )
+                  ),
+                  actionButton("addComp", "Add new comparison")
+                )),
+                column(12,
+                actionButton("run_stats", "Run test"),
+                actionButton("save_stats", "Save")) # TODO
               ),
-              column(5, id="pr_c3",
-                  h4("Summary"),
-                  checkboxInput(inputId="is_paired", label="Paired tests?", value=F),
-                  actionButton("send_polystest", "Send to PolySTest"),
-                  span(textOutput("connection_polystest"), style="color:#33DD33;"),     
-                  textInput("url_polystest",label="URL",value="http://computproteomics.bmb.sdu.dk:443/app_direct/PolySTest/"),
-                  disabled(actionButton("retrieve_polystest", "Retrieve results from PolySTest"))              )
+              column(5,
+                id = "pr_c3",
+                h4("PolySTest"),
+                checkboxInput(inputId = "is_paired", label = "Paired tests?", value = F),
+                disabled(actionButton("send_polystest", "Send to PolySTest")),
+                span(textOutput("connection_polystest"), style = "color:#33DD33;"),
+                textInput("url_polystest", label = "URL", value = "http://computproteomics.bmb.sdu.dk:443/app_direct/PolySTest/"),
+                disabled(actionButton("retrieve_polystest", "Retrieve results from PolySTest"))
+              )
             ),
             br(),
             fluidRow(column(12, box(width = NULL, DTOutput("stats_table")))),
             br(),
-            fluidRow(column(12, box(width = NULL, DTOutput("results_table")))) #TODO
-    )))),
+            fluidRow(column(12, box(width = NULL, DTOutput("results_table"))))
+          )
+        )
+      )
+    ),
     fluidRow(
       hidden(
         div(
@@ -388,15 +402,18 @@ shinyUI(dashboardPage(
             12,
             fluidRow(checkboxGroupInput("export_xml_list", "Choose sheets", choices = NULL, selected = NULL)),
             fluidRow(downloadButton("export_xml", "Export combined .xlsx"))
-          ))
-    ))),
+          )),
+          uiOutput("export_stats")
+        )
+      )
+    ),
     fluidRow(
       hidden(
         div(
           id = "boxplot_panel",
           column(3, box(width = NULL, DTOutput("dt_boxplot_panel"))),
-          column(
-            9, box(width = NULL, fluidRow(
+          column(9, box(width = NULL, 
+            fluidRow(
               column(
                 6,
                 radioButtons(
@@ -417,7 +434,9 @@ shinyUI(dashboardPage(
             )),
             uiOutput("boxplot_ui")
           )
-    ))),
+        )
+      )
+    ),
     fluidRow(
       hidden(
         div(
@@ -435,7 +454,9 @@ shinyUI(dashboardPage(
             ),
             uiOutput("drift_ui")
           )
-    ))),
+        )
+      )
+    ),
     fluidRow(
       hidden(
         div(
@@ -451,5 +472,4 @@ shinyUI(dashboardPage(
       )
     )
   )
-)
-)
+))
