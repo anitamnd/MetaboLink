@@ -267,8 +267,12 @@ shinyUI(dashboardPage(
                   h4("Group")
                 ),
                 column(
-                  width = 2,
+                  width = 1,
                   h4("Time")
+                ),
+                column(
+                  width = 1,
+                  h4("Paired")
                 )
               ),
               uiOutput("sequi")
@@ -347,43 +351,36 @@ shinyUI(dashboardPage(
               column(6,
                 id = "pr_c2",
                 h4("Summary"),
-                column(12, actionButton("load_sdata", "Load data")),
+                actionButton("load_sdata", "Load data"),
                 column(12, span(htmlOutput("input_stats"))),
-                column(12, bsCollapsePanel("Time series",
-                  style = "default", #TODO
-                  htmlOutput("time_info"),
-                  uiOutput("stat_comparisons"),
-                  div(
-                    style = "padding-right: 10px; padding-left: 0px;", id = "comps",
-                    fluidRow(
-                      column(4, align = "center", style = "padding:0px;", selectInput("sel1",
-                        label = NULL,
-                        choices = NULL, selected = NULL
-                      )),
-                      column(2, h5("vs")),
-                      column(4, align = "center", style = "padding:0px;", selectInput("sel2",
-                        label = NULL,
-                        choices = NULL, selected = NULL
-                      ))
-                      # column(2,align="center",style="padding:0px;",actionButton(paste("selb_",el,sep=""),label=NULL,icon =icon("trash")))
-                    )
-                  ),
-                  actionButton("addComp", "Add new comparison")
-                )),
-                column(12,
-                actionButton("run_stats", "Run test"),
-                actionButton("save_stats", "Save")) # TODO
               ),
               column(5,
                 id = "pr_c3",
-                h4("PolySTest"),
+                # h4("PolySTest"),
+                # checkboxInput(inputId = "is_paired", label = "Paired tests?", value = F),
+                # disabled(actionButton("send_polystest", "Send to PolySTest")),
+                # span(textOutput("connection_polystest"), style = "color:#33DD33;"),
+                # textInput("url_polystest", label = "URL", value = "http://computproteomics.bmb.sdu.dk:443/app_direct/PolySTest/"),
+                # disabled(actionButton("retrieve_polystest", "Retrieve results from PolySTest"))
+                h4("Select groups for comparison"), 
+                column(12, span(htmlOutput("time_info"))),
+                fluidRow(
+                  column(6, selectInput("group1", "Group", choices = NULL, width = "100%")),
+                  column(6, selectInput("time1", "Time", choices = NULL, width = "100%"))
+                ),
+                fluidRow(
+                  column(6, selectInput("group2", "Group", choices = NULL, width = "100%")),
+                  column(6, selectInput("time2", "Time", choices = NULL, width = "100%"))
+                ),
                 checkboxInput(inputId = "is_paired", label = "Paired tests?", value = F),
-                disabled(actionButton("send_polystest", "Send to PolySTest")),
-                span(textOutput("connection_polystest"), style = "color:#33DD33;"),
-                textInput("url_polystest", label = "URL", value = "http://computproteomics.bmb.sdu.dk:443/app_direct/PolySTest/"),
-                disabled(actionButton("retrieve_polystest", "Retrieve results from PolySTest"))
-              )
+                column(12,
+                actionButton("show_data", "Show selected"),
+                actionButton("run_stats", "Run test"))
+              ),
             ),
+            br(),
+            h4("Selected sequence"),
+            fluidRow(column(12, box(width = NULL, DTOutput("sel_seq_table")))),
             br(),
             fluidRow(column(12, box(width = NULL, DTOutput("stats_table")))),
             br(),

@@ -420,8 +420,8 @@ addcols <- function(dat, seq, groups, maxreps) {
 }
 
 mrtrans <- function(dat, log, mean) {
-  logn <- if (log) "LogNorm" else NULL
-  meanc <- if (mean) "MeanCenter" else NULL
+  logn <- if (log) "LogNorm" else "NULL"
+  meanc <- if (mean) "MeanCenter" else "NULL"
 
   write.csv(dat, file = "ma_temp.csv", row.names=FALSE)
 
@@ -430,7 +430,7 @@ mrtrans <- function(dat, log, mean) {
   mSet<-SanityCheckData(mSet)
   mSet<-ReplaceMin(mSet)
   mSet<-SanityCheckData(mSet)
-  mSet<-FilterVariable(mSet, "none", -1, "F", 25, F)
+  mSet<-FilterVariable(mSet, "none", -1, "F", 25, F) #TODO do we want to filter?
   mSet<-PreparePrenormData(mSet)
   mSet<-Normalization(mSet, "GroupPQN", logn, meanc, "QC", ratio=FALSE, ratioNum=20)
 
@@ -465,6 +465,83 @@ ts_test <- function(dat, s1, s2) {
   
   print(topTable(fit, adjust="BH"))
   results <- topTable(fit, adjust="BH", number=Inf)
+  detach(package:limma,unload=TRUE)
+  return(results)
+}
+
+group_test <- function(data, seq) {
+  library(limma)
+  group <- paste("G", seq[, 1], sep="")
+  sample <- rownames(seq)
+  group <- factor(group)
+  sample <- factor(sample)
+
+  colnames(data) <- paste(group, colnames(data), sep=".")
+  design <- model.matrix(~0+group)
+  colnames(design) <- levels(group)
+  contrast.matrix <- makeContrasts(contrasts=paste(colnames(design)[1], "-", colnames(design)[2]),levels=design)
+
+  lm.fit <- lmFit(data, design)
+  lm.contr <- contrasts.fit(lm.fit,contrast.matrix)
+  lm.ebayes <- eBayes(lm.contr)
+  results <- topTable(lm.ebayes, adjust="BH", number=Inf)
+  detach(package:limma,unload=TRUE)
+  return(results)
+}
+
+ts_test1 <- function(data, seq, paired) {
+  library(limma)
+  library(statmod)
+  group <- paste("G", seq[, 1], sep="")
+  time <- paste("T", seq[, 2], sep="")
+  sample <- rownames(seq)
+  group_time <- paste(group, time, sep="_")
+
+  group <- factor(group)
+  time <- factor(time)
+  sample <- factor(sample)
+  group_time <- factor(group_time)
+  pairs <- factor(seq[, 3])
+
+  if(length(levels(time)) == 1) {
+    colnames(data) <- paste(group, colnames(data), sep=".")
+    if(paired) { 
+      design <- model.matrix(~pairs+group)
+      coef <- paste("group", levels(group)[length(levels(group))], sep="")
+    } else {
+      design <- model.matrix(~0+group)
+      coef <- NULL
+    }
+    colnames(design) <- levels(group)
+    fit <- lmFit(data, design) # TODO partial NA coefficients?
+    print(coef)
+  }
+  else if (length(levels(group)) == 1) {
+    colnames(data) <- paste(time, colnames(data), sep=".")
+
+    design <- if(paired) model.matrix(~pairs+time) else model.matrix(~0+time)
+    #colnames(design) <- levels(time)
+    fit <- lmFit(data, design)
+  }
+  else {
+    colnames(data) <- paste(group_time, colnames(data), sep=".")
+    print(colnames(data))
+
+    design <- model.matrix(~0+group_time)
+    colnames(design) <- levels(group_time)
+  }
+  #  block = paired! makes sense??
+  # duplicate correlation ONLY if we have paired samples
+  # if(paired)
+  #   corfit <- duplicateCorrelation(data, design, block=sample)
+  # fit <- lmFit(data, design, block=sample, correlation=corfit$consensus)
+  # contrast_table <- makeContrasts(contrasts = paste("S=", levels(group_time)[1], "-", levels(group_time)[2]),
+  #                                 levels = design)
+  # fit <- contrasts.fit(fit, contrast_table)
+  fit <- eBayes(fit)
+  
+  # print(topTable(fit, adjust="BH"))
+  results <- topTable(fit, coef=coef, adjust="BH")
   detach(package:limma,unload=TRUE)
   return(results)
 }
