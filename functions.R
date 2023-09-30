@@ -1,3 +1,14 @@
+checkseq <- function(seq) {
+  columns_to_check <- c("sample", "batch", "order", "class", "time", "paired")
+  missing_columns <- setdiff(columns_to_check, colnames(seq))
+  # If any of the columns are missing, add them as empty columns
+  if (length(missing_columns) > 0) {
+    seq[missing_columns] <- lapply(1:length(missing_columns), function(x) seq[missing_columns[x]] <- NA )
+  }
+  seq <- seq[, c("sample", "batch", "order", "class", "time", "paired")]
+  return(seq)
+}
+
 blankfiltration <- function(dat, seq, xbf, keepis) {
   dat[seq[, 1] %in% "Blank"][is.na(dat[seq[, 1] %in% "Blank"])] <- 0
   bf <- apply(dat[seq[, 1] %in% "Blank"], 1, mean) * xbf < apply(dat[seq[, 1] %in% "QC"], 1, mean, na.rm = TRUE)
@@ -71,11 +82,11 @@ findis <- function(dat) {
 
 identifylabels <- function(data) {
   lab <- sapply(names(data), function(x) {
-    if (grepl("BLANK", toupper(x)) && is.numeric(data[, x])) {
+    if (grepl("BLANK", toupper(x), fixed = TRUE) && is.numeric(data[, x])) {
       "Blank"
-    } else if (grepl("QC", toupper(x)) && is.numeric(data[, x])) {
+    } else if (grepl("QC", toupper(x), fixed = TRUE) && is.numeric(data[, x])) {
       "QC"
-    } else if (grepl("NAME", toupper(x))) {
+    } else if (grepl("NAME", toupper(x), fixed = TRUE)) {
       "Name"
     } else if (grepl("MASS|M/Z|M.Z", toupper(x)) && is.numeric(data[, x])) {
       "Mass"
@@ -141,9 +152,6 @@ imputation <- function(dat, seq, method, minx = 1, onlyqc, remaining) {
 
 cutoffrm <- function(dat, seq, cutoff, method) {
   cutoff <- cutoff / 100
-  if(is.null(method))
-    return(dat)
-  
   if ("entire data" %in% method) {
     datm <- dat[seq[, 1] %in% "Sample"]
     datm[datm == 0] <- NA
@@ -158,15 +166,14 @@ cutoffrm <- function(dat, seq, cutoff, method) {
     datm <- dat[seq[, 1] %in% "Sample"]
     datm[datm == 0] <- NA
     classes <- factor(seq[, 4], exclude = NA)
-    nseq <- seq[complete.cases(seq), ]
-    keep_m <- matrix(FALSE, nrow(datm), ncol = 6)
-
+    nseq <- seq[seq[, 1] %in% "Sample", ]
+    keep_m <- matrix(FALSE, nrow(datm), ncol = length(levels(classes)))
     for (cl in 1:length(levels(classes))) {
       cl_f <- datm[, nseq[, 4] %in% levels(classes)[cl]]
       keep_m[, cl] <- rowSums(!is.na(cl_f)) / ncol(cl_f) >= cutoff
     }
     keep <- apply(keep_m, 1, function(x) any(x))
-  } 
+  }
   dat <- dat[keep, ]
   return(dat)
 }
@@ -439,36 +446,6 @@ mrtrans <- function(dat, log, mean) {
   return(dat)
 }
 
-ts_test <- function(dat, s1, s2) {
-  library(limma)
-  library(statmod)
-  header_dat <- colnames(dat)
-  group <- sapply(strsplit(header_dat,split="_"),`[`,2)
-  time <- sapply(strsplit(header_dat,split="_"),`[`,3)
-  group_time <- paste(group, time,sep="_")
-  colnames(dat) <- group_time
-  group <- factor(group)
-  time <- factor(time)
-  group_time <- factor(group_time)
-
-  design <- model.matrix(~0+group_time)
-  colnames(design) <- levels(group_time)
-  features <- rownames(dat)
-  dat <- matrix(as.numeric(dat), ncol = ncol(dat))
-  rownames(dat) <- features
-  #TODO colnames need to match with design and s1 and s2?
-  fit <- lmFit(dat, design)
-  contrast_table <- makeContrasts(contrasts=paste("c1 = ", s1, "-", s2), levels = design)
-  print(contrast_table)
-  fit <- contrasts.fit(fit, contrast_table)
-  fit <- eBayes(fit)
-  
-  print(topTable(fit, adjust="BH"))
-  results <- topTable(fit, adjust="BH", number=Inf)
-  detach(package:limma,unload=TRUE)
-  return(results)
-}
-
 group_test <- function(data, seq) {
   library(limma)
   group <- paste("G", seq[, 1], sep="")
@@ -510,17 +487,22 @@ ts_test1 <- function(data, seq, paired) {
       coef <- paste("group", levels(group)[length(levels(group))], sep="")
     } else {
       design <- model.matrix(~0+group)
+      colnames(design) <- levels(group)
       coef <- NULL
     }
-    colnames(design) <- levels(group)
     fit <- lmFit(data, design) # TODO partial NA coefficients?
     print(coef)
   }
   else if (length(levels(group)) == 1) {
     colnames(data) <- paste(time, colnames(data), sep=".")
-
-    design <- if(paired) model.matrix(~pairs+time) else model.matrix(~0+time)
-    #colnames(design) <- levels(time)
+    if(paired) { 
+      design <- model.matrix(~pairs+time)
+      coef <- paste("time", levels(time)[length(levels(time))], sep="")
+    } else {
+      design <- model.matrix(~0+time)
+      colnames(design) <- levels(time)
+      coef <- NULL
+    }
     fit <- lmFit(data, design)
   }
   else {
@@ -540,7 +522,6 @@ ts_test1 <- function(data, seq, paired) {
   # fit <- contrasts.fit(fit, contrast_table)
   fit <- eBayes(fit)
   
-  # print(topTable(fit, adjust="BH"))
   results <- topTable(fit, coef=coef, adjust="BH")
   detach(package:limma,unload=TRUE)
   return(results)

@@ -14,10 +14,10 @@ library(gridExtra)
 library(impute)
 library(randomForest)
 library(writexl)
-library(igraph)
+# library(igraph)
 library(stringi)
 library(MetaboAnalystR)
-library(jsonlite)
+# library(jsonlite)
 library(BiocManager)
 options(repos = BiocManager::repositories())
 source("functions.R")
@@ -48,6 +48,10 @@ shinyUI(dashboardPage(
           style = "primary",
           fluidRow(
             style = "padding: 0px;",
+            column(12, selectizeInput("typedata", "Type of input file", 
+              choices = c("1", "2"), width = "100%"),
+              style = "padding: 0px;"
+            ),
             column(12, fileInput("in_file", "Select file",
               accept = c("txt/csv", "text/comma-seperated-values, text/plain", ".csv"),
               width = "100%"
@@ -77,7 +81,7 @@ shinyUI(dashboardPage(
           fluidRow(
             style = "margin-right: 0px;",
             column(6, bsButton("bf", "Blank filtrate", width = "100%"), style = "padding-left:0px; margin-top: 10px;"),
-            column(6, bsButton("bfsave", "Save", width = "100%"), style = "padding-left:0px; margin-top: 10px;"),
+            column(6, bsButton("bfsave", "Save", width = "100%"), style = "padding-left:0px; margin-top: 10px;")
           )
         ),
         bsCollapsePanel("Missing value filtration",
@@ -245,37 +249,26 @@ shinyUI(dashboardPage(
             width = 8,
             box(
               title = textOutput("diboxtitle"), width = NULL,
-              fluidRow(
-                column(
-                  width = 2,
-                  h4("Sample")
-                ),
-                column(
-                  width = 2,
-                  h4("Label")
-                ),
-                column(
-                  width = 2,
-                  h4("Batch")
-                ),
-                column(
-                  width = 2,
-                  h4("Order")
-                ),
-                column(
-                  width = 2,
-                  h4("Group")
-                ),
-                column(
-                  width = 1,
-                  h4("Time")
-                ),
-                column(
-                  width = 1,
-                  h4("Paired")
-                )
-              ),
-              uiOutput("sequi")
+              DTOutput("seq_table")
+              # fluidRow(
+              #    column(
+              #     width = 1,
+              #     h4("Sample")
+              #    ),
+              #    column(
+              #      width = 2,
+              #      h4(" Label")
+              #   ),
+              # splitLayout(
+              #   h4(" Batch"),
+              #   h4(" Order"),
+              #   h4(" Group"),
+              #   h4(" Time"),
+              #   h4(" Paired"),
+              #   cellWidths = "14%",
+              #   cellArgs = list(style = "padding: 0 12px 0 0")
+              # )),
+              #uiOutput("sequi")
             )
           ),
           column(
@@ -356,14 +349,7 @@ shinyUI(dashboardPage(
               ),
               column(5,
                 id = "pr_c3",
-                # h4("PolySTest"),
-                # checkboxInput(inputId = "is_paired", label = "Paired tests?", value = F),
-                # disabled(actionButton("send_polystest", "Send to PolySTest")),
-                # span(textOutput("connection_polystest"), style = "color:#33DD33;"),
-                # textInput("url_polystest", label = "URL", value = "http://computproteomics.bmb.sdu.dk:443/app_direct/PolySTest/"),
-                # disabled(actionButton("retrieve_polystest", "Retrieve results from PolySTest"))
                 h4("Select groups for comparison"), 
-                column(12, span(htmlOutput("time_info"))),
                 fluidRow(
                   column(6, selectInput("group1", "Group", choices = NULL, width = "100%")),
                   column(6, selectInput("time1", "Time", choices = NULL, width = "100%"))
@@ -374,8 +360,8 @@ shinyUI(dashboardPage(
                 ),
                 checkboxInput(inputId = "is_paired", label = "Paired tests?", value = F),
                 column(12,
-                actionButton("show_data", "Show selected"),
-                actionButton("run_stats", "Run test"))
+                  actionButton("show_data", "Show selected"),
+                  actionButton("run_stats", "Run test"))
               ),
             ),
             br(),
@@ -395,10 +381,10 @@ shinyUI(dashboardPage(
           id = "export_panel",
           uiOutput("export_ui"),
           uiOutput("export_metabo"),
-          box(title = ".xlsx", width = 4, column(
-            12,
-            fluidRow(checkboxGroupInput("export_xml_list", "Choose sheets", choices = NULL, selected = NULL)),
-            fluidRow(downloadButton("export_xml", "Export combined .xlsx"))
+          box(title = ".xlsx", width = 4, 
+            column(12,
+              fluidRow(checkboxGroupInput("export_xml_list", "Choose sheets", choices = NULL, selected = NULL)),
+              fluidRow(downloadButton("export_xml", "Export combined .xlsx"))
           )),
           uiOutput("export_stats")
         )
@@ -411,8 +397,7 @@ shinyUI(dashboardPage(
           column(3, box(width = NULL, DTOutput("dt_boxplot_panel"))),
           column(9, box(width = NULL, 
             fluidRow(
-              column(
-                6,
+              column(6,
                 radioButtons(
                   inputId = "bloxplot_log",
                   label = "Log",
@@ -439,8 +424,8 @@ shinyUI(dashboardPage(
         div(
           id = "drift_panel",
           column(3, box(width = NULL, DTOutput("dt_drift_panel"))),
-          column(
-            9, box(
+          column(9, 
+            box(
               width = NULL,
               fluidRow(
                 column(4, selectizeInput("drift_select", "Select dataset to compare with", choices = NULL, width = "100%", options = list(placeholder = "Select file"))),
