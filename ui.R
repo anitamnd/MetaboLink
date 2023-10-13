@@ -16,7 +16,7 @@ library(randomForest)
 library(writexl)
 # library(igraph)
 library(stringi)
-library(MetaboAnalystR)
+# library(MetaboAnalystR)
 # library(jsonlite)
 library(BiocManager)
 options(repos = BiocManager::repositories())
@@ -48,7 +48,7 @@ shinyUI(dashboardPage(
           style = "primary",
           fluidRow(
             style = "padding: 0px;",
-            column(12, selectizeInput("typedata", "Type of input file", 
+            column(12, selectizeInput("typedata", "Type of input file (in development)", 
               choices = c("1", "2"), width = "100%"),
               style = "padding: 0px;"
             ),
