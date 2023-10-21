@@ -48,6 +48,7 @@ isfunc <- function(dat, seq, is, method, qc) {
       sdat[i, j] <- sdat[i, j] / sdat[is, j][near[i]]
     })
   })
+
   isnorm <- sapply(seq(nrow(sdat)), function(x) {
     isname[near[x]]
   })
@@ -440,6 +441,7 @@ mrtrans <- function(dat, log, mean) {
   mSet<-FilterVariable(mSet, "none", -1, "F", 25, F) #TODO do we want to filter?
   mSet<-PreparePrenormData(mSet)
   mSet<-Normalization(mSet, "GroupPQN", logn, meanc, "QC", ratio=FALSE, ratioNum=20)
+
 
   file.remove("ma_temp.csv")
   dat <- cbind(dat[-1,1], t(mSet[["dataSet"]][["norm"]]))
