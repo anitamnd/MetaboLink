@@ -437,7 +437,7 @@ shinyServer(function(session, input, output) {
       "Positive" = "Adduct_pos",
       "Negative" = "Adduct_neg"
     )
-    adduct <- c(ionmode, NA, NA, NA)
+    adduct <- c(ionmode, rep(NA, ncol(seq)-1))
     seq <- rbind(seq, "adduct" = adduct)
     seq[, 2] <- as.numeric(seq[, 2])
     seq[, 3] <- as.numeric(seq[, 3])
@@ -826,8 +826,7 @@ shinyServer(function(session, input, output) {
         out_dub <- out_dub[order(out_dub[, 1], out_dub[, 2], decreasing = T), ]
         md_dup <<- out_dub
         cluster_ends <- which(!duplicated(out_dub[, 2]))
-        output$md_modal_dt <- renderDataTable(
-          {
+        output$md_modal_dt <- renderDataTable({
             datatable(out_dub,
               rownames = F,
               options = list(dom = "t", autowidth = T, paging = F),
@@ -840,7 +839,7 @@ shinyServer(function(session, input, output) {
         showModal(
           modalDialog(
             title = "Select features to keep", size = "l",
-            p(paste0(length(unique(dub_dat$mergeID))), " duplcicate clusters found, of those ", paste0(length(unique(out_dub[out_dub[, 1] > 2, ][, 2]))), " consists of more than 2 features."),
+            p(paste0(length(unique(dub_dat$mergeID))), " duplicate clusters found, of those ", paste0(length(unique(out_dub[out_dub[, 1] > 2, ][, 2]))), " consists of more than 2 features."),
             DTOutput("md_modal_dt"),
             footer = list(actionButton("md_modal_go", "Remove duplicates"), modalButton("Dismiss"))
           )
