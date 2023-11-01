@@ -93,9 +93,13 @@ identifylabels <- function(data) {
       "Mass"
     } else if (grepl("RT|TIME|RETENTION", toupper(x)) && is.numeric(data[, x])) {
       "RT"
+    } else if (grepl("ADDUCT_POS", toupper(x), fixed = TRUE)) {
+      "Adduct_pos"
+    } else if (grepl("ADDUCT_NEG", toupper(x), fixed = TRUE)) {
+      "Adduct_neg"
     } else if (grepl("[[:digit:]]", toupper(x)) && is.numeric(data[, x])) {
       "Sample"
-    } else {
+    }  else {
       "-"
     }
   })
@@ -399,6 +403,19 @@ duplicaterank <- function(duplicate, rankings) {
   } else {
     return(10)
   }
+}
+
+# QC norm
+qcnorm <- function(dat, datqc, type) {
+  normfactors <- apply(datqc, 1, function(x) { 
+    if (type == "Median") {
+      median(x, na.rm = TRUE)
+    } else if (type == "Mean") {
+      mean(x, na.rm = TRUE)
+    }
+  })
+  normdat <- dat/normfactors
+  return(normdat)
 }
 
 # Statistics

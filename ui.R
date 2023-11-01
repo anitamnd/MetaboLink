@@ -191,6 +191,14 @@ shinyUI(dashboardPage(
             column(6, bsButton("qcnorm_run", "Run", width = "100%"), style = "padding-left:0px;"),
             column(6, bsButton("qcnorm_save", "Save", width = "100%"), style = "padding-left:0px;") #TODO
           )
+        ),
+        bsCollapsePanel("new QC norm",
+          style = "primary",
+          fluidRow(
+            style = "margin-right: 0px;",
+            column(6, selectInput("qcnorm_method", "Type", choices = c("Mean", "Median"), width = "100%"), style = "padding-left:0px;"),
+            column(6, bsButton("qcnorm2_run", "Run", width = "100%"), style = "padding-left:0px;")
+          )
         )
       )
     ),

@@ -48,7 +48,6 @@ shinyServer(function(session, input, output) {
     st$colcomp[[length(st$colcomp) + 1]] <- vector("numeric")
   }
 
-  # Observes file input and creates a new dataset from input
   observeEvent(input$in_file, { 
     dat <- read.csv(input$in_file$datapath, header = 1, stringsAsFactors = F, check.names = FALSE)
     lab <- identifylabels(dat)
@@ -214,56 +213,6 @@ shinyServer(function(session, input, output) {
     output$seq_table <- renderDT(rv$seq[[rv$si]], extensions = c('FixedHeader', 'Responsive'), server = F, 
           editable = T, selection = 'none', options = list(pageLength = nrow(rv$seq[[rv$si]]), 
           fixedHeader = TRUE))
-    #TODO ridiculo isto fazer linha a linha
-    # output$sequi <- renderUI({
-    #   lapply(1:ncol(rv$data[[rv$si]]), function(x) {
-    #     fluidRow(
-    #       column(1, p(strong(colnames(rv$data[[rv$si]])[x]))),
-    #       column(2,selectizeInput(paste0("lab", rv$si, x), NULL, choices = c("Name", "Blank", "QC", "Sample", "RT", "Mass", "Adduct_pos", "Adduct_neg", "-"), selected = rv$seq[[rv$si]][x, 1])),
-        
-    #     splitLayout(
-    #       numericInput(paste0("bat", rv$si, x), NULL, value = rv$seq[[rv$si]][x, 2], min = 0, max = 300),
-    #       numericInput(paste0("ord", rv$si, x), NULL, value = rv$seq[[rv$si]][x, 3], min = 0, max = 300),
-    #       textInput(paste0("cla", rv$si, x), NULL, value = rv$seq[[rv$si]][x, 4]),
-    #       textInput(paste0("tim", rv$si, x), NULL, value = rv$seq[[rv$si]][x, 5]),
-    #       textInput(paste0("pair", rv$si, x), NULL, value = rv$seq[[rv$si]][x, 6]),
-    #       cellWidths = "14%",
-    #       cellArgs = list(style = "padding: 0 6px 6px 0")
-    #     ))
-        # fluidRow(
-        #   column(
-        #     width = 5,
-        #     p(strong(colnames(rv$data[[rv$si]])[x]))
-        #   ),
-        #   column(
-        #     width = 2,
-        #     selectizeInput(paste0("lab", rv$si, x), NULL, choices = c("Name", "Blank", "QC", "Sample", "RT", "Mass", "Adduct_pos", "Adduct_neg", "-"), selected = rv$seq[[rv$si]][x, 1])
-        #   ),
-        #   column(6,
-        #   column(
-        #     width = 4,
-        #     numericInput(paste0("bat", rv$si, x), NULL, value = rv$seq[[rv$si]][x, 2], min = 0, max = 300)
-        #   ),
-        #   column(
-        #     width = 4,
-        #     numericInput(paste0("ord", rv$si, x), NULL, value = rv$seq[[rv$si]][x, 3], min = 0, max = 300)
-        #   ),
-        #   column(
-        #     width = 4,
-        #     textInput(paste0("cla", rv$si, x), NULL, value = rv$seq[[rv$si]][x, 4])
-        #   )),
-        #   column(3,
-        #   column(
-        #     width = 6,
-        #     textInput(paste0("tim", rv$si, x), NULL, value = rv$seq[[rv$si]][x, 5])
-        #   ),
-        #   column(
-        #     width = 6,
-        #     textInput(paste0("pair", rv$si, x), NULL, value = rv$seq[[rv$si]][x, 6])
-        #   ))
-        # )
-    #  })
-    #})
     output$diboxtitle <- renderText(names(rv$data[rv$si]))
     output$dttable <- renderDT(rv$data[[rv$si]], rownames = FALSE, options = list(scrollX = TRUE, 
               scrollY = "700px", pageLength = 20))
@@ -283,7 +232,7 @@ shinyServer(function(session, input, output) {
     output$results_table <- renderDT(st$statsresults[[rv$si]], rownames = TRUE, options = list(scrollX = TRUE,
               scrollY = TRUE, pageLength = 20))
 
-    if(is.na(st$groups[[rv$si]])) {
+    if(is.na(st$groups[[rv$si]])) { #TODO
       shinyjs::enable("load_sdata")
     }
   })
@@ -630,7 +579,7 @@ shinyServer(function(session, input, output) {
     if (is.null(rv$si)) {
       showNotification("No data", type = "error")
     } else if (sum(rv$seq[[rv$si]][, 1] %in% "Sample") < 1) {
-      showNotification("Data must have atleast one Sample", type = "error")
+      showNotification("Data must have at least one Sample", type = "error")
     } else {
       imp_seq <- rv$seq[[rv$si]]
       imp_dat <- imputation(
@@ -1176,6 +1125,32 @@ shinyServer(function(session, input, output) {
     shinyjs::disable("load_sdata")
   })
 
+  observeEvent(input$qcnorm2_run, {
+    dat <- rv$data[[rv$si]][, rv$seq[[rv$si]][, 1] %in% c("QC", "Sample")]
+    qcdat <- rv$data[[rv$si]][, rv$seq[[rv$si]][, 1] %in% "QC"]
+    normdat <- qcnorm(dat, qcdat, input$qcnorm_method)
+    qcnorm <- normdat[, rv$seq[[rv$si]][, 1] %in% "QC"]
+    
+    # Plot variance in QC samples before and after normalization
+    output$before_norm <- renderPlot({
+      boxplot(qcdat, main = "Before Normalization", xlab = "Metabolite", ylab = "Intensity")
+    })
+    output$after_norm <- renderPlot({
+      boxplot(qcnorm, main = "After Normalization", xlab = "Metabolite", ylab = "Intensity")
+    })
+
+    showModal(
+      modalDialog(
+        title = "Assess data quality", size = "m",
+        fluidRow(
+            column(6, plotOutput("before_norm", height = 280, width = "100%")),
+            column(6, plotOutput("after_norm", height = 280, width = "100%"))
+        ),
+        footer = list(actionButton("save_qcnorm", "Save changes"), modalButton("Dismiss")) # TODO
+      )
+    )
+  })
+
   observeEvent(input$load_sdata, { 
     # TODO add pop up with what this does
     tdata <- rv$data[[rv$si]][, rv$seq[[rv$si]][, 1] %in% c("Name",  "Sample")]
@@ -1223,6 +1198,7 @@ shinyServer(function(session, input, output) {
   })
 
   # Statistics
+  #TODO something about the missing values - keep, impute, remove?
   observeEvent(input$run_stats, {
     seq <- st$statsseq[[rv$si]]
     dat <- st$statsdata[[rv$si]]
