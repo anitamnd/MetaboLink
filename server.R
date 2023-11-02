@@ -1126,29 +1126,39 @@ shinyServer(function(session, input, output) {
   })
 
   observeEvent(input$qcnorm2_run, {
-    dat <- rv$data[[rv$si]][, rv$seq[[rv$si]][, 1] %in% c("QC", "Sample")]
-    qcdat <- rv$data[[rv$si]][, rv$seq[[rv$si]][, 1] %in% "QC"]
-    normdat <- qcnorm(dat, qcdat, input$qcnorm_method)
-    qcnorm <- normdat[, rv$seq[[rv$si]][, 1] %in% "QC"]
-    
-    # Plot variance in QC samples before and after normalization
-    output$before_norm <- renderPlot({
-      boxplot(qcdat, main = "Before Normalization", xlab = "Metabolite", ylab = "Intensity")
-    })
-    output$after_norm <- renderPlot({
-      boxplot(qcnorm, main = "After Normalization", xlab = "Metabolite", ylab = "Intensity")
-    })
+     if (is.null(rv$si)) {
+      showNotification("No data", type = "error")
+    } else if(sum(rv$seq[[rv$si]][, 1] %in% "QC") == 0) {
+      sendSweetAlert(session = session, title = "Error", text = "No QC samples in dataset.", type = "error")
+    } else {
+      dat <- rv$data[[rv$si]][, rv$seq[[rv$si]][, 1] %in% c("QC", "Sample")]
+      seq <- rv$seq[[rv$si]][rv$seq[[rv$si]][, 1] %in% c("QC", "Sample"), ]
+      qcdat <- rv$data[[rv$si]][, rv$seq[[rv$si]][, 1] %in% "QC"]
+      print(colnames(dat))
+      normdat <- qcnorm(dat, qcdat, input$qcnorm_method)
+      normdat <- normdat[, colnames(dat)]
+      print(colnames(normdat))
+      normdat <- normdat[, seq[, 1] %in% "QC"]
+      print(colnames(normdat))
+      # Plot variance in QC samples before and after normalization
+      output$before_norm <- renderPlot({
+        boxplot(qcdat, main = "Before Normalization", xlab = "Metabolite", ylab = "Intensity")
+      })
+      output$after_norm <- renderPlot({
+        boxplot(normdat, main = "After Normalization", xlab = "Metabolite", ylab = "Intensity")
+      })
 
-    showModal(
-      modalDialog(
-        title = "Assess data quality", size = "m",
-        fluidRow(
-            column(6, plotOutput("before_norm", height = 280, width = "100%")),
-            column(6, plotOutput("after_norm", height = 280, width = "100%"))
-        ),
-        footer = list(actionButton("save_qcnorm", "Save changes"), modalButton("Dismiss")) # TODO
+      showModal(
+        modalDialog(
+          title = "Assess data quality", size = "m",
+          fluidRow(
+              column(6, plotOutput("before_norm", height = 280, width = "100%")),
+              column(6, plotOutput("after_norm", height = 280, width = "100%"))
+          ),
+          footer = list(actionButton("save_qcnorm", "Save changes"), modalButton("Dismiss")) # TODO
+        )
       )
-    )
+    }
   })
 
   observeEvent(input$load_sdata, { 

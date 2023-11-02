@@ -48,10 +48,6 @@ shinyUI(dashboardPage(
           style = "primary",
           fluidRow(
             style = "padding: 0px;",
-            column(12, selectizeInput("typedata", "Type of input file (in development)", 
-              choices = c("1", "2"), width = "100%"),
-              style = "padding: 0px;"
-            ),
             column(12, fileInput("in_file", "Select file",
               accept = c("txt/csv", "text/comma-seperated-values, text/plain", ".csv"),
               width = "100%"
@@ -196,8 +192,8 @@ shinyUI(dashboardPage(
           style = "primary",
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, selectInput("qcnorm_method", "Type", choices = c("Mean", "Median"), width = "100%"), style = "padding-left:0px;"),
-            column(6, bsButton("qcnorm2_run", "Run", width = "100%"), style = "padding-left:0px;")
+            column(6, selectInput("qcnorm_method", "Function", choices = c("Mean", "Median"), width = "100%"), style = "padding-left:0px;"),
+            column(6, bsButton("qcnorm2_run", "Run", width = "100%"), style = "padding-left:0px; margin-top: 30px;")
           )
         )
       )
