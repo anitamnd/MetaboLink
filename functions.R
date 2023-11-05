@@ -1,39 +1,39 @@
-checkseq <- function(seq) {
-  columns_to_check <- c("sample", "batch", "order", "class", "time", "paired")
-  missing_columns <- setdiff(columns_to_check, colnames(seq))
-  # If any of the columns are missing, add them as empty columns
-  if (length(missing_columns) > 0) {
-    seq[missing_columns] <- lapply(1:length(missing_columns), function(x) seq[missing_columns[x]] <- NA )
+checkSequence <- function(sequence) {
+  columnsToCheck <- c("sample", "batch", "order", "class", "time", "paired")
+  missingColumns <- setdiff(columnsToCheck, colnames(sequence))
+  if (length(missingColumns) > 0) {
+    sequence[missingColumns] <- lapply(1:length(missingColumns), function(x) sequence[missingColumns[x]] <- NA )
   }
-  seq <- seq[, c("sample", "batch", "order", "class", "time", "paired")]
-  return(seq)
+  sequence <- sequence[, c("sample", "batch", "order", "class", "time", "paired")]
+  return(sequence)
 }
 
-blankfiltration <- function(dat, seq, xbf, keepis) {
-  dat[seq[, 1] %in% "Blank"][is.na(dat[seq[, 1] %in% "Blank"])] <- 0
-  bf <- apply(dat[seq[, 1] %in% "Blank"], 1, mean) * xbf < apply(dat[seq[, 1] %in% "QC"], 1, mean, na.rm = TRUE)
-  if (keepis) {
-    is <- grepl("\\(IS\\)", toupper(dat[seq[, 1] %in% "Name"][, 1]))
-    dat <- dat[bf | is, ]
+blankFiltration <- function(data, sequence, signalStrength, keepIs) {
+  data[sequence[, 1] %in% "Blank"][is.na(data[sequence[, 1] %in% "Blank"])] <- 0
+  bf <- apply(data[sequence[, 1] %in% "Blank"], 1, mean) * signalStrength < 
+                    apply(data[sequence[, 1] %in% "QC"], 1, mean, na.rm = TRUE)
+  if (keepIs) { #TODO
+    is <- grepl("\\(IS\\)", toupper(data[sequence[, 1] %in% "Name"][, 1]))
+    data <- data[bf | is, ]
   } else {
-    dat <- dat[bf, ]
+    data <- data[bf, ]
   }
-  return(dat)
+  return(data)
 }
 
-isfunc <- function(dat, seq, is, method, qc) {
+isfunc <- function(data, seq, is, method, qc) {
   rt <- which(seq[, 1] == "RT")
   isname <- is
   is <- as.numeric(gsub(" .*$", "", is))
   sel <- if (qc) c("Sample", "QC") else "Sample"
-  sdat <- dat[seq[, 1] %in% sel]
+  sdat <- data[seq[, 1] %in% sel]
   sdat[sdat == 0] <- NA
   is <- is[complete.cases(sdat[is, ])]
-  near <- sapply(dat[, rt], function(y) {
-    which.min(abs(dat[is, rt] - y))
+  near <- sapply(data[, rt], function(y) {
+    which.min(abs(data[is, rt] - y))
   })
   if (method == "Same lipid structure") {
-    name <- dat[seq[, 1] %in% "Name"]
+    name <- data[seq[, 1] %in% "Name"]
     istype <- gsub(" .*$", "", name[is, ])
     near <- sapply(seq(name[, 1]), function(x) {
       if (gsub(" .*$", "", name[x, 1]) %in% istype) {
@@ -52,17 +52,17 @@ isfunc <- function(dat, seq, is, method, qc) {
   isnorm <- sapply(seq(nrow(sdat)), function(x) {
     isname[near[x]]
   })
-  dat[seq[, 1] %in% sel] <- sdat
-  dat <- cbind(dat, data.frame(isnorm = isnorm))
-  return(dat)
+  data[seq[, 1] %in% sel] <- sdat
+  data <- cbind(data, data.frame(isnorm = isnorm))
+  return(data)
 }
 
-isopti <- function(dat, seq, is, method, qc) {
+isopti <- function(data, seq, is, method, qc) {
   iscomb <- Map(combn, list(is), seq_along(is), simplify = FALSE)
   iscomb <- lapply(rapply(iscomb, enquote, how = "unlist"), eval)
   progressSweetAlert(id = "pbis", title = "Finding best IS combination", value = 0, total = length(iscomb), striped = T, display_pct = T)
   islow <- lapply(iscomb, function(x) {
-    isdat <- isfunc(dat, seq, x, method, qc)
+    isdat <- isfunc(data, seq, x, method, qc)
     mean(apply(isdat[, seq[, 1] %in% "QC"], 1, sd, na.rm = T) / apply(isdat[, seq[, 1] %in% "QC"], 1, mean, na.rm = T) * 100)
     # updateProgressBar(id = "pbis", value = which(iscomb %in% iscomb[x]), total = length(iscomb))
   })
@@ -70,19 +70,19 @@ isopti <- function(dat, seq, is, method, qc) {
   return(unlist(iscomb[which.min(unlist(islow))]))
 }
 
-findis <- function(dat) {
-  nr <- grepl("\\(IS\\)", toupper(dat[, 1]))
-  if (sum(nr) > 0) {
-    name <- as.vector(dat[nr, 1])
-    is <- paste(which(nr), " - ", name)
-    return(is)
+findInternalStandards <- function(data) {
+  isIndex <- grepl("\\(IS\\)", toupper(data[, 1]))
+  if (sum(isIndex) > 0) {
+    featureName <- as.vector(data[isIndex, 1])
+    internalStandards <- paste(which(isIndex), " - ", featureName)
+    return(internalStandards)
   } else {
     return(character(0))
   }
 }
 
-identifylabels <- function(data) {
-  lab <- sapply(names(data), function(x) {
+identifyLabels <- function(data) {
+  labels <- sapply(names(data), function(x) {
     if (grepl("BLANK", toupper(x), fixed = TRUE) && is.numeric(data[, x])) {
       "Blank"
     } else if (grepl("QC", toupper(x), fixed = TRUE) && is.numeric(data[, x])) {
@@ -103,33 +103,33 @@ identifylabels <- function(data) {
       "-"
     }
   })
-  if (sum(lab == "Name") > 1) {
-    lab[lab == "Name" & duplicated(lab)] <- "-"
+  if (sum(labels == "Name") > 1) {
+    labels[labels == "Name" & duplicated(labels)] <- "-"
   }
-  lab <- factor(lab, levels = c("Name", "Blank", "QC", "Sample", "RT", "Mass", "Adduct_pos", "Adduct_neg", "-"))
-  return(lab)
+  labels <- factor(labels, levels = c("Name", "Blank", "QC", "Sample", "RT", "Mass", "Adduct_pos", "Adduct_neg", "-"))
+  return(labels)
 }
 
-imputation <- function(dat, seq, method, minx = 1, onlyqc, remaining) {
+imputation <- function(data, seq, method, minx = 1, onlyqc, remaining) {
   if (onlyqc) {
-    datsq <- dat[seq[, 1] %in% "QC"]
-    seqsq <- seq[seq[, 1] %in% "QC", ]
+    qcData <- data[seq[, 1] %in% "QC"]
+    qcSequence <- seq[seq[, 1] %in% "QC", ]
   } else {
-    datsq <- dat[seq[, 1] %in% c("Sample", "QC")]
-    seqsq <- seq[seq[, 1] %in% c("Sample", "QC"), ]
+    qcData <- data[seq[, 1] %in% c("Sample", "QC")]
+    qcSequence <- seq[seq[, 1] %in% c("Sample", "QC"), ]
   }
-  datsq[datsq == 0] <- NA
-  seqsq[seqsq[, 1] %in% c("QC"), ]$class <- "QC"
-  seqsq$class[is.na(seqsq$class)] <- "Sample"
+  qcData[qcData == 0] <- NA
+  qcSequence[qcSequence[, 1] %in% c("QC"), ]$class <- "QC"
+  qcSequence$class[is.na(qcSequence$class)] <- "Sample"
 
   if (method == "KNN") {
-    datsq <- as.matrix(datsq)
-    knndat <- impute.knn(datsq, k = 10, rowmax = .99, colmax = .99, maxp = 15000) # TODO skal k sættes anderledes evt mindste class -1?
+    qcData <- as.matrix(qcData)
+    knndat <- impute.knn(qcData, k = 10, rowmax = .99, colmax = .99, maxp = 15000) # TODO skal k sættes anderledes evt mindste class -1?
     impsqdat <- as.data.frame(knndat$data)
   } else if (method == "Median") {
-    impsqdat <- imp_median(datsq, seqsq)
+    impsqdat <- imp_median(qcData, qcSequence)
   } else if (method == "Min/X") {
-    impsqdat <- imp_minx(datsq, seqsq, minx)
+    impsqdat <- imp_minx(qcData, qcSequence, minx)
   }
 
   if (sum(is.na(impsqdat)) > 0) {
@@ -148,27 +148,27 @@ imputation <- function(dat, seq, method, minx = 1, onlyqc, remaining) {
     }
   }
   if (onlyqc) {
-    dat[seq[, 1] %in% "QC"] <- impsqdat
+    data[seq[, 1] %in% "QC"] <- impsqdat
   } else {
-    dat[seq[, 1] %in% c("Sample", "QC")] <- impsqdat
+    data[seq[, 1] %in% c("Sample", "QC")] <- impsqdat
   }
-  return(dat)
+  return(data)
 }
 
-cutoffrm <- function(dat, seq, cutoff, method) {
+cutoffrm <- function(data, seq, cutoff, method) {
   cutoff <- cutoff / 100
   if ("entire data" %in% method) {
-    datm <- dat[seq[, 1] %in% "Sample"]
+    datm <- data[seq[, 1] %in% "Sample"]
     datm[datm == 0] <- NA
     keep <- rowSums(!is.na(datm)) / ncol(datm) >= cutoff
   }
   if ("in QC" %in% method) {
-    datm <- dat[seq[, 1] %in% "QC"]
+    datm <- data[seq[, 1] %in% "QC"]
     datm[datm == 0] <- NA
     keep <- rowSums(!is.na(datm)) / ncol(datm) >= cutoff
   }
   if ("in group" %in% method) {
-    datm <- dat[seq[, 1] %in% "Sample"]
+    datm <- data[seq[, 1] %in% "Sample"]
     datm[datm == 0] <- NA
     classes <- factor(seq[, 4], exclude = NA)
     nseq <- seq[seq[, 1] %in% "Sample", ]
@@ -179,12 +179,12 @@ cutoffrm <- function(dat, seq, cutoff, method) {
     }
     keep <- apply(keep_m, 1, function(x) any(x))
   }
-  dat <- dat[keep, ]
-  return(dat)
+  data <- data[keep, ]
+  return(data)
 }
 
-imp_median <- function(dat, seq) {
-  datm <- data.frame(seq$class, t(dat))
+imp_median <- function(data, seq) {
+  datm <- data.frame(seq$class, t(data))
   datm <- datm %>%
     group_by(seq.class) %>%
     mutate_if(
@@ -194,13 +194,13 @@ imp_median <- function(dat, seq) {
       }
     )
   datm <- data.frame(t(datm[, -1]))
-  colnames(datm) <- colnames(dat)
-  row.names(datm) <- row.names(dat)
+  colnames(datm) <- colnames(data)
+  row.names(datm) <- row.names(data)
   return(datm)
 }
 
-imp_minx <- function(dat, seq, minx) {
-  datm <- data.frame(seq$class, t(dat))
+imp_minx <- function(data, seq, minx) {
+  datm <- data.frame(seq$class, t(data))
   datm <- datm %>%
     group_by(seq.class) %>%
     mutate_if(
@@ -213,18 +213,18 @@ imp_minx <- function(dat, seq, minx) {
       }
     )
   datm <- data.frame(t(datm[, -1]))
-  colnames(datm) <- colnames(dat)
-  row.names(datm) <- row.names(dat)
+  colnames(datm) <- colnames(data)
+  row.names(datm) <- row.names(data)
   datm[datm == "Inf"] <- NA
   return(datm)
 }
 
-cvmean <- function(dat) {
-  mean(apply(dat, 1, sd, na.rm = T) / apply(dat, 1, mean, na.rm = T), na.rm = T) * 100
+cvmean <- function(data) {
+  mean(apply(data, 1, sd, na.rm = T) / apply(data, 1, mean, na.rm = T), na.rm = T) * 100
 }
 
-cv <- function(dat) {
-  round(apply(dat, 1, sd, na.rm = T) / apply(dat, 1, mean, na.rm = T) * 100, 2)
+cv <- function(data) {
+  round(apply(data, 1, sd, na.rm = T) / apply(data, 1, mean, na.rm = T) * 100, 2)
 }
 
 pcaplot <- function(data, class) {
@@ -259,40 +259,40 @@ pcaplot <- function(data, class) {
   return(pca)
 }
 
-driftcorrection <- function(dat, seq, method, ntree = 500, degree = 2, QCspan) {
-  seqsq <- seq[seq[, 1] %in% c("Sample", "QC"), ]
-  datsq <- dat[, seq[, 1] %in% c("Sample", "QC")]
-  datsqsorted <- datsq %>% select(order(seqsq$order))
-  qcid <- as.numeric(sort(seqsq[seqsq[, 1] %in% "QC", ]$order))
-  frame <- data.frame("qcid" = 1:ncol(datsq))
-  dcdat <- as.matrix(datsqsorted)
-  progressSweetAlert(id = "pbdc", title = "Correcting drift", value = 0, total = nrow(dcdat), striped = T, display_pct = T)
+driftcorrection <- function(data, seq, method, ntree = 500, degree = 2, QCspan) {
+  sequence <- seq[seq[, 1] %in% c("Sample", "QC"), ]
+  data <- data[, seq[, 1] %in% c("Sample", "QC")]
+  dataSorted <- data %>% select(order(sequence$order))
+  qcIndex <- as.numeric(sort(sequence[sequence[, 1] %in% "QC", ]$order))
+  frame <- data.frame("qcid" = 1:ncol(data))
+  dataSorted <- as.matrix(dataSorted)
+  progressSweetAlert(id = "pbdc", title = "Correcting drift", value = 0, total = nrow(dataSorted), striped = T, display_pct = T)
   if (method == "QC-RFSC (random forrest)") {
-    for (i in 1:nrow(dcdat)) {
-      forest <- randomForest(data.frame(qcid), as.numeric(dcdat[i, qcid]), ntree = ntree)
+    for (i in 1:nrow(dataSorted)) {
+      forest <- randomForest(data.frame(qcIndex), as.numeric(dataSorted[i, qcIndex]), ntree = ntree)
       pv <- predict(forest, frame)
-      dcdat[i, ] <- as.numeric(dcdat[i, ]) / pv
-      updateProgressBar(id = "pbdc", value = i, total = nrow(dcdat))
+      dataSorted[i, ] <- as.numeric(dataSorted[i, ]) / pv
+      updateProgressBar(id = "pbdc", value = i, total = nrow(dataSorted))
     }
   }
   if (method == "QC-RLSC (robust LOESS)") {
-    for (i in 1:nrow(dcdat)) {
-      loess <- loess(dcdat[i, qcid] ~ qcid,
+    for (i in 1:nrow(dataSorted)) {
+      loess <- loess(dataSorted[i, qcIndex] ~ qcIndex,
         span = QCspan,
         degree = degree
       )
       pv <- predict(loess, frame)
-      dcdat[i, ] <- as.numeric(dcdat[i, ]) / pv
-      updateProgressBar(id = "pbdc", value = i, total = nrow(dcdat))
+      dataSorted[i, ] <- as.numeric(dataSorted[i, ]) / pv
+      updateProgressBar(id = "pbdc", value = i, total = nrow(dataSorted))
     }
   }
-  dat[seq[, 1] %in% c("Sample", "QC")] <- dcdat[, seqsq$order]
+  data[seq[, 1] %in% c("Sample", "QC")] <- dataSorted[, sequence$order]
   closeSweetAlert()
-  return(dat)
+  return(data)
 }
 
-findadduct <- function(dat, seq) {
-  names <- dat[, seq[, 1] %in% "Name"]
+findAdduct <- function(data, sequence) {
+  names <- data[, sequence[, 1] %in% "Name"]
   reg <- gregexpr("_\\[(.*?)_", names)
   adduct <- regmatches(names, reg)
   adduct <- as.character(adduct)
@@ -302,30 +302,30 @@ findadduct <- function(dat, seq) {
   return(adduct)
 }
 
-merge.func <- function(dat1, seq1, dat2, seq2, ppmtol, rttol) {
+mergeDatasets <- function(dataset1, sequence1, dataset2, sequence2, ppmTolerance, rtTolerance) {
   progressSweetAlert(id = "pb", title = "Work in progress", display_pct = T, value = 0, striped = T)
-  mass <- dat1[, seq1[, 1] %in% "Mass"]
-  if ("Adduct_pos" %in% seq1[, 1]) {
-    adduct <- dat1[, seq1[, 1] %in% "Adduct_pos"]
+  mass <- dataset1[, sequence1[, 1] %in% "Mass"]
+  if ("Adduct_pos" %in% sequence1[, 1]) {
+    adduct <- dataset1[, sequence1[, 1] %in% "Adduct_pos"]
     ionmode1 <- "pos"
   } else {
-    adduct <- dat1[, seq1[, 1] %in% "Adduct_neg"]
+    adduct <- dataset1[, sequence1[, 1] %in% "Adduct_neg"]
     ionmode1 <- "neg"
   }
   mass <- monomass(adduct, mass, ionmode1)
-  rt <- dat1[, seq1[, 1] %in% "RT"]
+  rt <- dataset1[, sequence1[, 1] %in% "RT"]
   first <- data.frame(mass, rt)
   updateProgressBar(id = "pb", value = 10)
-  mass <- dat2[, seq2[, 1] %in% "Mass"]
-  if ("Adduct_pos" %in% seq2[, 1]) {
-    adduct <- dat2[, seq2[, 1] %in% "Adduct_pos"]
+  mass <- dataset2[, sequence2[, 1] %in% "Mass"]
+  if ("Adduct_pos" %in% sequence2[, 1]) {
+    adduct <- dataset2[, sequence2[, 1] %in% "Adduct_pos"]
     ionmode2 <- "pos"
   } else {
-    adduct <- dat2[, seq2[, 1] %in% "Adduct_neg"]
+    adduct <- dataset2[, sequence2[, 1] %in% "Adduct_neg"]
     ionmode2 <- "neg"
   }
   mass <- monomass(adduct, mass, ionmode2)
-  rt <- dat2[, seq2[, 1] %in% "RT"]
+  rt <- dataset2[, sequence2[, 1] %in% "RT"]
   second <- data.frame(mass, rt)
   updateProgressBar(id = "pb", value = 20)
   comb <- rbind(first, second)
@@ -339,17 +339,17 @@ merge.func <- function(dat1, seq1, dat2, seq2, ppmtol, rttol) {
   updateProgressBar(id = "pb", value = 60)
   distrt <- as.matrix(dist(comb$rt))
   updateProgressBar(id = "pb", value = 70)
-  adj <- distppm <= ppmtol & distrt <= rttol
+  adj <- distppm <= ppmTolerance & distrt <= rtTolerance
   updateProgressBar(id = "pb", value = 80)
   graph <- graph.adjacency(adj)
   updateProgressBar(id = "pb", value = 90)
   mergeid <- clusters(graph)$membership
   updateProgressBar(id = "pb", value = 100)
-  colnames(dat2) <- colnames(dat1)
-  combineddat <- as.data.frame(rbind(dat1, dat2))
+  colnames(dataset2) <- colnames(dataset1)
+  combineddat <- as.data.frame(rbind(dataset1, dataset2))
   combineddat[, "mergeID"] <- mergeid
-  ionmode1 <- rep(ionmode1, nrow(dat1))
-  ionmode2 <- rep(ionmode2, nrow(dat2))
+  ionmode1 <- rep(ionmode1, nrow(dataset1))
+  ionmode2 <- rep(ionmode2, nrow(dataset2))
   combineddat[, "ionmode"] <- c(ionmode1, ionmode2)
   closeSweetAlert()
   return(combineddat)
@@ -405,27 +405,46 @@ duplicaterank <- function(duplicate, rankings) {
   }
 }
 
-# QC norm
-qcnorm <- function(dat, datqc, type) {
-  normfactors <- apply(datqc, 1, function(x) { 
-    if (type == "Median") {
-      median(x, na.rm = TRUE)
-    } else if (type == "Mean") {
-      mean(x, na.rm = TRUE)
-    }
-  })
-  normdat <- dat/normfactors
-  return(normdat)
+normalization <- function(data, sequence, method) {
+  qcData <- data[, sequence[, 1] %in% "QC"]
+  data <- data[, sequence[, 1] %in% c("QC", "Sample")]
+  rowNames <- rownames(data)
+  colNames <- colnames(data)
+  if(method == "QC (PQN)") {
+    qcMean <- apply(qcData, 1, mean)
+    normalizedData <- t(apply(data, 1, ProbNorm, qcMean))
+  } else if(method == "Median") {
+    normalizedData <- t(apply(data, 1, MedianNorm))
+  } else if(method == "Sum") {
+    normalizedData <- t(apply(data, 1, SumNorm))
+  }
+  rownames(normalizedData) <- rowNames
+  colnames(normalizedData) <- colNames
+  return(normalizedData)
 }
+
+# Norm functions (MetaboAnalystR)
+ProbNorm <- function(x, ref.smpl) {
+  x/median(as.numeric(x/ref.smpl), na.rm=T)
+}
+
+MedianNorm <- function(x) {
+  x/median(x, na.rm=T)
+}
+
+SumNorm<-function(x){
+  1000*x/sum(x, na.rm=T)
+}
+
 
 # Statistics
 
-addcols <- function(dat, seq, groups, maxreps) {
-  tdat <- dat[,1]
+addcols <- function(data, seq, groups, maxreps) {
+  tdat <- data[,1]
   rgroup <- c("")
   rtime <- c("")
   for(group in 1:length(groups)) {
-    groupdat <- dat[, seq[, 4] %in% groups[group]]
+    groupdat <- data[, seq[, 4] %in% groups[group]]
     time <- seq[seq[, 4] %in% groups[group], 5]
     tdat <- cbind(tdat, groupdat)
     if(length(groupdat) < maxreps) {
@@ -444,28 +463,7 @@ addcols <- function(dat, seq, groups, maxreps) {
   return(tdat)
 }
 
-mrtrans <- function(dat, log, mean) {
-  logn <- if (log) "LogNorm" else "NULL"
-  meanc <- if (mean) "MeanCenter" else "NULL"
-
-  write.csv(dat, file = "ma_temp.csv", row.names=FALSE)
-
-  mSet<-InitDataObjects("pktable", "stat", FALSE)
-  mSet<-Read.TextData(mSet, "ma_temp.csv", "colu", "disc") # duplicates not allowed
-  mSet<-SanityCheckData(mSet)
-  mSet<-ReplaceMin(mSet)
-  mSet<-SanityCheckData(mSet)
-  mSet<-FilterVariable(mSet, "none", -1, "F", 25, F) #TODO do we want to filter?
-  mSet<-PreparePrenormData(mSet)
-  mSet<-Normalization(mSet, "GroupPQN", logn, meanc, "QC", ratio=FALSE, ratioNum=20)
-
-
-  file.remove("ma_temp.csv")
-  dat <- cbind(dat[-1,1], t(mSet[["dataSet"]][["norm"]]))
-  return(dat)
-}
-
-group_test <- function(data, seq) {
+groupsTest <- function(data, seq) {
   library(limma)
   group <- paste("G", seq[, 1], sep="")
   sample <- rownames(seq)
@@ -485,7 +483,7 @@ group_test <- function(data, seq) {
   return(results)
 }
 
-ts_test1 <- function(data, seq, paired) {
+timeSeriesTest <- function(data, seq, isPaired) {
   library(limma)
   library(statmod)
   group <- paste("G", seq[, 1], sep="")
@@ -501,7 +499,7 @@ ts_test1 <- function(data, seq, paired) {
 
   if(length(levels(time)) == 1) {
     colnames(data) <- paste(group, colnames(data), sep=".")
-    if(paired) { 
+    if(isPaired) { 
       design <- model.matrix(~pairs+group)
       coef <- paste("group", levels(group)[length(levels(group))], sep="")
     } else {
@@ -514,7 +512,7 @@ ts_test1 <- function(data, seq, paired) {
   }
   else if (length(levels(group)) == 1) {
     colnames(data) <- paste(time, colnames(data), sep=".")
-    if(paired) { 
+    if(isPaired) { 
       design <- model.matrix(~pairs+time)
       coef <- paste("time", levels(time)[length(levels(time))], sep="")
     } else {
