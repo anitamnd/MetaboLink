@@ -16,8 +16,6 @@ library(randomForest)
 library(writexl)
 library(igraph)
 library(stringi)
-# library(MetaboAnalystR)
-# library(jsonlite)
 library(BiocManager)
 options(repos = BiocManager::repositories())
 source("functions.R")
@@ -37,7 +35,7 @@ shinyUI(dashboardPage(
     tags$style(HTML(".panel-primary {color: #000000;}")),
     fluidPage(
       fluidRow(
-        selectizeInput("selectdata1", "Active dataset",
+        selectizeInput("selectDataset", "Active dataset",
           choices = NULL, width = "100%",
           options = list(placeholder = "Please upload a file to start")
         )
@@ -48,7 +46,7 @@ shinyUI(dashboardPage(
           style = "primary",
           fluidRow(
             style = "padding: 0px;",
-            column(12, fileInput("in_file", "Select file",
+            column(12, fileInput("inputFile", "Select file",
               accept = c("txt/csv", "text/comma-seperated-values, text/plain", ".csv"),
               width = "100%"
             ), style = "padding: 0px;")
@@ -76,7 +74,7 @@ shinyUI(dashboardPage(
           ),
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, bsButton("bf", "Blank filtrate", width = "100%"), style = "padding-left:0px; margin-top: 10px;"),
+            column(6, bsButton("blankFiltrate", "Blank filtrate", width = "100%"), style = "padding-left:0px; margin-top: 10px;"),
             column(6, bsButton("bfsave", "Save", width = "100%"), style = "padding-left:0px; margin-top: 10px;")
           )
         ),
@@ -127,6 +125,14 @@ shinyUI(dashboardPage(
             column(6, bsButton("issave", "Save", width = "100%"), style = "padding-left:0px;")
           )
         ),
+         bsCollapsePanel("Normalization",
+          style = "primary",
+          fluidRow(
+            style = "margin-right: 0px;",
+            column(6, selectInput("norm_method", "Function", choices = c("QC (PQN)", "Sum", "Median"), width = "100%"), style = "padding-left:0px;"),
+            column(6, bsButton("norm", "Run", width = "100%"), style = "padding-left:0px; margin-top: 30px;")
+          )
+        ),
         bsCollapsePanel("Imputation",
           style = "primary",
           fluidRow(selectInput("imp_method", "Imputation method", choices = c("KNN", "Min/X", "Median"), width = "100%")),
@@ -173,28 +179,6 @@ shinyUI(dashboardPage(
             column(6, bsButton("md_rankings", "Edit priorities", width = "100%"), style = "padding-left:0px;"),
             column(6, bsButton("md_run", "Run", width = "100%"), style = "padding-left:0px;")
           )
-        ),
-        bsCollapsePanel("QC normalization",
-          style = "primary",
-          fluidRow(selectInput("pool_sample", "Pooled sample", choices = c("QC", "X", "Y"), width = "100%")),
-          fluidRow(
-            style = "margin-right: 0px;",
-            column(6, checkboxInput("logtrans", "Log-transform", value = T, width = "100%"), style = "padding: 0px; margin-top: -30px; margin-left: 10px; margin-right: -10px;"),
-            column(6, checkboxInput("meanscale", "Mean scale", value = T, width = "100%"), style = "padding: 0px; margin-top: -30px; margin-left: 10px; margin-right: -10px;")
-          ),
-          fluidRow(
-            style = "margin-right: 0px;",
-            column(6, bsButton("qcnorm_run", "Run", width = "100%"), style = "padding-left:0px;"),
-            column(6, bsButton("qcnorm_save", "Save", width = "100%"), style = "padding-left:0px;") #TODO
-          )
-        ),
-        bsCollapsePanel("new QC norm",
-          style = "primary",
-          fluidRow(
-            style = "margin-right: 0px;",
-            column(6, selectInput("qcnorm_method", "Function", choices = c("Mean", "Median"), width = "100%"), style = "padding-left:0px;"),
-            column(6, bsButton("qcnorm2_run", "Run", width = "100%"), style = "padding-left:0px; margin-top: 30px;")
-          )
         )
       )
     ),
@@ -206,9 +190,9 @@ shinyUI(dashboardPage(
   dashboardBody(
     tags$head(tags$style(".modal-sm{ width:300px}
                          .modal-lg{ width:1200px}")),
-    tags$head(tags$script(src = "CallShiny.js")),
+    #tags$head(tags$script(src = "CallShiny.js")),
     useShinyjs(), # Include shinyjs
-    extendShinyjs(script = "CallShiny.js", functions = c("retrieve_results", "send_message", "run_button")),
+    #extendShinyjs(script = "CallShiny.js", functions = c("retrieve_results", "send_message", "run_button")),
     fluidRow(hidden(div(
       id = "buttons", style = "padding-bottom: 49px",
       column(3, bsButton("sequence",
@@ -254,51 +238,32 @@ shinyUI(dashboardPage(
             box(
               title = textOutput("diboxtitle"), width = NULL,
               DTOutput("seq_table")
-              # fluidRow(
-              #    column(
-              #     width = 1,
-              #     h4("Sample")
-              #    ),
-              #    column(
-              #      width = 2,
-              #      h4(" Label")
-              #   ),
-              # splitLayout(
-              #   h4(" Batch"),
-              #   h4(" Order"),
-              #   h4(" Group"),
-              #   h4(" Time"),
-              #   h4(" Paired"),
-              #   cellWidths = "14%",
-              #   cellArgs = list(style = "padding: 0 12px 0 0")
-              # )),
-              #uiOutput("sequi")
             )
           ),
           column(
             width = 4,
             box(
               width = NULL, title = "Upload sequence file", status = "danger",
-              fileInput("in_seq", "Select file", accept = c("txt/csv", "text/comma-seperated-values,text/plain", ".csv"), width = "100%"),
-              column(6, actionButton("updateseq", label = "Update", width = "100%")), 
-              column(6, actionButton("reuseseq", label = "Re-use sequence", width = "100%"))
+              fileInput("inputSequence", "Select file", accept = c("txt/csv", "text/comma-seperated-values,text/plain", ".csv"), width = "100%"),
+              column(6, actionButton("updateSequence", label = "Update", width = "100%")), 
+              column(6, actionButton("reuseSequence", label = "Re-use sequence", width = "100%"))
             ),
             box(
               width = NULL, title = "Extract adducts from name",
-              radioGroupButtons("add_mode", "Select ionmode", c("Positive", "Negative"), justified = TRUE),
-              actionButton("add_run", "Run", width = 100)
+              radioGroupButtons("selectIonMode", "Select ionmode", c("Positive", "Negative"), justified = TRUE),
+              actionButton("extractAdducts", "Run", width = 100)
             ),
             box(
               width = NULL, title = "Edit data columns",
-              actionButton("seq_edit", "Edit", width = 100)
+              actionButton("editSequence", "Edit", width = 100)
             ),
             box(
               width = NULL, title = "Group nicknames",
-              actionButton("group_edit", "Edit", width = 100)
+              actionButton("editGroups", "Edit", width = 100)
             ),
             box(
               width = NULL, title = "Download sequence file",
-              downloadButton("seq_download", "Download", width = 100)
+              downloadButton("downloadSequence", "Download", width = 100)
             )
           )
         )
@@ -362,18 +327,14 @@ shinyUI(dashboardPage(
                   column(6, selectInput("group2", "Group", choices = NULL, width = "100%")),
                   column(6, selectInput("time2", "Time", choices = NULL, width = "100%"))
                 ),
-                checkboxInput(inputId = "is_paired", label = "Paired tests?", value = F),
+                checkboxInput(inputId = "isPaired", label = "Paired tests?", value = F),
                 column(12,
                   actionButton("show_data", "Show selected"),
-                  actionButton("run_stats", "Run test"))
+                  actionButton("runTest", "Run test"))
               ),
             ),
             br(),
-            h4("Selected sequence"),
-            fluidRow(column(12, box(width = NULL, DTOutput("sel_seq_table")))),
-            br(),
-            fluidRow(column(12, box(width = NULL, DTOutput("stats_table")))),
-            br(),
+            h4("Results"),
             fluidRow(column(12, box(width = NULL, DTOutput("results_table"))))
           )
         )
