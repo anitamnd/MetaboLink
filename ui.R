@@ -190,9 +190,7 @@ shinyUI(dashboardPage(
   dashboardBody(
     tags$head(tags$style(".modal-sm{ width:300px}
                          .modal-lg{ width:1200px}")),
-    #tags$head(tags$script(src = "CallShiny.js")),
-    useShinyjs(), # Include shinyjs
-    #extendShinyjs(script = "CallShiny.js", functions = c("retrieve_results", "send_message", "run_button")),
+    useShinyjs(),
     fluidRow(hidden(div(
       id = "buttons", style = "padding-bottom: 49px",
       column(3, bsButton("sequence",
