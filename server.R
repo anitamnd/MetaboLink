@@ -1110,20 +1110,19 @@ shinyServer(function(session, input, output) {
     } else if(input$norm_method == "QC (PQN)" & sum(rv$sequence[[rv$selectedFile]][, 1] %in% "QC") == 0) {
       sendSweetAlert(session = session, title = "Error", text = "No QC samples in dataset.", type = "error")
     } else {
-      data <- rv$data[[rv$selectedFile]][, rv$sequence[[rv$selectedFile]][, 1] %in% c("QC", "Sample")]
-      sequence <- rv$sequence[[rv$selectedFile]][rv$sequence[[rv$selectedFile]][, 1] %in% c("QC", "Sample"), ]
-      qualityControls <- data[, sequence[, 1] %in% "QC"]
-
-      normalizedData <- normalization(data, sequence, input$norm_method)
-      normalizedQCs <- normalizedData[, sequence[, 1] %in% "QC"]
-
-      #TODO check about RT column and others
-      rv$tmpData <- normalizedData
+      data <- rv$data[[rv$selectedFile]]
+      sequence <- rv$sequence[[rv$selectedFile]]
+      qualityControls <- data[, sequence[, 1] %in% "QC"] 
+      normalizedData <- normalization(data, sequence, qualityControls, input$norm_method)
+      data[, sequence[, 1] %in% c("QC", "Sample")] <- normalizedData
+      normalizedQCs <- data[, sequence[, 1] %in% "QC"]
+      rv$tmpData <- data
       rv$tmpSequence <- sequence
-      updateSelectInput(session, "selectpca1", selected = "Unsaved data", choices = c("Unsaved data", rv$choices))
-      output$dttable <- renderDataTable(rv$tmpData, rownames = FALSE, options = list(scrollX = TRUE, scrollY = "700px", pageLength = 20))
+      updateSelectInput(session, "selectpca1", selected = "Unsaved data", 
+            choices = c("Unsaved data", rv$choices))
+      output$dttable <- renderDataTable(rv$tmpData, rownames = FALSE, options = 
+            list(scrollX = TRUE, scrollY = "700px", pageLength = 20))
         
-
       # Plot variance in QC samples before and after normalization
       output$beforeNormalization <- renderPlot({
         boxplot(qualityControls, main = "Before Normalization", xlab = "Metabolite", ylab = "Intensity")
@@ -1144,7 +1143,6 @@ shinyServer(function(session, input, output) {
       )
     }
   })
-
 
   observeEvent(input$saveNormalization, {
     rv$data[[length(rv$data) + 1]] <- rv$tmpData

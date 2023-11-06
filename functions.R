@@ -405,35 +405,33 @@ duplicaterank <- function(duplicate, rankings) {
   }
 }
 
-normalization <- function(data, sequence, method) {
-  qcData <- data[, sequence[, 1] %in% "QC"]
-  data <- data[, sequence[, 1] %in% c("QC", "Sample")]
-  rowNames <- rownames(data)
-  colNames <- colnames(data)
+normalization <- function(data, sequence, qualityControls, method) {
+  filteredData <- data[, sequence[, 1] %in% c("QC", "Sample")]
+  rowNames <- rownames(filteredData)
+  colNames <- colnames(filteredData)
   if(method == "QC (PQN)") {
-    qcMean <- apply(qcData, 1, mean)
-    normalizedData <- t(apply(data, 1, ProbNorm, qcMean))
+    meanQC <- rowMeans(qualityControls)
+    normalizedData <- apply(filteredData, 2, probQuotientNormalization, meanQC)
   } else if(method == "Median") {
-    normalizedData <- t(apply(data, 1, MedianNorm))
+    normalizedData <- apply(filteredData, 2, medianNormalization)
   } else if(method == "Sum") {
-    normalizedData <- t(apply(data, 1, SumNorm))
+    normalizedData <- apply(filteredData, 2, sumNormalization)
   }
   rownames(normalizedData) <- rowNames
   colnames(normalizedData) <- colNames
   return(normalizedData)
 }
 
-# Norm functions (MetaboAnalystR)
-ProbNorm <- function(x, ref.smpl) {
-  x/median(as.numeric(x/ref.smpl), na.rm=T)
+probQuotientNormalization <- function(x, reference) {
+  x/median(as.numeric(x/reference), na.rm=TRUE)
 }
 
-MedianNorm <- function(x) {
-  x/median(x, na.rm=T)
+medianNormalization <- function(x) {
+  x/median(x, na.rm=TRUE)
 }
 
-SumNorm<-function(x){
-  1000*x/sum(x, na.rm=T)
+sumNormalization <- function(x){
+  1000*x/sum(x, na.rm=TRUE)
 }
 
 
