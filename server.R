@@ -413,8 +413,8 @@ shinyServer(function(session, input, output) {
       bfdat <- blankFiltration(
         dat = rv$data[[rv$selectedFile]],
         seq = bfseq,
-        xbf = input$xbf,
-        keepis = input$bfkeepis
+        signalStrength = input$xbf,
+        keepIs = input$bfkeepis
       )
       if (input$bfdiscard) {
         bfdat <- bfdat[!bfseq[, 1] %in% "Blank"]
