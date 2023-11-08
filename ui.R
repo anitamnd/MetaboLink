@@ -129,8 +129,8 @@ shinyUI(dashboardPage(
           style = "primary",
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, selectInput("norm_method", "Function", choices = c("QC (PQN)", "Sum", "Median"), width = "100%"), style = "padding-left:0px;"),
-            column(6, bsButton("norm", "Run", width = "100%"), style = "padding-left:0px; margin-top: 30px;")
+            column(6, selectInput("normMethod", "Function", choices = c("QC (PQN)", "Sum", "Median"), width = "100%"), style = "padding-left:0px;"),
+            column(6, bsButton("normalize", "Run", width = "100%"), style = "padding-left:0px; margin-top: 30px;")
           )
         ),
         bsCollapsePanel("Imputation",
@@ -155,7 +155,7 @@ shinyUI(dashboardPage(
         ),
         bsCollapsePanel("Drift correction",
           style = "primary",
-          fluidRow(selectInput("dc_method", "Signal correction method", choices = c("QC-RFSC (random forrest)", "QC-RLSC (robust LOESS)"), width = "100%")),
+          fluidRow(selectInput("dcMethod", "Signal correction method", choices = c("QC-RFSC (random forrest)", "QC-RLSC (robust LOESS)"), width = "100%")),
           fluidRow(div(id = "dc_ntree_hide", sliderInput("dc_ntree", "ntree", min = 100, max = 1000, value = 500, step = 100, width = "100%"))),
           fluidRow(hidden(div(id = "dc_qcspan_hide", sliderInput("dc_qcspan", "QCspan", min = 0.2, max = 0.75, value = 0.7, step = 0.05, width = "100%")))),
           fluidRow(hidden(div(id = "dc_degree_hide", sliderInput("dc_degree", "degree", min = 0, max = 2, value = 2, step = 1, width = "100%")))),
@@ -168,7 +168,7 @@ shinyUI(dashboardPage(
         ),
         bsCollapsePanel("Merge datasets",
           style = "primary",
-          fluidRow(selectInput("md_select", "Select dataset to merge with", choices = NULL, width = "100%")),
+          fluidRow(selectInput("mergeFile", "Select dataset to merge with", choices = NULL, width = "100%")),
           fluidRow(
             style = "margin-right: 0px;",
             column(6, numericInput("md_ppm", "M/z tolerance ppm", min = 0, value = 10, width = "100%"), style = "padding-left:0px;"),
@@ -177,7 +177,7 @@ shinyUI(dashboardPage(
           fluidRow(
             style = "margin-right: 0px;",
             column(6, bsButton("md_rankings", "Edit priorities", width = "100%"), style = "padding-left:0px;"),
-            column(6, bsButton("md_run", "Run", width = "100%"), style = "padding-left:0px;")
+            column(6, bsButton("mergeDatasets", "Run", width = "100%"), style = "padding-left:0px;")
           )
         )
       )
@@ -295,8 +295,8 @@ shinyUI(dashboardPage(
               tabBox(tabPanel(title = "PCA", plotlyOutput("plotpca2")))
             ),
             fluidRow(
-              tabBox(tabPanel(title = "Første panel", htmlOutput("info1"))),
-              tabBox(tabPanel(title = "second", htmlOutput("info2")))
+              tabBox(tabPanel(title = "Details", htmlOutput("pca1Details"))),
+              tabBox(tabPanel(title = "Details", htmlOutput("pca2Details")))
             )
           )
         )
@@ -311,7 +311,6 @@ shinyUI(dashboardPage(
               column(6,
                 id = "pr_c2",
                 h4("Summary"),
-                actionButton("load_sdata", "Load data"),
                 column(12, span(htmlOutput("input_stats"))),
               ),
               column(5,
