@@ -414,7 +414,7 @@ shinyServer(function(session, input, output) {
   })
 
   observeEvent(input$blankFiltrate, {
-    if (is.null(rv$activeFile)) {
+    if(is.null(rv$activeFile)) {
       showNotification("No data", type = "error")
     } else if (!"QC" %in% rv$sequence[[rv$activeFile]][, 1]) {
       showNotification("Data must have atleast 1 QC", type = "error")
@@ -423,44 +423,39 @@ shinyServer(function(session, input, output) {
     } else if (sum(rv$sequence[[rv$activeFile]][, 1] %in% "Name") != 1) {
       showNotification("Data must have exactly 1 \"Name\" column", type = "error")
     } else {
-      bfseq <- rv$sequence[[rv$activeFile]]
-
-      bfdat <- blankFiltration(
-        dat = rv$data[[rv$activeFile]],
-        seq = bfseq,
-        signalStrength = input$xbf,
-        keepIs = input$bfkeepis
-      )
-      if (input$bfdiscard) {
-        bfdat <- bfdat[!bfseq[, 1] %in% "Blank"]
-        bfseq <- bfseq[!bfseq[, 1] %in% "Blank", ]
+      sequence <- rv$sequence[[rv$activeFile]]
+      data <- rv$data[[rv$activeFile]]
+      filtered <- blankFiltration(data, sequence, input$signalStrength, input$keepIS)
+      if(input$discardBlank) {
+        filtered <- filtered[!sequence[, 1] %in% "Blank"]
+        sequence <- sequence[!sequence[, 1] %in% "Blank", ]
       }
-      rv$tmpData <- bfdat
-      rv$tmpSequence <- bfseq
+      rv$tmpData <- filtered
+      rv$tmpSequence <- sequence
       updateSelectInput(session, "selectpca1", selected = "Unsaved data", choices = c("Unsaved data", rv$choices))
       output$dttable <- renderDataTable(rv$tmpData, rownames = FALSE, options = list(scrollX = TRUE, scrollY = "700px", pageLength = 20))
       sendSweetAlert(
         session = session,
         title = "Success",
-        text = paste0(nrow(rv$data[[rv$activeFile]]) - nrow(rv$tmpData), " features was removed"),
+        text = paste0(nrow(rv$data[[rv$activeFile]]) - nrow(rv$tmpData), " features removed"),
         type = "success"
       )
     }
   })
 
-  observeEvent(input$bfsave, {
+  observeEvent(input$saveBF, {
     if (is.null(rv$tmpData)) {
       showNotification("Blank filtrate first", type = "error")
     } else {
-      if (input$bfnewsave) {
+      if (input$newFileBF) {
         rv$data[[length(rv$data) + 1]] <- rv$tmpData
         rv$sequence[[length(rv$sequence) + 1]] <- rv$tmpSequence
-        names(rv$data)[length(rv$data)] <- paste0(names(rv$data)[rv$activeFile], "_", input$xbf, "xb")
+        names(rv$data)[length(rv$data)] <- paste0(names(rv$data)[rv$activeFile], "_", input$signalStrength, "xb")
         initializeVariables()
       } else {
         rv$data[[rv$activeFile]] <- rv$tmpData
         rv$sequence[[rv$activeFile]] <- rv$tmpSequence
-        names(rv$data)[rv$activeFile] <- paste0(names(rv$data)[rv$activeFile], "_", input$xbf, "xb")
+        names(rv$data)[rv$activeFile] <- paste0(names(rv$data)[rv$activeFile], "_", input$signalStrength, "xb")
       }
       rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
       updateSelectInput(session, "selectDataset", choices = rv$choices, selected = rv$choices[length(rv$choices)])
@@ -471,7 +466,7 @@ shinyServer(function(session, input, output) {
     }
   })
 
-  observeEvent(input$is, {
+  observeEvent(input$normalizeIS, {
     if (is.null(rv$activeFile)) {
       showNotification("No data", type = "error")
     } else if (sum(rv$sequence[[rv$activeFile]][, 1] %in% "Name") != 1) {
@@ -479,39 +474,29 @@ shinyServer(function(session, input, output) {
     } else if (is.null(input$isChoose)) {
       showNotification("No internal standards selected", type = "error")
     } else {
-      isseq <- rv$sequence[[rv$activeFile]]
-      isdat <- isfunc(
-        dat = rv$data[[rv$activeFile]],
-        seq = isseq,
-        is = input$isChoose,
-        method = input$ismethod,
-        qc = input$isqc
-      )
-      rv$tmpData <- isdat
-      rv$tmpSequence <- isseq
+      sequence <- rv$sequence[[rv$activeFile]]
+      data <- rv$data[[rv$activeFile]]
+
+      normalized <- normalizationIS(data, sequence, input$isChoose, input$isMethod, input$normalizeQC)
+      rv$tmpData <- normalized
+      rv$tmpSequence <- sequence
       updateSelectInput(session, "selectpca1", selected = "Unsaved data", choices = c("Unsaved data", rv$choices))
       output$dttable <- renderDataTable(rv$tmpData, rownames = FALSE, options = list(scrollX = TRUE, scrollY = "700px", pageLength = 20))
     }
   })
 
-  observeEvent(input$is_optimize, {
-    seq <- rv$sequence[[rv$activeFile]]
-    dat <- rv$data[[rv$activeFile]]
-    isop <- isopti(
-      dat = dat,
-      seq = seq,
-      is = input$isChoose,
-      method = input$ismethod,
-      qc = input$isqc
-    )
-    updateCheckboxGroupInput(session, "isChoose", selected = isop)
+  observeEvent(input$optimizeIS, {
+    sequence <- rv$sequence[[rv$activeFile]]
+    data <- rv$data[[rv$activeFile]]
+    optimized <- optimizeIS(data, sequence, input$isChoose, input$isMethod, input$normalizeQC)
+    updateCheckboxGroupInput(session, "isChoose", selected = optimized)
   })
 
-  observeEvent(input$issave, {
-    if (is.null(rv$tmpData)) {
+  observeEvent(input$saveIS, {
+    if(is.null(rv$tmpData)) {
       showNotification("IS normalize first", type = "error")
     } else {
-      if (input$isnewsave) {
+      if(input$newFileIS) {
         rv$data[[length(rv$data) + 1]] <- rv$tmpData
         rv$sequence[[length(rv$sequence) + 1]] <- rv$tmpSequence
         names(rv$data)[length(rv$data)] <- paste0(names(rv$data)[rv$activeFile], "_is")
@@ -530,11 +515,12 @@ shinyServer(function(session, input, output) {
     }
   })
 
-  observeEvent(input$isremove, {
-    dat <- rv$data[[rv$activeFile]]
-    rmdat <- rv$data[[rv$activeFile]][rv$sequence[[rv$activeFile]][, 1] %in% "Name"]
-    dat <- dat[!grepl("\\(IS\\)", toupper(rmdat[ , 1])), ]
-    rv$data[[rv$activeFile]] <- dat
+  observeEvent(input$removeIS, {
+    data <- rv$data[[rv$activeFile]]
+    sequence <- rv$sequence[[rv$activeFile]]
+    toRemove <- data[sequence[, 1] %in% "Name"]
+    data <- data[!grepl("\\(IS\\)", toupper(toRemove[ , 1])), ]
+    rv$data[[rv$activeFile]] <- data
     updateCheckboxGroupInput(session, "isChoose", choices = character(0), selected = NULL)
   })
 

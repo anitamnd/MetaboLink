@@ -62,20 +62,20 @@ shinyUI(dashboardPage(
           fluidRow(
             style = "padding: 0px;",
             column(12,
-              sliderInput("xbf", "Signal strength above blank", 0, 10, 5, step = 0.1, width = "100%"),
+              sliderInput("signalStrength", "Signal strength above blank", 0, 10, 5, step = 0.1, width = "100%"),
               style = "padding: 0px"
             )
           ),
           fluidRow(
             style = "margin-right: 0px;",
-            column(12, checkboxInput("bfdiscard", "Discard blank", value = T, width = "100%"), style = "padding: 0px; margin-top: -25px; margin-bottom: -15px; margin-left: 5px;"),
-            column(12, checkboxInput("bfkeepis", "Keep IS", value = T, width = "100%"), style = "padding: 0px; margin-top: -15px; margin-bottom: -15px; margin-left: 5px;"),
-            column(12, checkboxInput("bfnewsave", "Save as new file", value = T, width = "100%"), style = "padding: 0px; margin-top: -15px; margin-bottom: -15px; margin-left: 5px;")
+            column(12, checkboxInput("discardBlank", "Discard blank", value = T, width = "100%"), style = "padding: 0px; margin-top: -25px; margin-bottom: -15px; margin-left: 5px;"),
+            column(12, checkboxInput("keepIS", "Keep IS", value = T, width = "100%"), style = "padding: 0px; margin-top: -15px; margin-bottom: -15px; margin-left: 5px;"),
+            column(12, checkboxInput("newFileBF", "Save as new file", value = T, width = "100%"), style = "padding: 0px; margin-top: -15px; margin-bottom: -15px; margin-left: 5px;")
           ),
           fluidRow(
             style = "margin-right: 0px;",
             column(6, bsButton("blankFiltrate", "Blank filtrate", width = "100%"), style = "padding-left:0px; margin-top: 10px;"),
-            column(6, bsButton("bfsave", "Save", width = "100%"), style = "padding-left:0px; margin-top: 10px;")
+            column(6, bsButton("saveBF", "Save", width = "100%"), style = "padding-left:0px; margin-top: 10px;")
           )
         ),
         bsCollapsePanel("Missing value filtration",
@@ -104,25 +104,25 @@ shinyUI(dashboardPage(
         bsCollapsePanel("IS normalization",
           style = "primary",
           fluidRow(
-            selectInput("ismethod", "Method", choices = c("Nearest RT", "Same lipid structure"), selected = "Nearest RT", width = "100%")
+            selectInput("isMethod", "Method", choices = c("Nearest RT", "Same lipid structure"), selected = "Nearest RT", width = "100%")
           ),
           fluidRow(
             checkboxGroupInput("isChoose", NULL, choices = NULL, selected = NULL, inline = FALSE)
           ),
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, checkboxInput("isqc", "Normalize QC", value = T, width = "100%"), style = "padding: 0px; margin-top: -30px; margin-left: 10px; margin-right: -10px;"),
-            column(6, checkboxInput("isnewsave", "Save as new file", value = T, width = "100%"), style = "padding: 0px; margin-top: -30px; margin-left: 10px; margin-right: -10px;")
+            column(6, checkboxInput("normalizeQC", "Normalize QC", value = T, width = "100%"), style = "padding: 0px; margin-top: -30px; margin-left: 10px; margin-right: -10px;"),
+            column(6, checkboxInput("newFileIS", "Save as new file", value = T, width = "100%"), style = "padding: 0px; margin-top: -30px; margin-left: 10px; margin-right: -10px;")
           ),
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, bsButton("is", "Normalize", width = "100%"), style = "padding-left:0px;"),
-            column(6, bsButton("is_optimize", "Optimize", width = "100%"), style = "padding-left:0px;")
+            column(6, bsButton("normalizeIS", "Normalize", width = "100%"), style = "padding-left:0px;"),
+            column(6, bsButton("optimizeIS", "Optimize", width = "100%"), style = "padding-left:0px;")
           ),
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, bsButton("isremove", "Remove IS", width = "100%"), style = "padding-left:0px;"),
-            column(6, bsButton("issave", "Save", width = "100%"), style = "padding-left:0px;")
+            column(6, bsButton("removeIS", "Remove IS", width = "100%"), style = "padding-left:0px;"),
+            column(6, bsButton("saveIS", "Save", width = "100%"), style = "padding-left:0px;")
           )
         ),
          bsCollapsePanel("Normalization",
