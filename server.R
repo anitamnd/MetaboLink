@@ -59,8 +59,8 @@ shinyServer(function(session, input, output) {
   }
 
   observeEvent(input$inputFile, { 
-    dat <- read.csv(input$inputFile$datapath, header = 1, stringsAsFactors = F, check.names = FALSE)
-    labels <- identifyLabels(dat)
+    inputFile <- read.csv(input$inputFile$datapath, header = 1, stringsAsFactors = F, check.names = FALSE)
+    labels <- identifyLabels(inputFile)
     batch <- NA
     order <- NA
     class <- NA
@@ -68,7 +68,7 @@ shinyServer(function(session, input, output) {
     paired <- NA
     initializeVariables()
     rv$sequence[[length(rv$sequence) + 1]] <- data.frame(labels, batch, order, class, time, paired)
-    rv$data[[length(rv$data) + 1]] <- dat
+    rv$data[[length(rv$data) + 1]] <- inputFile
     names(rv$data)[length(rv$data)] <- substr(input$inputFile$name, 1, nchar(input$inputFile$name) - 4)
     updates()
     updateTabItems(session, "tabs", selected = "Datainput")
@@ -76,7 +76,7 @@ shinyServer(function(session, input, output) {
   })
 
   observeEvent(input$inputSequence, {
-    shinyCatch( {
+    shinyCatch({
       inputSequence <- read.csv(input$inputSequence$datapath, header = 1, stringsAsFactors = FALSE)
       colnames(inputSequence) <- tolower(colnames(inputSequence))
       inputSequence <- checkSequence(inputSequence)
@@ -185,32 +185,22 @@ shinyServer(function(session, input, output) {
 
   observeEvent(input$example, {
     # Lipidomics
-    dat <- read.csv("./csvfiles/Eva pos export from profinder.csv", stringsAsFactors = FALSE)
-    labels <- identifyLabels(dat)
-    labels[5] <- "-"
-    batch <- c(NA, NA, NA, NA, NA, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, NA, NA, NA, 1, 1, 1, 1, 1)
-    order <- c(NA, NA, NA, NA, NA, 11, 16, 13, 15, 14, 6, 8, 5, 4, 10, 9, 3, NA, NA, NA, 1, 2, 7, 12, 17)
-    class <- c(NA, NA, NA, NA, NA, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, NA, NA, NA, NA, NA, NA, NA, NA)
-    time <- rep(NA, length(class))
-    paired <- rep(NA, length(class))
-    lipidomicsSequence <- data.frame(labels, batch, order, class, time, paired)
-    rv$sequence[[length(rv$sequence) + 1]] <- lipidomicsSequence
-    rv$data[[length(rv$data) + 1]] <- dat
+    data <- read.csv("./csvfiles/Eva pos export from profinder.csv", stringsAsFactors = FALSE)
+    sequence <- read.csv("./csvfiles/sequence_lipidomics_pos", stringsAsFactors = FALSE)
+    row.names(sequence) <- sequence[, 1]
+    sequence <- sequence[, -1]
+    rv$sequence[[length(rv$sequence) + 1]] <- sequence
+    rv$data[[length(rv$data) + 1]] <- data
     names(rv$data)[length(rv$data)] <- "Lipidomics_pos"
     initializeVariables()
     
     # Metabolomics
-    dat <- read.csv("./csvfiles/Woz export from mzmine pos.csv", stringsAsFactors = FALSE)
-    labels <- identifyLabels(dat)
-    labels[1] <- "Name"
-    batch <- c(NA, NA, NA, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, NA, NA, NA, NA)
-    order <- c(NA, NA, NA, 10, 28, 46, 19, 49, 47, 48, 2, 37, 1, 57, 42, 18, 15, 23, 56, 30, 13, 52, 44, 36, 51, 41, 5, 27, 25, 39, 17, 11, 33, 21, 43, 40, 32, 20, 12, 45, 35, 8, 29, 4, 7, 9, 50, 24, 53, 38, 54, 55, 6, 22, 34, 16, 14, 26, 3, 31, NA, NA, NA, NA)
-    class <- c(NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 2, 6, 5, 2, 4, 2, 1, 3, 1, 3, 3, 4, 5, 3, 4, 1, 1, 6, 5, 2, 5, 6, 3, 6, 2, 5, 3, 4, 2, 1, 4, 1, 5, 6, 1, 2, 4, 5, 6, 6, 5, 1, 2, 4, 6, 3, NA, NA, NA, NA)
-    time <- rep(NA, length(class))
-    paired <- rep(NA, length(class))
-    metabolomicsSequence <- data.frame(labels, batch, order, class, time, paired)
-    rv$sequence[[length(rv$sequence) + 1]] <- data.frame(labels, batch, order, class, time, paired)
-    rv$data[[length(rv$data) + 1]] <- dat
+    data <- read.csv("./csvfiles/Woz export from mzmine pos.csv", stringsAsFactors = FALSE)
+    sequence <- read.csv("./csvfiles/sequence_metabolomics_pos.csv", stringsAsFactors = FALSE)
+    row.names(sequence) <- sequence[, 1]
+    sequence <- sequence[, -1]
+    rv$sequence[[length(rv$sequence) + 1]] <- sequence
+    rv$data[[length(rv$data) + 1]] <- data
     names(rv$data)[length(rv$data)] <- "Metabolomics_pos"
     rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
     initializeVariables()
