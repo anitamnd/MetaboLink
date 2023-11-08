@@ -1,12 +1,12 @@
 shinyServer(function(session, input, output) {
   options(shiny.maxRequestSize = 30 * 1024^2)
 
-  ## General data
+  ## General
   rv <- reactiveValues(data = list(), sequence = list(), activeFile = NULL, 
                   tmpData = NULL, tmpSequence = NULL, 
                   choices = NULL, drift_plot_select = 1)
   
-  ## Statistics data
+  ## Statistics
   st <- reactiveValues(stats = list(), sequence = list(), results = list(), groups = list(), 
                   numReps = c(), numCond = c(), comparisons = list(), colcomp = list())
 
@@ -49,6 +49,15 @@ shinyServer(function(session, input, output) {
     st$colcomp[[length(st$colcomp) + 1]] <- vector("numeric")
   }
 
+  updates <- function() {
+    rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
+    updateSelectInput(session, "selectDataset", choices = rv$choices, selected = rv$choices[length(rv$choices)])
+    updateSelectInput(session, "selectpca1", choices = rv$choices, selected = rv$choices[length(rv$choices)])
+    updateSelectInput(session, "selectpca2", choices = rv$choices, selected = rv$choices[length(rv$choices)])
+    rv$tmpData <- NULL
+    rv$tmpSequence <- NULL    
+  }
+
   observeEvent(input$inputFile, { 
     dat <- read.csv(input$inputFile$datapath, header = 1, stringsAsFactors = F, check.names = FALSE)
     labels <- identifyLabels(dat)
@@ -57,16 +66,11 @@ shinyServer(function(session, input, output) {
     class <- NA
     time <- NA
     paired <- NA
-    #rv$tmpData <- NULL
-    #rv$tmpSequence <- NULL
     initializeVariables()
     rv$sequence[[length(rv$sequence) + 1]] <- data.frame(labels, batch, order, class, time, paired)
     rv$data[[length(rv$data) + 1]] <- dat
     names(rv$data)[length(rv$data)] <- substr(input$inputFile$name, 1, nchar(input$inputFile$name) - 4)
-    rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
-    updateSelectInput(session, "selectDataset", choices = rv$choices, selected = rv$choices[length(rv$choices)])
-    updateSelectInput(session, "selectpca1", choices = rv$choices, selected = rv$choices[length(rv$choices)])
-    updateSelectInput(session, "selectpca2", choices = rv$choices, selected = rv$choices[length(rv$choices)])
+    updates()
     updateTabItems(session, "tabs", selected = "Datainput")
     show("buttons")
   })
@@ -457,12 +461,7 @@ shinyServer(function(session, input, output) {
         rv$sequence[[rv$activeFile]] <- rv$tmpSequence
         names(rv$data)[rv$activeFile] <- paste0(names(rv$data)[rv$activeFile], "_", input$signalStrength, "xb")
       }
-      rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
-      updateSelectInput(session, "selectDataset", choices = rv$choices, selected = rv$choices[length(rv$choices)])
-      updateSelectInput(session, "selectpca1", choices = rv$choices, selected = rv$choices[length(rv$choices)])
-      updateSelectInput(session, "selectpca2", choices = rv$choices, selected = input$selectpca2)
-      rv$tmpData <- NULL
-      rv$tmpSequence <- NULL
+      updates()
     }
   })
 
@@ -570,12 +569,7 @@ shinyServer(function(session, input, output) {
         rv$sequence[[rv$activeFile]] <- rv$tmpSequence
         names(rv$data)[rv$activeFile] <- paste0(names(rv$data)[rv$activeFile], "_mvr")
       }
-      rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
-      updateSelectInput(session, "selectDataset", choices = rv$choices, selected = rv$choices[length(rv$choices)])
-      updateSelectInput(session, "selectpca1", choices = rv$choices, selected = rv$choices[length(rv$choices)])
-      updateSelectInput(session, "selectpca2", choices = rv$choices, selected = input$selectpca2)
-      rv$tmpData <- NULL
-      rv$tmpSequence <- NULL
+      updates()
     }
   })
 
@@ -635,12 +629,7 @@ shinyServer(function(session, input, output) {
         rv$sequence[[rv$activeFile]] <- rv$tmpSequence
         names(rv$data)[rv$activeFile] <- paste0(names(rv$data)[rv$activeFile], "_imp")
       }
-      rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
-      updateSelectInput(session, "selectDataset", choices = rv$choices, selected = rv$choices[length(rv$choices)])
-      updateSelectInput(session, "selectpca1", choices = rv$choices, selected = rv$choices[length(rv$choices)])
-      updateSelectInput(session, "selectpca2", choices = rv$choices, selected = input$selectpca2)
-      rv$tmpData <- NULL
-      rv$tmpSequence <- NULL
+      updates()
     }
   })
 
@@ -694,12 +683,7 @@ shinyServer(function(session, input, output) {
         rv$sequence[[rv$activeFile]] <- rv$tmpSequence
         names(rv$data)[rv$activeFile] <- paste0(names(rv$data)[rv$activeFile], "_dc")
       }
-      rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
-      updateSelectInput(session, "selectDataset", choices = rv$choices, selected = rv$choices[length(rv$choices)])
-      updateSelectInput(session, "selectpca1", choices = rv$choices, selected = rv$choices[length(rv$choices)])
-      updateSelectInput(session, "selectpca2", choices = rv$choices, selected = input$selectpca2)
-      rv$tmpData <- NULL
-      rv$tmpSequence <- NULL
+      updates()
     }
   })
 
@@ -813,10 +797,7 @@ shinyServer(function(session, input, output) {
       rv$data[[rv$activeFile]] <- dat[, seq(ncol(dat) - 2)]
       names(rv$data)[rv$activeFile] <- paste0(names(rv$data)[rv$activeFile], "_merged")
     }
-    rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
-    updateSelectInput(session, "selectDataset", choices = rv$choices, selected = rv$choices[length(rv$choices)])
-    updateSelectInput(session, "selectpca1", choices = rv$choices, selected = rv$choices[length(rv$choices)])
-    updateSelectInput(session, "selectpca2", choices = rv$choices, selected = input$selectpca2)
+    updates()
   })
 
   observeEvent(list(input$selectpca1, input$blankFiltrate, input$updateSequence, input$is, input$inputSequence, input$imp_run), ignoreInit = T, {
@@ -1146,12 +1127,7 @@ shinyServer(function(session, input, output) {
     rv$sequence[[length(rv$sequence) + 1]] <- rv$tmpSequence
     names(rv$data)[length(rv$data)] <- paste0(names(rv$data)[rv$activeFile], "_normalized")
     initializeVariables()
-    rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
-    updateSelectInput(session, "selectDataset", choices = rv$choices, selected = rv$choices[length(rv$choices)])
-    updateSelectInput(session, "selectpca1", choices = rv$choices, selected = rv$choices[length(rv$choices)])
-    updateSelectInput(session, "selectpca2", choices = rv$choices, selected = input$selectpca2)
-    rv$tmpData <- NULL
-    rv$tmpSequence <- NULL
+    updates()
     removeModal()
   })
 
