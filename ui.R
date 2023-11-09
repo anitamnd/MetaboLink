@@ -326,8 +326,8 @@ shinyUI(dashboardPage(
                 ),
                 checkboxInput(inputId = "isPaired", label = "Paired tests?", value = F),
                 column(12,
-                  actionButton("show_data", "Show selected"),
-                  actionButton("runTest", "Run test"))
+                  actionButton("selectTest", "Select data"),
+                  disabled(actionButton("runTest", "Run test")))
               ),
             ),
             br(),
