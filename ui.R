@@ -62,20 +62,20 @@ shinyUI(dashboardPage(
           fluidRow(
             style = "padding: 0px;",
             column(12,
-              sliderInput("xbf", "Signal strength above blank", 0, 10, 5, step = 0.1, width = "100%"),
+              sliderInput("signalStrength", "Signal strength above blank", 0, 10, 5, step = 0.1, width = "100%"),
               style = "padding: 0px"
             )
           ),
           fluidRow(
             style = "margin-right: 0px;",
-            column(12, checkboxInput("bfdiscard", "Discard blank", value = T, width = "100%"), style = "padding: 0px; margin-top: -25px; margin-bottom: -15px; margin-left: 5px;"),
-            column(12, checkboxInput("bfkeepis", "Keep IS", value = T, width = "100%"), style = "padding: 0px; margin-top: -15px; margin-bottom: -15px; margin-left: 5px;"),
-            column(12, checkboxInput("bfnewsave", "Save as new file", value = T, width = "100%"), style = "padding: 0px; margin-top: -15px; margin-bottom: -15px; margin-left: 5px;")
+            column(12, checkboxInput("discardBlank", "Discard blank", value = T, width = "100%"), style = "padding: 0px; margin-top: -25px; margin-bottom: -15px; margin-left: 5px;"),
+            column(12, checkboxInput("keepIS", "Keep IS", value = T, width = "100%"), style = "padding: 0px; margin-top: -15px; margin-bottom: -15px; margin-left: 5px;"),
+            column(12, checkboxInput("newFileBF", "Save as new file", value = T, width = "100%"), style = "padding: 0px; margin-top: -15px; margin-bottom: -15px; margin-left: 5px;")
           ),
           fluidRow(
             style = "margin-right: 0px;",
             column(6, bsButton("blankFiltrate", "Blank filtrate", width = "100%"), style = "padding-left:0px; margin-top: 10px;"),
-            column(6, bsButton("bfsave", "Save", width = "100%"), style = "padding-left:0px; margin-top: 10px;")
+            column(6, bsButton("saveBF", "Save", width = "100%"), style = "padding-left:0px; margin-top: 10px;")
           )
         ),
         bsCollapsePanel("Missing value filtration",
@@ -104,33 +104,33 @@ shinyUI(dashboardPage(
         bsCollapsePanel("IS normalization",
           style = "primary",
           fluidRow(
-            selectInput("ismethod", "Method", choices = c("Nearest RT", "Same lipid structure"), selected = "Nearest RT", width = "100%")
+            selectInput("isMethod", "Method", choices = c("Nearest RT", "Same lipid structure"), selected = "Nearest RT", width = "100%")
           ),
           fluidRow(
             checkboxGroupInput("isChoose", NULL, choices = NULL, selected = NULL, inline = FALSE)
           ),
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, checkboxInput("isqc", "Normalize QC", value = T, width = "100%"), style = "padding: 0px; margin-top: -30px; margin-left: 10px; margin-right: -10px;"),
-            column(6, checkboxInput("isnewsave", "Save as new file", value = T, width = "100%"), style = "padding: 0px; margin-top: -30px; margin-left: 10px; margin-right: -10px;")
+            column(6, checkboxInput("normalizeQC", "Normalize QC", value = T, width = "100%"), style = "padding: 0px; margin-top: -30px; margin-left: 10px; margin-right: -10px;"),
+            column(6, checkboxInput("newFileIS", "Save as new file", value = T, width = "100%"), style = "padding: 0px; margin-top: -30px; margin-left: 10px; margin-right: -10px;")
           ),
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, bsButton("is", "Normalize", width = "100%"), style = "padding-left:0px;"),
-            column(6, bsButton("is_optimize", "Optimize", width = "100%"), style = "padding-left:0px;")
+            column(6, bsButton("normalizeIS", "Normalize", width = "100%"), style = "padding-left:0px;"),
+            column(6, bsButton("optimizeIS", "Optimize", width = "100%"), style = "padding-left:0px;")
           ),
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, bsButton("isremove", "Remove IS", width = "100%"), style = "padding-left:0px;"),
-            column(6, bsButton("issave", "Save", width = "100%"), style = "padding-left:0px;")
+            column(6, bsButton("removeIS", "Remove IS", width = "100%"), style = "padding-left:0px;"),
+            column(6, bsButton("saveIS", "Save", width = "100%"), style = "padding-left:0px;")
           )
         ),
          bsCollapsePanel("Normalization",
           style = "primary",
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, selectInput("norm_method", "Function", choices = c("QC (PQN)", "Sum", "Median"), width = "100%"), style = "padding-left:0px;"),
-            column(6, bsButton("norm", "Run", width = "100%"), style = "padding-left:0px; margin-top: 30px;")
+            column(6, selectInput("normMethod", "Function", choices = c("QC (PQN)", "Sum", "Median"), width = "100%"), style = "padding-left:0px;"),
+            column(6, bsButton("normalize", "Run", width = "100%"), style = "padding-left:0px; margin-top: 30px;")
           )
         ),
         bsCollapsePanel("Imputation",
@@ -155,7 +155,7 @@ shinyUI(dashboardPage(
         ),
         bsCollapsePanel("Drift correction",
           style = "primary",
-          fluidRow(selectInput("dc_method", "Signal correction method", choices = c("QC-RFSC (random forrest)", "QC-RLSC (robust LOESS)"), width = "100%")),
+          fluidRow(selectInput("dcMethod", "Signal correction method", choices = c("QC-RFSC (random forrest)", "QC-RLSC (robust LOESS)"), width = "100%")),
           fluidRow(div(id = "dc_ntree_hide", sliderInput("dc_ntree", "ntree", min = 100, max = 1000, value = 500, step = 100, width = "100%"))),
           fluidRow(hidden(div(id = "dc_qcspan_hide", sliderInput("dc_qcspan", "QCspan", min = 0.2, max = 0.75, value = 0.7, step = 0.05, width = "100%")))),
           fluidRow(hidden(div(id = "dc_degree_hide", sliderInput("dc_degree", "degree", min = 0, max = 2, value = 2, step = 1, width = "100%")))),
@@ -168,7 +168,7 @@ shinyUI(dashboardPage(
         ),
         bsCollapsePanel("Merge datasets",
           style = "primary",
-          fluidRow(selectInput("md_select", "Select dataset to merge with", choices = NULL, width = "100%")),
+          fluidRow(selectInput("mergeFile", "Select dataset to merge with", choices = NULL, width = "100%")),
           fluidRow(
             style = "margin-right: 0px;",
             column(6, numericInput("md_ppm", "M/z tolerance ppm", min = 0, value = 10, width = "100%"), style = "padding-left:0px;"),
@@ -177,7 +177,7 @@ shinyUI(dashboardPage(
           fluidRow(
             style = "margin-right: 0px;",
             column(6, bsButton("md_rankings", "Edit priorities", width = "100%"), style = "padding-left:0px;"),
-            column(6, bsButton("md_run", "Run", width = "100%"), style = "padding-left:0px;")
+            column(6, bsButton("mergeDatasets", "Run", width = "100%"), style = "padding-left:0px;")
           )
         )
       )
@@ -295,8 +295,8 @@ shinyUI(dashboardPage(
               tabBox(tabPanel(title = "PCA", plotlyOutput("plotpca2")))
             ),
             fluidRow(
-              tabBox(tabPanel(title = "Første panel", htmlOutput("info1"))),
-              tabBox(tabPanel(title = "second", htmlOutput("info2")))
+              tabBox(tabPanel(title = "Details", htmlOutput("pca1Details"))),
+              tabBox(tabPanel(title = "Details", htmlOutput("pca2Details")))
             )
           )
         )
@@ -311,7 +311,6 @@ shinyUI(dashboardPage(
               column(6,
                 id = "pr_c2",
                 h4("Summary"),
-                actionButton("load_sdata", "Load data"),
                 column(12, span(htmlOutput("input_stats"))),
               ),
               column(5,
@@ -327,8 +326,8 @@ shinyUI(dashboardPage(
                 ),
                 checkboxInput(inputId = "isPaired", label = "Paired tests?", value = F),
                 column(12,
-                  actionButton("show_data", "Show selected"),
-                  actionButton("runTest", "Run test"))
+                  actionButton("selectTest", "Select data"),
+                  disabled(actionButton("runTest", "Run test")))
               ),
             ),
             br(),

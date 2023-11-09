@@ -21,19 +21,19 @@ blankFiltration <- function(data, sequence, signalStrength, keepIs) {
   return(data)
 }
 
-isfunc <- function(data, seq, is, method, qc) {
-  rt <- which(seq[, 1] == "RT")
+normalizationIS <- function(data, sequence, is, method, qc) {
+  rt <- which(sequence[, 1] == "RT")
   isname <- is
   is <- as.numeric(gsub(" .*$", "", is))
   sel <- if (qc) c("Sample", "QC") else "Sample"
-  sdat <- data[seq[, 1] %in% sel]
+  sdat <- data[sequence[, 1] %in% sel]
   sdat[sdat == 0] <- NA
   is <- is[complete.cases(sdat[is, ])]
   near <- sapply(data[, rt], function(y) {
     which.min(abs(data[is, rt] - y))
   })
   if (method == "Same lipid structure") {
-    name <- data[seq[, 1] %in% "Name"]
+    name <- data[sequence[, 1] %in% "Name"]
     istype <- gsub(" .*$", "", name[is, ])
     near <- sapply(seq(name[, 1]), function(x) {
       if (gsub(" .*$", "", name[x, 1]) %in% istype) {
@@ -57,13 +57,13 @@ isfunc <- function(data, seq, is, method, qc) {
   return(data)
 }
 
-isopti <- function(data, seq, is, method, qc) {
+optimizeIS <- function(data, sequence, is, method, qc) {
   iscomb <- Map(combn, list(is), seq_along(is), simplify = FALSE)
   iscomb <- lapply(rapply(iscomb, enquote, how = "unlist"), eval)
   progressSweetAlert(id = "pbis", title = "Finding best IS combination", value = 0, total = length(iscomb), striped = T, display_pct = T)
   islow <- lapply(iscomb, function(x) {
-    isdat <- isfunc(data, seq, x, method, qc)
-    mean(apply(isdat[, seq[, 1] %in% "QC"], 1, sd, na.rm = T) / apply(isdat[, seq[, 1] %in% "QC"], 1, mean, na.rm = T) * 100)
+    isdat <- normalizationIS(data, sequence, x, method, qc)
+    mean(apply(isdat[, sequence[, 1] %in% "QC"], 1, sd, na.rm = T) / apply(isdat[, sequence[, 1] %in% "QC"], 1, mean, na.rm = T) * 100)
     # updateProgressBar(id = "pbis", value = which(iscomb %in% iscomb[x]), total = length(iscomb))
   })
   closeSweetAlert()
