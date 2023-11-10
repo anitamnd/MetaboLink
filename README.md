@@ -93,9 +93,9 @@ In the export panel one can download:
 
 ---
 
-<> (Run JLspec)
-<> (To run JLspec on your shell (or Windows Powershell after initializing Docker Desktop):)
-<> (   docker run -it -p 3838:3838 anitamnd/jlspec:latest)
+# (Run JLspec)
+# (To run JLspec on your shell (or Windows Powershell after initializing Docker Desktop):)
+# (   docker run -it -p 3838:3838 anitamnd/jlspec:latest)
 
 ## Getting help
 If you have any suggestions for improvement, contact anitamnd@outlook.com. If you encounter bugs or have further questions or requests, you can raise an issue at the issue page.
