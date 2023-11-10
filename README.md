@@ -1,9 +1,8 @@
-# JLspec Documentation
+# JLspec
 ---
 
-JLspec is a web-based application created with shiny R and it is available at http://computproteomics.bmb.sdu.dk/Metabolomics/. For any questions, please contact X via email or visit the GitHub repository [here](https://github.com/anitamnd/jlspec_2_0).
+JLspec is a web-based application created with shiny R and it is available at http://computproteomics.bmb.sdu.dk/Metabolomics/.
 
-![App dashboard](image.png)
 
 ## 1. Input
 
@@ -11,8 +10,7 @@ JLspec is a web-based application created with shiny R and it is available at ht
 * Comma-separated values (CSV) file with samples in columns and features in rows.
 
 ### Sequence file (metafile)
-* After uploading the datafile, your dashboard will update to the sequence panel, and you will be able to upload a CSV file for the sequence.
-* The sequence file works as an identify 
+* After uploading the datafile, your dashboard will update and open the sequence panel. Here you will be able to upload a CSV file which works and an ID for the main table: 
 
 | Sample | Label | Batch | Group | Time | Paired |
 | ----   | ----  | ----  | ----  | ---- | ----   |
@@ -22,7 +20,7 @@ JLspec is a web-based application created with shiny R and it is available at ht
 
 * **Sample:** column names of the datafile
 
-* **Label:** Name/QC/
+* **Label:** Name/MASS/RT/Blank/Sample/QC/Adduct_pos/Adduct_neg
 
 * **Batch:** batch number
 
@@ -34,11 +32,10 @@ JLspec is a web-based application created with shiny R and it is available at ht
 
 
 > Important noting:
-* When uploading a datafile, the app will automatically detect the labels for each column.
-* Your sequence file does not need to have all the columns above to be valid, but it should not have more than those.
-* When manually updating the metafile, the user must press the 'Update' button to save the changed values.
-* It is only possible to change the label in the metafile by changing it within the shiny application.
-
+* When uploading a datafile, the app will automatically detect the labels for each column
+* Your sequence file does not need to have all the columns above to be valid, but it should not have more than those
+* When manually updating the metafile, the user must press the 'Update' button to save the changed values
+* It is only possible to change the label in the metafile by changing it within the shiny application
 
 ## 2. Data Pre-processing
 
@@ -55,27 +52,30 @@ Removing features with more than a user-defined percentage of missing values.
 ### 2.3 Internal standards normalization
 To account for technical variations and enable meaningful comparisons. This function requires a data file including a column of retention times labeled "RT" and a column of annotations labeled "Name". At least one feature should be an internal standard and include "(is)" within its annotation.
 
-### 2.4 Imputation
+### 2.4 Normalization
+Normalize the data using:
+
+* Probabilistic Quocient Normalization (PQN) using the QC samples as reference
+* Sum
+* Median
+
+### 2.5 Imputation
 
 * KNN: impute missing values with KNN algorithm.
 * Median: impute missing values with median value from class.
 * min/X: impute missing values with class minimum divided by X (user-defined).
 
-### 2.5 Drift correction
+### 2.6 Drift correction
 By including quality control (QC) samples from a pool of all the samples and correct each metabolite. To find the drift pattern the app uses locally estimated scatterplot smoothing (LOESS).
 
-### 2.6 Merge datasets
+### 2.7 Merge datasets
 Positive and negative ion modes merge to ensure the best coverage of detected metabolites.
 
-### 2.7 QC normalization
-- 
+
 ## 3. Statistical Analysis
+JLspec uses the sequence file to detect the different groups/conditions and time points and allows the user to select which they would like to compare.
 
-Unpaired
-
-Paired
-
-Time series
+The app allows for unpaired, paired and time series tests using the Limma package.
 
 ## 4. Output
 
@@ -87,11 +87,15 @@ In the export panel one can download:
 
 * .csv data file
 * .csv data file for metaboanalyst
+* .csv data file for polystest
 * .xlsx file
-* Statistics results
+* .csv statistics results file
 
 ---
 
-## 5. Instalation
+<> (Run JLspec)
+<> (To run JLspec on your shell (or Windows Powershell after initializing Docker Desktop):)
+<> (   docker run -it -p 3838:3838 anitamnd/jlspec:latest)
 
-Dockerfile...
+## Getting help
+If you have any suggestions for improvement, contact anitamnd@outlook.com. If you encounter bugs or have further questions or requests, you can raise an issue at the issue page.
