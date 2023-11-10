@@ -797,12 +797,12 @@ shinyServer(function(session, input, output) {
 
   observeEvent(input$md_newsave, {
     if (isTRUE(input$md_newsave)) {
-      rv$data[[length(rv$data) + 1]] <- dat[, seq(ncol(dat) - 2)]
+      rv$data[[length(rv$data) + 1]] <- merged[, seq(ncol(merged) - 2)]
       rv$sequence[[length(rv$sequence) + 1]] <- rv$sequence[[rv$activeFile]]
       names(rv$data)[length(rv$data)] <- paste0(names(rv$data)[rv$activeFile], "_merged")
       initializeVariables()
     } else if (isFALSE(input$md_newsave)) {
-      rv$data[[rv$activeFile]] <- dat[, seq(ncol(dat) - 2)]
+      rv$data[[rv$activeFile]] <- merged[, seq(ncol(merged) - 2)]
       names(rv$data)[rv$activeFile] <- paste0(names(rv$data)[rv$activeFile], "_merged")
     }
     updates()
