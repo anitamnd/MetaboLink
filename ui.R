@@ -179,6 +179,19 @@ shinyUI(dashboardPage(
             column(6, bsButton("md_rankings", "Edit priorities", width = "100%"), style = "padding-left:0px;"),
             column(6, bsButton("mergeDatasets", "Run", width = "100%"), style = "padding-left:0px;")
           )
+        ),
+        bsCollapsePanel("More",
+          style = "primary",
+          fluidRow(
+            style = "margin-right: 0px;",
+            column(6, selectInput("logTransform", "Log transform", choices = c("log2", "log10", "ln"), width = "100%"), style = "padding-left:0px;"),
+            column(6, selectInput("scaling", "Data scaling", choices = c("Mean center", "Auto scale"), width = "100%"), style = "padding-left:0px;")
+          ),
+          fluidRow(
+            style = "margin-right: 0px;",
+            column(6, bsButton("transform", "Run", width = "100%"), style = "padding-left:0px;"),
+            column(6, bsButton("saveTransform", "Save", width = "100%"), style = "padding-left:0px;")
+          )
         )
       )
     ),
