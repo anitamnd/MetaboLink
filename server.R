@@ -259,6 +259,7 @@ shinyServer(function(session, input, output) {
     }
 
     # Statistics
+    getGroupInfo(rv$sequence[[rv$activeFile]][, 'class'])
     groupTimeUI(rv$activeFile)
     output$results_table <- renderDT(st$results[[rv$activeFile]], rownames = TRUE, options = list(scrollX = TRUE,
               scrollY = TRUE, pageLength = 20))
