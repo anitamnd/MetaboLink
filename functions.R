@@ -259,36 +259,36 @@ pcaplot <- function(data, class) {
   return(pca)
 }
 
-driftcorrection <- function(data, seq, method, ntree = 500, degree = 2, QCspan) {
-  sequence <- seq[seq[, 1] %in% c("Sample", "QC"), ]
-  data <- data[, seq[, 1] %in% c("Sample", "QC")]
-  dataSorted <- data %>% select(order(sequence$order))
-  qcIndex <- as.numeric(sort(sequence[sequence[, 1] %in% "QC", ]$order))
-  frame <- data.frame("qcid" = 1:ncol(data))
-  dataSorted <- as.matrix(dataSorted)
-  progressSweetAlert(id = "pbdc", title = "Correcting drift", value = 0, total = nrow(dataSorted), striped = T, display_pct = T)
+driftcorrection <- function(dat, seq, method, ntree = 500, degree = 2, QCspan) {
+  seqsq <- seq[seq[, 1] %in% c("Sample", "QC"), ]
+  datsq <- dat[, seq[, 1] %in% c("Sample", "QC")]
+  datsqsorted <- datsq %>% select(order(seqsq$order))
+  qcid <- as.numeric(sort(seqsq[seqsq[, 1] %in% "QC", ]$order))
+  frame <- data.frame("qcid" = 1:ncol(datsq))
+  dcdat <- as.matrix(datsqsorted)
+  progressSweetAlert(id = "pbdc", title = "Correcting drift", value = 0, total = nrow(dcdat), striped = T, display_pct = T)
   if (method == "QC-RFSC (random forrest)") {
-    for (i in 1:nrow(dataSorted)) {
-      forest <- randomForest(data.frame(qcIndex), as.numeric(dataSorted[i, qcIndex]), ntree = ntree)
+    for (i in 1:nrow(dcdat)) {
+      forest <- randomForest(data.frame(qcid), as.numeric(dcdat[i, qcid]), ntree = ntree)
       pv <- predict(forest, frame)
-      dataSorted[i, ] <- as.numeric(dataSorted[i, ]) / pv
-      updateProgressBar(id = "pbdc", value = i, total = nrow(dataSorted))
+      dcdat[i, ] <- as.numeric(dcdat[i, ]) / pv
+      updateProgressBar(id = "pbdc", value = i, total = nrow(dcdat))
     }
   }
   if (method == "QC-RLSC (robust LOESS)") {
-    for (i in 1:nrow(dataSorted)) {
-      loess <- loess(dataSorted[i, qcIndex] ~ qcIndex,
+    for (i in 1:nrow(dcdat)) {
+      loess <- loess(dcdat[i, qcid] ~ qcid,
         span = QCspan,
         degree = degree
       )
       pv <- predict(loess, frame)
-      dataSorted[i, ] <- as.numeric(dataSorted[i, ]) / pv
-      updateProgressBar(id = "pbdc", value = i, total = nrow(dataSorted))
+      dcdat[i, ] <- as.numeric(dcdat[i, ]) / pv
+      updateProgressBar(id = "pbdc", value = i, total = nrow(dcdat))
     }
   }
-  data[seq[, 1] %in% c("Sample", "QC")] <- dataSorted[, sequence$order]
+  dat[seq[, 1] %in% c("Sample", "QC")] <- dcdat[, seqsq$order]
   closeSweetAlert()
-  return(data)
+  return(dat)
 }
 
 findAdduct <- function(data, sequence) {
