@@ -86,7 +86,7 @@ shinyServer(function(session, input, output) {
     }
   }
 
-  # 
+
   observeEvent(input$inputFile, { 
     inputFile <- read.csv(input$inputFile$datapath, header = 1, stringsAsFactors = F, check.names = FALSE)
     labels <- identifyLabels(inputFile)
@@ -664,7 +664,7 @@ shinyServer(function(session, input, output) {
       dc_dat <- driftcorrection(
         dat = dc_dat,
         seq = dc_seq,
-        method = input$dc_method,
+        method = input$dcMethod,
         ntree = input$dc_ntree,
         QCspan = input$dc_qcspan
       )
