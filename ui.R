@@ -236,7 +236,7 @@ shinyUI(dashboardPage(
             width = 8,
             box(
               title = textOutput("diboxtitle"), width = NULL,
-              DTOutput("seq_table")
+              DTOutput("seq_table") %>% withSpinner(color="#0dc5c1")
             )
           ),
           column(
