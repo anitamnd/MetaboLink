@@ -5,7 +5,7 @@ shinyServer(function(session, input, output) {
   rv <- reactiveValues(data = list(), sequence = list(), activeFile = NULL, 
                   tmpData = NULL, tmpSequence = NULL, 
                   choices = NULL, drift_plot_select = 1)
-  
+
   ## Statistics
   st <- reactiveValues(stats = list(), sequence = list(), results = list(),
                   comparisons = list(), colcomp = list())
@@ -211,12 +211,20 @@ shinyServer(function(session, input, output) {
   # Update selected data
   observeEvent(input$selectDataset, ignoreInit = TRUE, { 
     rv$activeFile <- which(rv$choices %in% input$selectDataset)
+    rows <- nrow(rv$data[[rv$activeFile]])
+    cols <- ncol(rv$data[[rv$activeFile]])
+    if(rows > 30)
+      rows <- 30
+    if(cols > 15)
+      cols <- 15
+    forVisuals <- rv$data[[rv$activeFile]][1:rows, 1:cols]
+
     output$seq_table <- renderDT(rv$sequence[[rv$activeFile]], extensions = c('FixedHeader', 'Responsive'), server = F, 
           editable = T, selection = 'none', options = list(pageLength = nrow(rv$sequence[[rv$activeFile]]), 
           fixedHeader = TRUE))
     output$diboxtitle <- renderText(names(rv$data[rv$activeFile]))
-    output$dttable <- renderDT(rv$data[[rv$activeFile]], rownames = FALSE, options = list(scrollX = TRUE, 
-              scrollY = "700px", pageLength = 20))
+    output$dttable <- renderDT(forVisuals, rownames = FALSE, options = list(scrollX = TRUE, 
+              scrollY = "700px"))
     output$dt_drift_panel <- renderDT(rv$data[[rv$activeFile]][rv$sequence[[rv$activeFile]][, 1] %in% "Name"], rownames = FALSE, 
               options = list(autoWidth = TRUE, scrollY = "700px", pageLength = 20))
     output$dt_boxplot_panel <- renderDT(rv$data[[rv$activeFile]][rv$sequence[[rv$activeFile]][, 1] %in% "Name"], rownames = FALSE, 

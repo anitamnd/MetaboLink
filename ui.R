@@ -17,6 +17,7 @@ library(writexl)
 library(igraph)
 library(stringi)
 library(BiocManager)
+library(shinycssloaders)
 options(repos = BiocManager::repositories())
 source("functions.R")
 source("plotfunctions.R")
@@ -273,7 +274,7 @@ shinyUI(dashboardPage(
           id = "datatable_panel",
           column(
             width = 12,
-            box(width = NULL, DTOutput("dttable"))
+            box(width = NULL, DTOutput("dttable") %>% withSpinner(color="#0dc5c1"))
           )
         )
       )
