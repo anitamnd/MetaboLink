@@ -52,13 +52,6 @@ shinyServer(function(session, input, output) {
     st$colcomp[[length(st$colcomp) + 1]] <- vector("numeric")
   }
 
-  updates <- function() {
-    rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
-    updateSelectInput(session, "selectDataset", choices = rv$choices, selected = rv$choices[length(rv$choices)])
-    updateSelectInput(session, "selectpca1", choices = rv$choices, selected = rv$choices[length(rv$choices)])
-    updateSelectInput(session, "selectpca2", choices = rv$choices, selected = rv$choices[length(rv$choices)])
-  }
-
   output$input_stats <- renderText({
     sequence <- isolate(rv$sequence[[rv$activeFile]])
     paste("Selected:<br/>",
@@ -66,9 +59,14 @@ shinyServer(function(session, input, output) {
         "<br/>group ", input$group2, ": ", paste(rownames(sequence)[sequence[, 4] %in% input$group2], collapse = ", "))
   })
 
-  observeEvent(input$inputFile, { 
-    inputFile <- read.csv(input$inputFile$datapath, header = 1, stringsAsFactors = F, check.names = FALSE)
-    labels <- identifyLabels(inputFile)
+  observeEvent(input$inputFile, {
+    shinyCatch({
+      inputFile <- read.csv(input$inputFile$datapath, header = 1, stringsAsFactors = F, check.names = FALSE)
+      labels <- identifyLabels(inputFile)
+      checkColumns(colnames(inputFile), labels)
+    },
+      blocking_level = 'message'
+    )
     batch <- NA
     order <- NA
     class <- NA
@@ -401,9 +399,9 @@ shinyServer(function(session, input, output) {
     if(is.null(rv$activeFile)) {
       showNotification("No data", type = "error")
     } else if (!"QC" %in% rv$sequence[[rv$activeFile]][, 1]) {
-      showNotification("Data must have atleast 1 QC", type = "error")
+      showNotification("Data must have at least 1 QC", type = "error")
     } else if (!"Blank" %in% rv$sequence[[rv$activeFile]][, 1]) {
-      showNotification("Data must have atleast 1 Blank", type = "error")
+      showNotification("Data must have at least 1 Blank", type = "error")
     } else if (sum(rv$sequence[[rv$activeFile]][, 1] %in% "Name") != 1) {
       showNotification("Data must have exactly 1 \"Name\" column", type = "error")
     } else {
