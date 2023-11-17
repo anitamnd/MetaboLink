@@ -9,18 +9,21 @@ JLspec is a web-based application created with shiny R and it is available at ht
 ### Data file
 * Comma-separated values (CSV) file with samples in columns and features in rows.
 
+> If you get an error "Invalid multibyte string at ..." after uploading, your file might have invalid characters. We recommend you only include English letters, underscore, and numbers for naming. 
+
 ### Sequence file (metafile)
 * After uploading the datafile, your dashboard will update and open the sequence panel. Here you will be able to upload a CSV file which works and an ID for the main table: 
 
-| Sample | Label | Batch | Group | Time | Paired |
-| ----   | ----  | ----  | ----  | ---- | ----   |
-| Names  | Name  |       |       |      |        |
-| QC01   | QC    | 1     |       |      |        |
-| m.z    | Mass  | 1     |       |      |        |
+| Sample | Label  | Batch | Group | Time | Paired |
+| ----   | ----   | ----  | ----  | ---- | ----   |
+| Names  | Name   |       |       |      |        |
+| m.z    | Mass   |       |       |      |        |
+| QC09   | QC     | 1     |       |      |        |
+| X1     | Sample | 1     | 2     | 15   |        |
 
 * **Sample:** column names of the datafile
 
-* **Label:** Name/MASS/RT/Blank/Sample/QC/Adduct_pos/Adduct_neg
+* **Label:** Name/Mass/RT/Blank/Sample/QC/Adduct_pos/Adduct_neg/-
 
 * **Batch:** batch number
 
@@ -28,14 +31,13 @@ JLspec is a web-based application created with shiny R and it is available at ht
 
 * **Time:** time point (e.g., 15min/day 1/... )
 
-* **Paired:** paired samples should have the same value in this column.
+* **Paired:** paired samples should have the same value in this column (e.g., samples X1 and X3 are paired, so they both have e.g, "1" in this column).
 
-
-> Important noting:
+> Important:
 * When uploading a datafile, the app will automatically detect the labels for each column
 * Your sequence file does not need to have all the columns above to be valid, but it should not have more than those
 * When manually updating the metafile, the user must press the 'Update' button to save the changed values
-* It is only possible to change the label in the metafile by changing it within the shiny application
+* It is only possible to change the label in the metafile by changing it **within** the shiny application
 
 ## 2. Data Pre-processing
 
