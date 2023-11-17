@@ -7,8 +7,8 @@ shinyServer(function(session, input, output) {
                   choices = NULL, drift_plot_select = 1)
   
   ## Statistics
-  st <- reactiveValues(stats = list(), sequence = list(), results = list(), groups = list(), 
-                  numReps = c(), numCond = c(), comparisons = list(), colcomp = list())
+  st <- reactiveValues(stats = list(), sequence = list(), results = list(),
+                  comparisons = list(), colcomp = list())
 
   rankings <- read.csv("./csvfiles/rankings.csv", stringsAsFactors = FALSE)
 
@@ -36,6 +36,10 @@ shinyServer(function(session, input, output) {
   })
   observeEvent(input$statistics_button, {
     windowselect("statistics")
+    updateSelectInput(session, "group1", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'class']))
+    updateSelectInput(session, "group2", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'class']))
+    updateSelectInput(session, "time1", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'time']))
+    updateSelectInput(session, "time2", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'time']))
   })
 
   # Functions
@@ -44,21 +48,8 @@ shinyServer(function(session, input, output) {
     st$stats[[length(st$stats) + 1]] <- data.frame()
     st$sequence[[length(st$stats) + 1]] <- data.frame()
     st$results[[length(st$results) + 1]] <- data.frame()
-    st$groups[[length(st$groups) + 1]] <- NA
-    st$numReps[[length(st$numReps) + 1]] <- NA
-    st$numCond[[length(st$numCond) + 1]] <- NA
     st$comparisons[[length(st$comparisons) + 1]] <- vector("character")
     st$colcomp[[length(st$colcomp) + 1]] <- vector("numeric")
-  }
-
-  getGroupInfo <- function(class) {
-    groups <- factor(class, exclude = NA)
-    numReps <- max(table(groups))
-    groups <- levels(groups)
-    numCond <- length(groups)
-    st$groups[[length(st$groups)]] <- groups
-    st$numReps[[length(st$numReps)]] <- numReps
-    st$numCond[[length(st$numCond)]] <- numCond
   }
 
   updates <- function() {
@@ -68,24 +59,12 @@ shinyServer(function(session, input, output) {
     updateSelectInput(session, "selectpca2", choices = rv$choices, selected = rv$choices[length(rv$choices)])
   }
 
-  groupTimeUI <- function(active) {
-    numCond <- st$numCond[[active]]
-    numReps <- st$numReps[[active]]
-    sequence <- rv$sequence[[active]][rv$sequence[[active]][, 1] %in% c("Name",  "Sample"), ]
-    output$input_stats <- renderText({ 
-      paste(numCond, " groups were detected<br/>", 
-        paste("<i>Group ", 1:numCond,":</i>", 
-        sapply(0:(numCond-1), function(x) paste(rownames(sequence)[(2:(numReps+1))+x*numReps],collapse=", ")),
-        "<br/>",collapse=""), "</br>")
-    })
-    updateSelectInput(session, "group1", label = NULL, choices = append(st$groups[[active]], "", after=0))
-    updateSelectInput(session, "group2", label = NULL, choices = append(st$groups[[active]], "", after=0))
-    if(any(complete.cases(sequence[, 5]))) {
-      updateSelectInput(session, "time1", label = NULL, choices = sequence[, 5])
-      updateSelectInput(session, "time2", label = NULL, choices = sequence[, 5])
-    }
-  }
-
+  output$input_stats <- renderText({
+    sequence <- isolate(rv$sequence[[rv$activeFile]])
+    paste("Selected:<br/>",
+        "group ", input$group1, ": ", paste(rownames(sequence)[sequence[, 4] %in% input$group1], collapse = ", "),
+        "<br/>group ", input$group2, ": ", paste(rownames(sequence)[sequence[, 4] %in% input$group2], collapse = ", "))
+  })
 
   observeEvent(input$inputFile, { 
     inputFile <- read.csv(input$inputFile$datapath, header = 1, stringsAsFactors = F, check.names = FALSE)
@@ -99,7 +78,7 @@ shinyServer(function(session, input, output) {
     rv$sequence[[length(rv$sequence) + 1]] <- data.frame(labels, batch, order, class, time, paired)
     rv$data[[length(rv$data) + 1]] <- inputFile
     names(rv$data)[length(rv$data)] <- substr(input$inputFile$name, 1, nchar(input$inputFile$name) - 4)
-    updates()
+    rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
     updateTabItems(session, "tabs", selected = "Datainput")
     show("buttons")
   })
@@ -119,9 +98,6 @@ shinyServer(function(session, input, output) {
     row.names(sequence) <- sequence[, 1]
     sequence <- sequence[, -1]
     rv$sequence[[rv$activeFile]] <- sequence
-
-    getGroupInfo(sequence[, 'class'])
-    groupTimeUI(rv$activeFile)
   })
 
   observeEvent(input$reuseSequence, {
@@ -136,8 +112,6 @@ shinyServer(function(session, input, output) {
     sequence <- sequence[, -1]
     rv$sequence[[rv$activeFile]] <- sequence
 
-    getGroupInfo(sequence[, 'class'])
-    groupTimeUI(rv$activeFile)
   })
 
   observeEvent(input$editSequence, {
@@ -221,7 +195,6 @@ shinyServer(function(session, input, output) {
     rv$data[[length(rv$data) + 1]] <- data
     names(rv$data)[length(rv$data)] <- "Lipidomics_pos"
     initializeVariables()
-    getGroupInfo(sequence[, 'class'])
 
     # Metabolomics
     data <- read.csv("./csvfiles/Woz export from mzmine pos.csv", stringsAsFactors = FALSE)
@@ -232,9 +205,7 @@ shinyServer(function(session, input, output) {
     rv$data[[length(rv$data) + 1]] <- data
     names(rv$data)[length(rv$data)] <- "Metabolomics_pos"
     initializeVariables()
-    updates()
-    getGroupInfo(sequence[, 'class'])
-    groupTimeUI(length(rv$data))
+    rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
     updateTabItems(session, "tabs", selected = "Datainput")
     show("buttons")
   })
@@ -259,8 +230,10 @@ shinyServer(function(session, input, output) {
     }
 
     # Statistics
-    getGroupInfo(rv$sequence[[rv$activeFile]][, 'class'])
-    groupTimeUI(rv$activeFile)
+    updateSelectInput(session, "group1", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'class']))
+    updateSelectInput(session, "group2", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'class']))
+    updateSelectInput(session, "time1", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'time']))
+    updateSelectInput(session, "time2", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'time']))
     output$results_table <- renderDT(st$results[[rv$activeFile]], rownames = TRUE, options = list(scrollX = TRUE,
               scrollY = TRUE, pageLength = 20))
 
@@ -323,7 +296,6 @@ shinyServer(function(session, input, output) {
       )
     })
 
-
     output$downloadSequence <- downloadHandler(
       filename <- function() {
         paste0(names(rv$data[rv$activeFile]), "_seq.csv")
@@ -335,6 +307,10 @@ shinyServer(function(session, input, output) {
     updateCheckboxGroupInput(session, "export_xml_list", choices = rv$choices, selected = NULL)
     updateSelectInput(session, "mergeFile", choices = rv$choices, selected = rv$choices[length(rv$choices)])
     updateSelectInput(session, "drift_select", choices = c("None", rv$choices))
+    updateSelectInput(session, "selectDataset", choices = rv$choices, selected = rv$choices[length(rv$choices)])
+    updateSelectInput(session, "selectpca1", choices = rv$choices, selected = rv$choices[length(rv$choices)])
+    updateSelectInput(session, "selectpca2", choices = rv$choices, selected = rv$choices[length(rv$choices)])
+
   })
 
   observeEvent(input$export_edit, {
@@ -369,7 +345,7 @@ shinyServer(function(session, input, output) {
     keep <- sapply(1:length(rv$choices), function(x) input[[paste0("export_edit_keep", x)]])
     rv$data <- rv$data[keep]
     rv$activeFile <- names(rv$data)[length(rv$data)]
-    updates()
+    rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
     removeModal()
   })
 
@@ -465,7 +441,7 @@ shinyServer(function(session, input, output) {
         rv$sequence[[rv$activeFile]] <- rv$tmpSequence
         names(rv$data)[rv$activeFile] <- paste0(names(rv$data)[rv$activeFile], "_", input$signalStrength, "xb")
       }
-      updates()
+      rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
       rv$tmpData <- NULL
       rv$tmpSequence <- NULL   
     }
@@ -511,7 +487,7 @@ shinyServer(function(session, input, output) {
         rv$sequence[[rv$activeFile]] <- rv$tmpSequence
         names(rv$data)[rv$activeFile] <- paste0(names(rv$data)[rv$activeFile], "_is")
       }
-      updates()
+      rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
       rv$tmpData <- NULL
       rv$tmpSequence <- NULL
     }
@@ -572,7 +548,7 @@ shinyServer(function(session, input, output) {
         rv$sequence[[rv$activeFile]] <- rv$tmpSequence
         names(rv$data)[rv$activeFile] <- paste0(names(rv$data)[rv$activeFile], "_mvr")
       }
-      updates()
+      rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
       rv$tmpData <- NULL
       rv$tmpSequence <- NULL   
     }
@@ -634,7 +610,7 @@ shinyServer(function(session, input, output) {
         rv$sequence[[rv$activeFile]] <- rv$tmpSequence
         names(rv$data)[rv$activeFile] <- paste0(names(rv$data)[rv$activeFile], "_imp")
       }
-      updates()
+      rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
       rv$tmpData <- NULL
       rv$tmpSequence <- NULL   
     }
@@ -690,7 +666,7 @@ shinyServer(function(session, input, output) {
         rv$sequence[[rv$activeFile]] <- rv$tmpSequence
         names(rv$data)[rv$activeFile] <- paste0(names(rv$data)[rv$activeFile], "_dc")
       }
-      updates()
+      rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
       rv$tmpData <- NULL
       rv$tmpSequence <- NULL   
     }
@@ -806,7 +782,7 @@ shinyServer(function(session, input, output) {
       rv$data[[rv$activeFile]] <- merged[, seq(ncol(merged) - 2)]
       names(rv$data)[rv$activeFile] <- paste0(names(rv$data)[rv$activeFile], "_merged")
     }
-    updates()
+    rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
   })
 
   observeEvent(list(input$selectpca1, input$blankFiltrate, input$updateSequence, input$is, input$inputSequence, input$imp_run), ignoreInit = T, {
@@ -1057,20 +1033,6 @@ shinyServer(function(session, input, output) {
     }
   })
 
-  #TODO do we need this?
-  group_data <- function(active) {
-    sequence <- rv$sequence[[active]]
-    groups <- factor(sequence[, 4], exclude = NA)
-    numReps <- max(table(groups))
-    groups <- levels(groups)
-    numCond <- length(groups)
-    st$groups[[active]] <- groups
-    st$numReps[[active]] <- numReps
-    st$numCond[[active]] <- numCond
-    #data <- addcols(data, sequence, groups, numReps)
-    #return(dat)
-  }
-
   observeEvent(input$normalize, {
      if (is.null(rv$activeFile)) {
       showNotification("No data", type = "error")
@@ -1116,7 +1078,7 @@ shinyServer(function(session, input, output) {
     rv$sequence[[length(rv$sequence) + 1]] <- rv$tmpSequence
     names(rv$data)[length(rv$data)] <- paste0(names(rv$data)[rv$activeFile], "_normalized")
     initializeVariables()
-    updates()
+    rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
     removeModal()
     rv$tmpData <- NULL
     rv$tmpSequence <- NULL   

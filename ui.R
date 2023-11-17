@@ -308,11 +308,6 @@ shinyUI(dashboardPage(
           id = "statistics_panel",
           fluidPage(
             fluidRow(
-              column(6,
-                id = "pr_c2",
-                h4("Summary"),
-                column(12, span(htmlOutput("input_stats"))),
-              ),
               column(5,
                 id = "pr_c3",
                 h4("Select groups for comparison"), 
@@ -329,6 +324,11 @@ shinyUI(dashboardPage(
                   actionButton("selectTest", "Select data"),
                   disabled(actionButton("runTest", "Run test")))
               ),
+              column(6,
+                id = "pr_c2",
+                h4("Summary"),
+                column(12, span(htmlOutput("input_stats"))),
+              )
             ),
             br(),
             h4("Results"),
