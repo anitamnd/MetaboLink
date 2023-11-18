@@ -47,14 +47,22 @@ shinyUI(dashboardPage(
           style = "primary",
           fluidRow(
             style = "padding: 0px;",
-            column(12, fileInput("inputFile", "Select file",
+            column(12, selectInput("fileType", "Select file format",
+              choices = c("Samples in columns", "Samples in rows"),
+              selected = "Samples in columns",
+              width = "100%"
+            ), style = "padding: 0px;")
+          ),
+          fluidRow(
+            style = "padding: 0px;",
+            column(12, fileInput("inputFile", "Upload file (.txt or .csv)",
               accept = c("txt/csv", "text/comma-seperated-values, text/plain", ".csv"),
               width = "100%"
             ), style = "padding: 0px;")
           ),
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, bsButton("reset", "Reset input", width = "100%"), style = "padding-left:0px;"),
+            column(6, bsButton("submit", "Submit", width = "100%"), style = "padding-left:0px;"),
             column(6, bsButton("example", "Load example", width = "100%"), style = "padding-left:0px;")
           )
         ),
@@ -70,7 +78,7 @@ shinyUI(dashboardPage(
           fluidRow(
             style = "margin-right: 0px;",
             column(12, checkboxInput("discardBlank", "Discard blank", value = T, width = "100%"), style = "padding: 0px; margin-top: -25px; margin-bottom: -15px; margin-left: 5px;"),
-            column(12, checkboxInput("keepIS", "Keep IS", value = T, width = "100%"), style = "padding: 0px; margin-top: -15px; margin-bottom: -15px; margin-left: 5px;"),
+            column(12, checkboxInput("keepIS", "Keep internal standards", value = T, width = "100%"), style = "padding: 0px; margin-top: -15px; margin-bottom: -15px; margin-left: 5px;"),
             column(12, checkboxInput("newFileBF", "Save as new file", value = T, width = "100%"), style = "padding: 0px; margin-top: -15px; margin-bottom: -15px; margin-left: 5px;")
           ),
           fluidRow(
@@ -111,9 +119,12 @@ shinyUI(dashboardPage(
             checkboxGroupInput("isChoose", NULL, choices = NULL, selected = NULL, inline = FALSE)
           ),
           fluidRow(
+            textOutput("notFoundIS"), style= "padding: 0px; margin-top: -30px; margin-bottom: 10px;  margin-left: 10px",
+          ),
+          fluidRow(
             style = "margin-right: 0px;",
-            column(6, checkboxInput("normalizeQC", "Normalize QC", value = T, width = "100%"), style = "padding: 0px; margin-top: -30px; margin-left: 10px; margin-right: -10px;"),
-            column(6, checkboxInput("newFileIS", "Save as new file", value = T, width = "100%"), style = "padding: 0px; margin-top: -30px; margin-left: 10px; margin-right: -10px;")
+            column(6, checkboxInput("normalizeQC", "Normalize QC", value = T, width = "100%"), style = "padding: 0px; margin-top: -20px; margin-left: 10px; margin-right: -10px;"),
+            column(6, checkboxInput("newFileIS", "Save as new file", value = T, width = "100%"), style = "padding: 0px; margin-top: -20px; margin-left: 10px; margin-right: -10px;")
           ),
           fluidRow(
             style = "margin-right: 0px;",
@@ -236,7 +247,7 @@ shinyUI(dashboardPage(
             width = 8,
             box(
               title = textOutput("diboxtitle"), width = NULL,
-              DTOutput("seq_table") %>% withSpinner(color="#0dc5c1")
+              DTOutput("seq_table") %>% withSpinner(color="#0A4F8F")
             )
           ),
           column(
@@ -274,7 +285,7 @@ shinyUI(dashboardPage(
           id = "datatable_panel",
           column(
             width = 12,
-            box(width = NULL, DTOutput("dttable") %>% withSpinner(color="#0dc5c1"))
+            box(width = NULL, DTOutput("dttable") %>% withSpinner(color="#0A4F8F"))
           )
         )
       )

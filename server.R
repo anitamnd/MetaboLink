@@ -62,6 +62,9 @@ shinyServer(function(session, input, output) {
   observeEvent(input$inputFile, {
     shinyCatch({
       inputFile <- read.csv(input$inputFile$datapath, header = 1, stringsAsFactors = F, check.names = FALSE)
+      if(input$fileType == "Samples in rows") {
+        inputFile <- t(inputFile)
+      }
       labels <- identifyLabels(inputFile)
       checkColumns(colnames(inputFile), labels)
     },
@@ -206,6 +209,7 @@ shinyServer(function(session, input, output) {
     rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
     updateTabItems(session, "tabs", selected = "Datainput")
     show("buttons")
+    updateCollapse(session, "menu", close = "Data input")
   })
 
   # Update selected data
@@ -233,6 +237,11 @@ shinyServer(function(session, input, output) {
     if (sum(rv$sequence[[rv$activeFile]][, 1] %in% "Name") == 1) {
       internalStandards <- findInternalStandards(rv$data[[rv$activeFile]][rv$sequence[[rv$activeFile]][, 1] %in% "Name"])
       updateCheckboxGroupInput(session, "isChoose", choices = internalStandards, selected = internalStandards)
+      enable("normalizeIS"); enable("optimizeIS"); enable("removeIS"); enable("saveIS")
+      if(length(internalStandards) == 0) {
+        output$notFoundIS <- renderText({"No internal standards found."})
+        disable("normalizeIS"); disable("optimizeIS"); disable("removeIS"); disable("saveIS")
+      } 
     }
 
     # Statistics
