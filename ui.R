@@ -360,7 +360,8 @@ shinyUI(dashboardPage(
               fluidRow(checkboxGroupInput("export_xml_list", "Choose sheets", choices = NULL, selected = NULL)),
               fluidRow(downloadButton("export_xml", "Export combined .xlsx"))
           )),
-          uiOutput("export_stats")
+          uiOutput("export_stats"),
+          uiOutput("export_settings")
         )
       )
     ),
