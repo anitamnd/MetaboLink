@@ -376,6 +376,13 @@ shinyServer(function(session, input, output) {
     })
     keep <- sapply(1:length(rv$choices), function(x) input[[paste0("export_edit_keep", x)]])
     rv$data <- rv$data[keep]
+    rv$sequence <- rv$sequence[keep]
+    rv$info <- rv$info[keep]
+    st$stats <- st$stats[keep]
+    st$sequence <- st$sequence[keep]
+    st$results <- st$results[keep]
+    st$comparisons <- st$comparisons[keep]
+    st$colcomp <- st$colcomp[keep]
     rv$activeFile <- names(rv$data)[length(rv$data)]
     rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
     removeModal()
