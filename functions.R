@@ -429,6 +429,7 @@ normalization <- function(data, sequence, qualityControls, method) {
   return(normalizedData)
 }
 
+# column normalization
 probQuotientNormalization <- function(x, reference) {
   x/median(as.numeric(x/reference), na.rm=TRUE)
 }
@@ -441,6 +442,32 @@ sumNormalization <- function(x){
   1000*x/sum(x, na.rm=TRUE)
 }
 
+# row normalization
+transformation <- function(data, sequence, logMethod, scaleMethod) {
+  filtered <- data[, sequence[, 1] %in% c("QC", "Sample")]
+  filtered[is.na(filtered)] <- 0
+  rowNames <- rownames(filtered)
+  colNames <- colnames(filtered)
+  if(logMethod == "log10") {
+    min.val <- min(abs(filtered[filtered!=0]))/10
+    transformed <- t(apply(filtered, 1, logNorm, min.val))
+  }
+  if(scaleMethod == "Mean center") {
+    transformed <- apply(filtered, 1, meanCenter)
+    transformed <- t(transformed)
+  }
+  rownames(transformed) <- rowNames
+  colnames(transformed) <- colNames
+  return(transformed)
+}
+
+logNorm <- function(x, min.val){
+  log10((x + sqrt(x^2 + min.val^2))/2)
+}
+
+meanCenter <- function(x){
+  x - mean(x)
+}
 
 # Statistics
 

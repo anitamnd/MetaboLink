@@ -1119,6 +1119,27 @@ shinyServer(function(session, input, output) {
     rv$tmpSequence <- NULL   
   })
 
+  observeEvent(input$transform, {
+    data <- rv$data[[rv$activeFile]]
+    sequence <- rv$sequence[[rv$activeFile]]
+
+    transformed <- transformation(data, sequence, input$logTransform, input$scaling)
+    data[, sequence[, 1] %in% c("QC", "Sample")] <- transformed
+    rv$tmpData <- data
+
+    output$dttable <- renderDataTable(rv$tmpData, rownames = FALSE, options = list(scrollX = TRUE, scrollY = "700px", pageLength = 20))
+  })
+
+  observeEvent(input$saveTransform, {
+    rv$data[[length(rv$data) + 1]] <- rv$tmpData
+    rv$sequence[[length(rv$sequence) + 1]] <- rv$sequence[[rv$activeFile]]
+    names(rv$data)[length(rv$data)] <- paste0(names(rv$data)[rv$activeFile], "_transformed")
+    initializeVariables()
+    #updates()
+    rv$tmpData <- NULL
+    rv$tmpSequence <- NULL   
+  })
+
   # Statistics
 
   observeEvent(input$selectTest, {
