@@ -8,6 +8,13 @@ checkSequence <- function(sequence) {
   return(sequence)
 }
 
+checkColumns <- function(columns, labels) {
+  if(any(labels == "-")) {
+    sendSweetAlert(title = "Info", text = paste("Columns ", paste(columns[labels == "-"], collapse = ", "), " labeled '-'. 
+        If this is wrong, check the columns for invalid characters."), type = "info")
+  }
+}
+
 blankFiltration <- function(data, sequence, signalStrength, keepIs) {
   data[sequence[, 1] %in% "Blank"][is.na(data[sequence[, 1] %in% "Blank"])] <- 0
   bf <- apply(data[sequence[, 1] %in% "Blank"], 1, mean) * signalStrength < 

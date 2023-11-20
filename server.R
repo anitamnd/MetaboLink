@@ -5,7 +5,7 @@ shinyServer(function(session, input, output) {
   rv <- reactiveValues(data = list(), sequence = list(), activeFile = NULL, 
                   tmpData = NULL, tmpSequence = NULL, 
                   choices = NULL, drift_plot_select = 1)
-  
+
   ## Statistics
   st <- reactiveValues(stats = list(), sequence = list(), results = list(),
                   comparisons = list(), colcomp = list())
@@ -52,13 +52,6 @@ shinyServer(function(session, input, output) {
     st$colcomp[[length(st$colcomp) + 1]] <- vector("numeric")
   }
 
-  updates <- function() {
-    rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
-    updateSelectInput(session, "selectDataset", choices = rv$choices, selected = rv$choices[length(rv$choices)])
-    updateSelectInput(session, "selectpca1", choices = rv$choices, selected = rv$choices[length(rv$choices)])
-    updateSelectInput(session, "selectpca2", choices = rv$choices, selected = rv$choices[length(rv$choices)])
-  }
-
   output$input_stats <- renderText({
     sequence <- isolate(rv$sequence[[rv$activeFile]])
     paste("Selected:<br/>",
@@ -66,9 +59,17 @@ shinyServer(function(session, input, output) {
         "<br/>group ", input$group2, ": ", paste(rownames(sequence)[sequence[, 4] %in% input$group2], collapse = ", "))
   })
 
-  observeEvent(input$inputFile, { 
-    inputFile <- read.csv(input$inputFile$datapath, header = 1, stringsAsFactors = F, check.names = FALSE)
-    labels <- identifyLabels(inputFile)
+  observeEvent(input$inputFile, {
+    shinyCatch({
+      inputFile <- read.csv(input$inputFile$datapath, header = 1, stringsAsFactors = F, check.names = FALSE)
+      if(input$fileType == "Samples in rows") {
+        inputFile <- t(inputFile)
+      }
+      labels <- identifyLabels(inputFile)
+      checkColumns(colnames(inputFile), labels)
+    },
+      blocking_level = 'message'
+    )
     batch <- NA
     order <- NA
     class <- NA
@@ -208,17 +209,26 @@ shinyServer(function(session, input, output) {
     rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
     updateTabItems(session, "tabs", selected = "Datainput")
     show("buttons")
+    updateCollapse(session, "menu", close = "Data input")
   })
 
   # Update selected data
   observeEvent(input$selectDataset, ignoreInit = TRUE, { 
     rv$activeFile <- which(rv$choices %in% input$selectDataset)
+    rows <- nrow(rv$data[[rv$activeFile]])
+    cols <- ncol(rv$data[[rv$activeFile]])
+    if(rows > 30)
+      rows <- 30
+    if(cols > 15)
+      cols <- 15
+    forVisuals <- rv$data[[rv$activeFile]][1:rows, 1:cols]
+
     output$seq_table <- renderDT(rv$sequence[[rv$activeFile]], extensions = c('FixedHeader', 'Responsive'), server = F, 
           editable = T, selection = 'none', options = list(pageLength = nrow(rv$sequence[[rv$activeFile]]), 
           fixedHeader = TRUE))
     output$diboxtitle <- renderText(names(rv$data[rv$activeFile]))
-    output$dttable <- renderDT(rv$data[[rv$activeFile]], rownames = FALSE, options = list(scrollX = TRUE, 
-              scrollY = "700px", pageLength = 20))
+    output$dttable <- renderDT(forVisuals, rownames = FALSE, options = list(scrollX = TRUE, 
+              scrollY = "700px"))
     output$dt_drift_panel <- renderDT(rv$data[[rv$activeFile]][rv$sequence[[rv$activeFile]][, 1] %in% "Name"], rownames = FALSE, 
               options = list(autoWidth = TRUE, scrollY = "700px", pageLength = 20))
     output$dt_boxplot_panel <- renderDT(rv$data[[rv$activeFile]][rv$sequence[[rv$activeFile]][, 1] %in% "Name"], rownames = FALSE, 
@@ -227,6 +237,11 @@ shinyServer(function(session, input, output) {
     if (sum(rv$sequence[[rv$activeFile]][, 1] %in% "Name") == 1) {
       internalStandards <- findInternalStandards(rv$data[[rv$activeFile]][rv$sequence[[rv$activeFile]][, 1] %in% "Name"])
       updateCheckboxGroupInput(session, "isChoose", choices = internalStandards, selected = internalStandards)
+      enable("normalizeIS"); enable("optimizeIS"); enable("removeIS"); enable("saveIS")
+      if(length(internalStandards) == 0) {
+        output$notFoundIS <- renderText({"No internal standards found."})
+        disable("normalizeIS"); disable("optimizeIS"); disable("removeIS"); disable("saveIS")
+      } 
     }
 
     # Statistics
@@ -401,9 +416,9 @@ shinyServer(function(session, input, output) {
     if(is.null(rv$activeFile)) {
       showNotification("No data", type = "error")
     } else if (!"QC" %in% rv$sequence[[rv$activeFile]][, 1]) {
-      showNotification("Data must have atleast 1 QC", type = "error")
+      showNotification("Data must have at least 1 QC", type = "error")
     } else if (!"Blank" %in% rv$sequence[[rv$activeFile]][, 1]) {
-      showNotification("Data must have atleast 1 Blank", type = "error")
+      showNotification("Data must have at least 1 Blank", type = "error")
     } else if (sum(rv$sequence[[rv$activeFile]][, 1] %in% "Name") != 1) {
       showNotification("Data must have exactly 1 \"Name\" column", type = "error")
     } else {
