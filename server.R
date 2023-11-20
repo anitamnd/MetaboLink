@@ -4,7 +4,7 @@ shinyServer(function(session, input, output) {
   ## General
   rv <- reactiveValues(data = list(), sequence = list(), activeFile = NULL, 
                   tmpData = NULL, tmpSequence = NULL, 
-                  choices = NULL, drift_plot_select = 1)
+                  choices = NULL, drift_plot_select = 1, info = vector("character"))
 
   ## Statistics
   st <- reactiveValues(stats = list(), sequence = list(), results = list(),
@@ -283,6 +283,15 @@ shinyServer(function(session, input, output) {
       )
     })
 
+    output$export_settings <- renderUI({
+      box(
+        title = "Settings used in app", width = 4,
+        lapply(1:length(rv$choices), function(x) {
+          fluidRow(column(12, downloadLink(paste0("dwn_settings", x), paste0(rv$choices[x], ".txt"))))
+        })
+      )
+    })
+
     lapply(1:length(rv$choices), function(x) {
       output[[paste0("dwn", x)]] <- downloadHandler(
         filename = function() {
@@ -290,6 +299,14 @@ shinyServer(function(session, input, output) {
         },
         content = function(file) {
           write.csv(rv$data[[x]], file, row.names = FALSE)
+        }
+      )
+      output[[paste0("dwn_settings", x)]] <- downloadHandler(
+        filename = function() {
+          paste0(names(rv$data[x]), ".txt")
+        },
+        content = function(file) {
+          write(rv$info[x], file)
         }
       )
     })
@@ -456,6 +473,7 @@ shinyServer(function(session, input, output) {
         rv$sequence[[rv$activeFile]] <- rv$tmpSequence
         names(rv$data)[rv$activeFile] <- paste0(names(rv$data)[rv$activeFile], "_", input$signalStrength, "xb")
       }
+      rv$info[length(rv$data)] <- paste(ifelse(is.na(rv$info[rv$activeFile]), "", rv$info[rv$activeFile]), "Blank filtrated with singal strength above blank =", input$signalStrength, "\n")
       rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
       rv$tmpData <- NULL
       rv$tmpSequence <- NULL   
@@ -502,6 +520,7 @@ shinyServer(function(session, input, output) {
         rv$sequence[[rv$activeFile]] <- rv$tmpSequence
         names(rv$data)[rv$activeFile] <- paste0(names(rv$data)[rv$activeFile], "_is")
       }
+      rv$info[length(rv$data)] <- paste(ifelse(is.na(rv$info[rv$activeFile]), "", rv$info[rv$activeFile]), "Internal standards normalized with", input$isMethod, "method\n")
       rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
       rv$tmpData <- NULL
       rv$tmpSequence <- NULL
@@ -530,12 +549,7 @@ shinyServer(function(session, input, output) {
         shinyalert("Error!", "No method selected.")
       }
       else {
-        mvf_dat <- cutoffrm(
-          rv$data[[rv$activeFile]],
-          mvf_seq,
-          input$mvf_cutoff,
-          method
-        )
+        mvf_dat <- cutoffrm(rv$data[[rv$activeFile]], mvf_seq, input$mvf_cutoff, method)
         rv$tmpData <- mvf_dat
         rv$tmpSequence <- mvf_seq
         updateSelectInput(session, "selectpca1", selected = "Unsaved data", choices = c("Unsaved data", rv$choices))
@@ -563,6 +577,8 @@ shinyServer(function(session, input, output) {
         rv$sequence[[rv$activeFile]] <- rv$tmpSequence
         names(rv$data)[rv$activeFile] <- paste0(names(rv$data)[rv$activeFile], "_mvr")
       }
+      rv$info[length(rv$data)] <- paste(ifelse(is.na(rv$info[rv$activeFile]), "", rv$info[rv$activeFile]), "Missing value filtration using", 
+                input$mvf_cutoff, "% as threshold and method -", paste(input$mvf_conditions, collapse=", "), "\n")
       rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
       rv$tmpData <- NULL
       rv$tmpSequence <- NULL   
@@ -625,6 +641,7 @@ shinyServer(function(session, input, output) {
         rv$sequence[[rv$activeFile]] <- rv$tmpSequence
         names(rv$data)[rv$activeFile] <- paste0(names(rv$data)[rv$activeFile], "_imp")
       }
+      rv$info[length(rv$data)] <- paste(ifelse(is.na(rv$info[rv$activeFile]), "", rv$info[rv$activeFile]), "Missing values imputation with", input$imp_method, "\n")
       rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
       rv$tmpData <- NULL
       rv$tmpSequence <- NULL   
@@ -681,6 +698,7 @@ shinyServer(function(session, input, output) {
         rv$sequence[[rv$activeFile]] <- rv$tmpSequence
         names(rv$data)[rv$activeFile] <- paste0(names(rv$data)[rv$activeFile], "_dc")
       }
+      rv$info[length(rv$data)] <- paste(ifelse(is.na(rv$info[rv$activeFile]), "", rv$info[rv$activeFile]), "Drift correction", input$dcMethod, "and", input$dc_ntree, "\n")
       rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
       rv$tmpData <- NULL
       rv$tmpSequence <- NULL   
@@ -797,6 +815,7 @@ shinyServer(function(session, input, output) {
       rv$data[[rv$activeFile]] <- merged[, seq(ncol(merged) - 2)]
       names(rv$data)[rv$activeFile] <- paste0(names(rv$data)[rv$activeFile], "_merged")
     }
+    rv$info[length(rv$data)] <- paste(ifelse(is.na(rv$info[rv$activeFile]), "", rv$info[rv$activeFile]), "Positive and negative mode merged: M/z tolerance ppm", input$md_ppm, "and RT tolerance", input$md_rt, "\n")
     rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
   })
 
@@ -1094,6 +1113,7 @@ shinyServer(function(session, input, output) {
     names(rv$data)[length(rv$data)] <- paste0(names(rv$data)[rv$activeFile], "_normalized")
     initializeVariables()
     rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
+    rv$info[length(rv$data)] <- paste(ifelse(is.na(rv$info[rv$activeFile]), "", rv$info[rv$activeFile]), "Normalized with", input$normMethod, " method\n")
     removeModal()
     rv$tmpData <- NULL
     rv$tmpSequence <- NULL   
