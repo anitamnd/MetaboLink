@@ -296,9 +296,13 @@ shinyUI(dashboardPage(
       hidden(
         div(
           id = "datatable_panel",
-          column(
-            width = 12,
-            box(width = NULL, DTOutput("dttable") %>% withSpinner(color="#0A4F8F"))
+          tabsetPanel(
+            tabPanel("Data table", box(width = NULL, DTOutput("dttable") %>% withSpinner(color="#0A4F8F"))),
+            tabPanel("Check samples", plotlyOutput("histogram")),
+            tabPanel("PCA", 
+              plotlyOutput("pca_plot")
+            ),
+            tabPanel("Feature drift")
           )
         )
       )
@@ -314,8 +318,7 @@ shinyUI(dashboardPage(
             ),
             fluidRow(
               tabBox(
-                tabPanel(title = "PCA", plotlyOutput("plotpca1")),
-                tabPanel(title = "QC-drift")
+                tabPanel(title = "PCA", plotlyOutput("plotpca1"))
               ),
               tabBox(tabPanel(title = "PCA", plotlyOutput("plotpca2")))
             ),

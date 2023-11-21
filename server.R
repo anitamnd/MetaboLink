@@ -222,6 +222,8 @@ shinyServer(function(session, input, output) {
     if(cols > 15)
       cols <- 15
     forVisuals <- rv$data[[rv$activeFile]][1:rows, 1:cols]
+    sequence <- rv$sequence[[rv$activeFile]]
+    data <- rv$data[[rv$activeFile]]
 
     output$seq_table <- renderDT(rv$sequence[[rv$activeFile]], extensions = c('FixedHeader', 'Responsive'), server = F, 
           editable = T, selection = 'none', options = list(pageLength = nrow(rv$sequence[[rv$activeFile]]), 
@@ -233,6 +235,20 @@ shinyServer(function(session, input, output) {
               options = list(autoWidth = TRUE, scrollY = "700px", pageLength = 20))
     output$dt_boxplot_panel <- renderDT(rv$data[[rv$activeFile]][rv$sequence[[rv$activeFile]][, 1] %in% "Name"], rownames = FALSE, 
               options = list(autoWidth = TRUE, scrollY = "700px", pageLength = 20))
+    
+    output$histogram <- renderPlotly({
+      samples <- data[, sequence[ , 'labels'] %in% "Sample"]
+      medians <- apply(samples, 2, median)
+      median_data <- data.frame(
+        Sample = names(medians),
+        Median = medians
+      )
+
+      ggplot(median_data, aes(x = Sample, y = Median)) +
+        geom_col(fill = "skyblue", color = "black") +
+        labs(title = "Comparison of Medians across Samples", x = "Sample", y = "Median") +
+        theme_minimal()
+    })
 
     if (sum(rv$sequence[[rv$activeFile]][, 1] %in% "Name") == 1) {
       internalStandards <- findInternalStandards(rv$data[[rv$activeFile]][rv$sequence[[rv$activeFile]][, 1] %in% "Name"])
