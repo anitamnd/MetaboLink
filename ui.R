@@ -192,17 +192,25 @@ shinyUI(dashboardPage(
             column(6, bsButton("mergeDatasets", "Run", width = "100%"), style = "padding-left:0px;")
           )
         ),
-        bsCollapsePanel("More",
+        bsCollapsePanel("Log transform and scaling",
           style = "primary",
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, selectInput("logTransform", "Log transform", choices = c("log2", "log10", "ln"), width = "100%"), style = "padding-left:0px;"),
-            column(6, selectInput("scaling", "Data scaling", choices = c("Mean center", "Auto scale"), width = "100%"), style = "padding-left:0px;")
+            column(6, selectInput("logTransform", "Log transform", choices = c("None", "log2", "log10", "ln"), width = "100%"), style = "padding-left:0px;"),
+            column(6, selectInput("scaling", "Data scaling", choices = c("None", "Mean center", "Auto scale"), width = "100%"), style = "padding-left:0px;")
           ),
           fluidRow(
             style = "margin-right: 0px;",
             column(6, bsButton("transform", "Run", width = "100%"), style = "padding-left:0px;"),
             column(6, bsButton("saveTransform", "Save", width = "100%"), style = "padding-left:0px;")
+          )
+        ),
+        bsCollapsePanel("Remove files",
+          style = "primary",
+          fluidRow(
+            style = "margin-right: 0px;",
+            column(6, bsButton("removeFile", "Select files", choices = NULL, width = "100%"), style = "padding-left:0px;"),
+            column(6, bsButton("removeAll", "Remove all", width = "100%"), style = "padding-left:0px;")
           )
         )
       )

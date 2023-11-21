@@ -277,7 +277,6 @@ shinyServer(function(session, input, output) {
         lapply(1:length(rv$choices), function(x) {
           fluidRow(column(12, downloadLink(paste0("dwn", x), paste0(rv$choices[x], ".csv"))))
         }),
-        fluidRow(column(3, actionButton("export_edit", "Edit", width = "100%")))
       )
     })
 
@@ -361,7 +360,7 @@ shinyServer(function(session, input, output) {
 
   })
 
-  observeEvent(input$export_edit, {
+  observeEvent(input$removeFile, {
     showModal(
       modalDialog(
         title = "Edit datasets", size = "m", easyClose = TRUE,
