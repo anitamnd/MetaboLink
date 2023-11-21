@@ -229,7 +229,7 @@ shinyServer(function(session, input, output) {
           editable = T, selection = 'none', options = list(pageLength = nrow(rv$sequence[[rv$activeFile]]), 
           fixedHeader = TRUE))
     output$diboxtitle <- renderText(names(rv$data[rv$activeFile]))
-    output$dttable <- renderDT(forVisuals, rownames = FALSE, options = list(scrollX = TRUE, 
+    output$dttable <- renderDT(data, rownames = FALSE, options = list(scrollX = TRUE, 
               scrollY = "700px"))
     output$dt_drift_panel <- renderDT(rv$data[[rv$activeFile]][rv$sequence[[rv$activeFile]][, 1] %in% "Name"], rownames = FALSE, 
               options = list(autoWidth = TRUE, scrollY = "700px", pageLength = 20))
@@ -238,15 +238,15 @@ shinyServer(function(session, input, output) {
     
     output$histogram <- renderPlotly({
       samples <- data[, sequence[ , 'labels'] %in% "Sample"]
+      samples[is.na(samples)] <- 0
       medians <- apply(samples, 2, median)
       median_data <- data.frame(
         Sample = names(medians),
         Median = medians
       )
-
       ggplot(median_data, aes(x = Sample, y = Median)) +
         geom_col(fill = "skyblue", color = "black") +
-        labs(title = "Comparison of Medians across Samples", x = "Sample", y = "Median") +
+        labs(title = "Medians across samples", x = "Sample", y = "Median") +
         theme_minimal()
     })
 
@@ -1081,8 +1081,11 @@ shinyServer(function(session, input, output) {
         classcv <- NULL
       }
       text <- c(qccv, classcv)
+      output$title <- renderText({
+        HTML("<h3>", names(rv$data)[rv$activeFile], "</h3>")
+      })
       output$info_ui <- renderUI({
-        HTML("<h2>", names(rv$data)[rv$activeFile], "</h2>", nrow(dat) - 1, " features.<br>", ncol(dat[seq[, 1] %in% "Sample"]), " samples.<br>", ncol(dat[seq[, 1] %in% "QC"]), " QC samples.<br>", ncol(dat[seq[, 1] %in% "Blank"]), " Blank samples.<br>", "<br>", sample_mv, " missing values in Samples<br>", qc_mv, " missing values in QC samples<br>", blank_mv, " missing values in Blank samples<br><br>")
+        HTML(nrow(dat) - 1, " features.<br>", ncol(dat[seq[, 1] %in% "Sample"]), " samples.<br>", ncol(dat[seq[, 1] %in% "QC"]), " QC samples.<br>", ncol(dat[seq[, 1] %in% "Blank"]), " Blank samples.<br>", "<br>", sample_mv, " missing values in Samples<br>", qc_mv, " missing values in QC samples<br>", blank_mv, " missing values in Blank samples<br><br>")
       })
       output$cvinfo_ui <- renderUI({
         HTML(text)

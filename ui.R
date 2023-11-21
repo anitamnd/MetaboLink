@@ -225,27 +225,27 @@ shinyUI(dashboardPage(
         block = T
       )),
       column(3, bsButton("datatable",
-        label = "Data table",
+        label = "Explore data",
         icon = icon("table"),
         style = "default",
         block = T
       )),
-      column(2, dropdownButton(
-        inputId = "plot2", circle = FALSE, width = "100%",
-        label = "Explore data",
-        bsButton("pca_button", label = "PCA", icon = icon("thumbs-up"), block = TRUE),
-        bsButton("drift_button", label = "Feature drift", block = TRUE),
-        bsButton("feature_button", label = "Feature Viewer", block = TRUE),
-        bsButton("info_button", label = "Dataset-Info", block = TRUE)
-      )),
-      column(2, bsButton("statistics_button",
+      # column(2, dropdownButton(
+      #   inputId = "plot2", circle = FALSE, width = "100%",
+      #   label = "Explore data",
+      #   bsButton("pca_button", label = "PCA", icon = icon("thumbs-up"), block = TRUE),
+      #   bsButton("drift_button", label = "Feature drift", block = TRUE),
+      #   bsButton("feature_button", label = "Feature Viewer", block = TRUE),
+      #   bsButton("info_button", label = "Dataset-Info", block = TRUE)
+      # )),
+      column(3, bsButton("statistics_button",
         label = "Statistics",
         icon = icon("clipboard"),
         style = "default",
         block = T
       )),
       tags$style(type = "text/css", "#plot2 {width:100%}"),
-      column(2, bsButton("export",
+      column(3, bsButton("export",
         label = "Export",
         icon = icon("download"),
         style = "default",
@@ -297,21 +297,22 @@ shinyUI(dashboardPage(
         div(
           id = "datatable_panel",
           tabsetPanel(
-            tabPanel("Data table", box(width = NULL, DTOutput("dttable") %>% withSpinner(color="#0A4F8F"))),
+            tabPanel("Data table",
+              box(width = NULL,
+                fluidRow(
+                  column(12,htmlOutput("title")),
+                ),
+                fluidRow(
+                  column(6, uiOutput("info_ui")),
+                  column(6, htmlOutput("cvinfo_ui"))
+                )
+              ),
+              fluidRow(
+                column(12, box(width = NULL, DTOutput("dttable") %>% withSpinner(color="#0A4F8F")))
+              )
+            ),
             tabPanel("Check samples", plotlyOutput("histogram")),
             tabPanel("PCA", 
-              plotlyOutput("pca_plot")
-            ),
-            tabPanel("Feature drift")
-          )
-        )
-      )
-    ),
-    fluidRow(
-      hidden(
-        div(
-          id = "pca_panel",
-          fluidPage(
             fluidRow(
               column(6, selectInput("selectpca1", "", choices = NULL, width = "100%")),
               column(6, selectInput("selectpca2", "", choices = NULL, width = "100%"))
@@ -326,10 +327,77 @@ shinyUI(dashboardPage(
               tabBox(tabPanel(title = "Details", htmlOutput("pca1Details"))),
               tabBox(tabPanel(title = "Details", htmlOutput("pca2Details")))
             )
+            ),
+            tabPanel("Feature drift", 
+              fluidRow(
+                column(3, box(width = NULL, DTOutput("dt_drift_panel"))),
+                column(9, 
+                  box(
+                    width = NULL,
+                    fluidRow(
+                      column(4, selectizeInput("drift_select", "Select dataset to compare with", choices = NULL, width = "100%", options = list(placeholder = "Select file"))),
+                      column(2, style = "margin-top: 25px;", bsButton("drift_1", label = "Individual", block = TRUE)),
+                      column(2, style = "margin-top: 25px;", bsButton("drift_2", label = "CV variation", block = TRUE)),
+                      column(2, style = "margin-top: 25px;", bsButton("drift_3", label = "CV distribution", block = TRUE))
+                    ),
+                  ),
+                  uiOutput("drift_ui")
+                )         
+              )
+            ),
+            tabPanel("Feature viewer", 
+              fluidRow(
+                column(3, box(width = NULL, DTOutput("dt_boxplot_panel"))),
+                column(9, box(width = NULL, 
+                  fluidRow(
+                    column(6,
+                      radioButtons(
+                        inputId = "bloxplot_log",
+                        label = "Log",
+                        choices = c("None", "ln", "log2", "log10"),
+                        selected = "None",
+                        inline = TRUE
+                      )
+                    ),
+                    column(6, radioButtons(
+                      inputId = "bloxplot_ylog",
+                      label = "Y axis log",
+                      choices = c("None", "log2", "log10"),
+                      selected = "None",
+                      inline = TRUE
+                    ))
+                  )),
+                  uiOutput("boxplot_ui")
+                )
+              )
+            )
           )
         )
       )
     ),
+    # fluidRow(
+    #   hidden(
+    #     div(
+    #       id = "pca_panel",
+    #       fluidPage(
+    #         fluidRow(
+    #           column(6, selectInput("selectpca1", "", choices = NULL, width = "100%")),
+    #           column(6, selectInput("selectpca2", "", choices = NULL, width = "100%"))
+    #         ),
+    #         fluidRow(
+    #           tabBox(
+    #             tabPanel(title = "PCA", plotlyOutput("plotpca1"))
+    #           ),
+    #           tabBox(tabPanel(title = "PCA", plotlyOutput("plotpca2")))
+    #         ),
+    #         fluidRow(
+    #           tabBox(tabPanel(title = "Details", htmlOutput("pca1Details"))),
+    #           tabBox(tabPanel(title = "Details", htmlOutput("pca2Details")))
+    #         )
+    #       )
+    #     )
+    #   )
+    # ),
     fluidRow(
       hidden(
         div(
@@ -381,63 +449,63 @@ shinyUI(dashboardPage(
         )
       )
     ),
-    fluidRow(
-      hidden(
-        div(
-          id = "boxplot_panel",
-          column(3, box(width = NULL, DTOutput("dt_boxplot_panel"))),
-          column(9, box(width = NULL, 
-            fluidRow(
-              column(6,
-                radioButtons(
-                  inputId = "bloxplot_log",
-                  label = "Log",
-                  choices = c("None", "ln", "log2", "log10"),
-                  selected = "None",
-                  inline = TRUE
-                )
-              ),
-              column(6, radioButtons(
-                inputId = "bloxplot_ylog",
-                label = "Y axis log",
-                choices = c("None", "log2", "log10"),
-                selected = "None",
-                inline = TRUE
-              ))
-            )),
-            uiOutput("boxplot_ui")
-          )
-        )
-      )
-    ),
-    fluidRow(
-      hidden(
-        div(
-          id = "drift_panel",
-          column(3, box(width = NULL, DTOutput("dt_drift_panel"))),
-          column(9, 
-            box(
-              width = NULL,
-              fluidRow(
-                column(4, selectizeInput("drift_select", "Select dataset to compare with", choices = NULL, width = "100%", options = list(placeholder = "Select file"))),
-                column(2, style = "margin-top: 25px;", bsButton("drift_1", label = "Individual", block = TRUE)),
-                column(2, style = "margin-top: 25px;", bsButton("drift_2", label = "CV variation", block = TRUE)),
-                column(2, style = "margin-top: 25px;", bsButton("drift_3", label = "CV distribution", block = TRUE))
-              ),
-            ),
-            uiOutput("drift_ui")
-          )
-        )
-      )
-    ),
-    fluidRow(
-      hidden(
-        div(
-          id = "info_panel",
-          column(12, box(width = NULL, uiOutput("info_ui"), htmlOutput("cvinfo_ui")))
-        )
-      )
-    ),
+    # fluidRow(
+    #   hidden(
+    #     div(
+    #       id = "boxplot_panel",
+    #       column(3, box(width = NULL, DTOutput("dt_boxplot_panel"))),
+    #       column(9, box(width = NULL, 
+    #         fluidRow(
+    #           column(6,
+    #             radioButtons(
+    #               inputId = "bloxplot_log",
+    #               label = "Log",
+    #               choices = c("None", "ln", "log2", "log10"),
+    #               selected = "None",
+    #               inline = TRUE
+    #             )
+    #           ),
+    #           column(6, radioButtons(
+    #             inputId = "bloxplot_ylog",
+    #             label = "Y axis log",
+    #             choices = c("None", "log2", "log10"),
+    #             selected = "None",
+    #             inline = TRUE
+    #           ))
+    #         )),
+    #         uiOutput("boxplot_ui")
+    #       )
+    #     )
+    #   )
+    # ),
+    # fluidRow(
+    #   hidden(
+    #     div(
+    #       id = "drift_panel",
+    #       column(3, box(width = NULL, DTOutput("dt_drift_panel"))),
+    #       column(9, 
+    #         box(
+    #           width = NULL,
+    #           fluidRow(
+    #             column(4, selectizeInput("drift_select", "Select dataset to compare with", choices = NULL, width = "100%", options = list(placeholder = "Select file"))),
+    #             column(2, style = "margin-top: 25px;", bsButton("drift_1", label = "Individual", block = TRUE)),
+    #             column(2, style = "margin-top: 25px;", bsButton("drift_2", label = "CV variation", block = TRUE)),
+    #             column(2, style = "margin-top: 25px;", bsButton("drift_3", label = "CV distribution", block = TRUE))
+    #           ),
+    #         ),
+    #         uiOutput("drift_ui")
+    #       )
+    #     )
+    #   )
+    # ),
+    # fluidRow(
+    #   hidden(
+    #     div(
+    #       id = "info_panel",
+    #       column(12, box(width = NULL, uiOutput("info_ui"), htmlOutput("cvinfo_ui")))
+    #     )
+    #   )
+    # ),
     fluidRow(
       div(
         id = "welcome_panel",
