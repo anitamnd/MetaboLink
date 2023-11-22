@@ -325,7 +325,7 @@ shinyServer(function(session, input, output) {
         }
       )
     })
-    
+
     lapply(1:length(rv$choices), function(x) {
       dat <- rv$data[[x]]
       seq <- rv$sequence[[x]]
@@ -355,52 +355,31 @@ shinyServer(function(session, input, output) {
     updateSelectInput(session, "mergeFile", choices = rv$choices, selected = rv$choices[length(rv$choices)])
     updateSelectInput(session, "drift_select", choices = c("None", rv$choices))
     updateSelectInput(session, "selectDataset", choices = rv$choices, selected = rv$choices[length(rv$choices)])
+    updateCheckboxGroupInput(session, "filesToRemove", choices = names(rv$data), selected = NULL)
     updateSelectInput(session, "selectpca1", choices = rv$choices, selected = rv$choices[length(rv$choices)])
     updateSelectInput(session, "selectpca2", choices = rv$choices, selected = rv$choices[length(rv$choices)])
 
   })
 
-  observeEvent(input$removeFile, {
-    showModal(
-      modalDialog(
-        title = "Edit datasets", size = "m", easyClose = TRUE,
-        footer = list(actionButton("export_edit_confirm", "Confirm"), modalButton("Dismiss")),
-        fluidRow(
-          column(width = 10, h4("Names")),
-          column(width = 2, style = "text-align: left;", h4("Keep"))
-        ),
-        lapply(1:length(rv$choices), function(x) {
-          fluidRow(
-            column(
-              width = 10,
-              textInput(paste0("export_edit_name", x), NULL, value = names(rv$data[x]), width = "100%")
-            ),
-            column(
-              width = 2, style = "text-align: left;",
-              prettyCheckbox(paste0("export_edit_keep", x), NULL, status = "info", value = TRUE)
-            ),
-          )
-        }),
-      )
-    )
-  })
-
-  observeEvent(input$export_edit_confirm, {
-    sapply(1:length(rv$choices), function(x) {        
-        isolate(names(rv$data)[x] <- input[[paste0("export_edit_name", x)]])
-    })
-    keep <- sapply(1:length(rv$choices), function(x) input[[paste0("export_edit_keep", x)]])
-    rv$data <- rv$data[keep]
-    rv$sequence <- rv$sequence[keep]
-    rv$info <- rv$info[keep]
-    st$stats <- st$stats[keep]
-    st$sequence <- st$sequence[keep]
-    st$results <- st$results[keep]
-    st$comparisons <- st$comparisons[keep]
-    st$colcomp <- st$colcomp[keep]
-    rv$activeFile <- names(rv$data)[length(rv$data)]
-    rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
-    removeModal()
+  observeEvent(input$removeFiles, {
+    if (is.null(input$filesToRemove)) {
+      showNotification("No files selected.", type = "error")
+    } else if(length(input$filesToRemove) == length(rv$choices)) {
+      showNotification("At least one file must be kept.", type = "error")
+    } else {
+      keep <- !names(rv$data) %in% input$filesToRemove      
+      rv$data <- rv$data[keep]
+      rv$sequence <- rv$sequence[keep]
+      rv$info <- rv$info[keep]
+      st$stats <- st$stats[keep]
+      st$sequence <- st$sequence[keep]
+      st$results <- st$results[keep]
+      st$comparisons <- st$comparisons[keep]
+      st$colcomp <- st$colcomp[keep]
+      rv$activeFile <- names(rv$data)[length(rv$data)]
+      rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
+      showNotification("Files removed.", type = "message")
+    }
   })
 
   observeEvent(input$export_xml_list, {
@@ -1145,14 +1124,18 @@ shinyServer(function(session, input, output) {
   })
 
   observeEvent(input$transform, {
-    data <- rv$data[[rv$activeFile]]
-    sequence <- rv$sequence[[rv$activeFile]]
-
-    transformed <- transformation(data, sequence, input$logTransform, input$scaling)
-    data[, sequence[, 1] %in% c("QC", "Sample")] <- transformed
-    rv$tmpData <- data
-
-    output$dttable <- renderDataTable(rv$tmpData, rownames = FALSE, options = list(scrollX = TRUE, scrollY = "700px", pageLength = 20))
+    if (is.null(rv$activeFile)) {
+      showNotification("No data", type = "error")
+    } else if(input$logTransform == "None" & input$scaling == "None") {
+      sendSweetAlert(session = session, title = "Warning", text = "No method selected.", type = "warning")
+    } else {
+      data <- rv$data[[rv$activeFile]]
+      sequence <- rv$sequence[[rv$activeFile]]
+      transformed <- transformation(data, sequence, input$logTransform, input$scaling)
+      data[, sequence[, 1] %in% c("QC", "Sample")] <- transformed
+      rv$tmpData <- data
+      output$dttable <- renderDataTable(rv$tmpData, rownames = FALSE, options = list(scrollX = TRUE, scrollY = "700px", pageLength = 20))
+    }
   })
 
   observeEvent(input$saveTransform, {

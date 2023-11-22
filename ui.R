@@ -209,8 +209,8 @@ shinyUI(dashboardPage(
           style = "primary",
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, bsButton("removeFile", "Select files", choices = NULL, width = "100%"), style = "padding-left:0px;"),
-            column(6, bsButton("removeAll", "Remove all", width = "100%"), style = "padding-left:0px;")
+            column(12, checkboxGroupInput("filesToRemove", "Select files to remove", choices = NULL, selected = NULL), style = "padding-left:0px;"),
+            column(12, bsButton("removeFiles", "Remove", width = "50%"), style = "padding-left:0px;")
           )
         )
       )
@@ -238,14 +238,6 @@ shinyUI(dashboardPage(
         style = "default",
         block = T
       )),
-      # column(2, dropdownButton(
-      #   inputId = "plot2", circle = FALSE, width = "100%",
-      #   label = "Explore data",
-      #   bsButton("pca_button", label = "PCA", icon = icon("thumbs-up"), block = TRUE),
-      #   bsButton("drift_button", label = "Feature drift", block = TRUE),
-      #   bsButton("feature_button", label = "Feature Viewer", block = TRUE),
-      #   bsButton("info_button", label = "Dataset-Info", block = TRUE)
-      # )),
       column(3, bsButton("statistics_button",
         label = "Statistics",
         icon = icon("clipboard"),
