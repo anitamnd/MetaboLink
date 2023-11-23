@@ -415,33 +415,41 @@ shinyUI(dashboardPage(
       hidden(
         div(
           id = "export_panel",
-          fluidRow(
-            box(title = "Statistical Testing", width = 6,
-              column(12,
-                fluidRow(actionButton("send_polystest", "Send to PolySTest")),
-                fluidRow(span(textOutput("connection_polystest"), style="color:#33DD33;")),
-                fluidRow(textInput("url_polystest", label="URL", value="http://computproteomics.bmb.sdu.dk:443/app_direct/PolySTest/"))
-                #fluidRow(disabled(actionButton("retrieve_polystest", "Retrieve results from PolySTest"))) 
-              )
+          box(title = strong(".csv and .xlsx"), width = 6,
+            column(12, 
+              h4(".csv"),
+              uiOutput("export_ui")
             ),
-            box(title = "Clustering", width = 6,
-              column(12,
-                fluidRow(actionButton("send_vsclust", "Send to VSClust")),
-                fluidRow(span(textOutput("connection_vsclust"), style="color:#33DD33;")),
-                fluidRow(textInput("url_vsclust", label="URL", value="http://computproteomics.bmb.sdu.dk/app_direct/VSClust/"))
-                #fluidRow(disabled(actionButton("retrieve_polystest", "Retrieve results from PolySTest"))) 
-              )
+            column(12, style = "margin-top: 20px;",
+              h4(".xlsx"),
+              checkboxGroupInput("export_xml_list", "Choose sheets", choices = NULL, selected = NULL),
+              downloadButton("export_xml", "Export combined .xlsx")
+            ),
+            column(12, style = "margin-top: 20px;",
+              h4("Statistics results"),
+              uiOutput("export_stats")
+            ),
+            column(12, style = "margin-top: 20px;",
+              h4("Settings used in app"),
+              uiOutput("export_settings")
             )
           ),
-          uiOutput("export_ui"),
-          uiOutput("export_metabo"),
-          box(title = ".xlsx", width = 4, 
-            column(12,
-              fluidRow(checkboxGroupInput("export_xml_list", "Choose sheets", choices = NULL, selected = NULL)),
-              fluidRow(downloadButton("export_xml", "Export combined .xlsx"))
-          )),
-          uiOutput("export_stats"),
-          uiOutput("export_settings")
+          box(title = strong("Export to other apps"), width = 6,
+            column(12, 
+              h4("Statistical testing"),
+              actionButton("send_polystest", "Send to PolySTest"),
+              span(textOutput("connection_polystest"), style="color:#33DD33;")
+            ),
+            column(12, style = "margin-top: 20px;",
+              h4("Clustering"),
+              actionButton("send_vsclust", "Send to VSClust"),
+              span(textOutput("connection_vsclust"), style="color:#33DD33;")
+            ),
+            column(12, style = "margin-top: 20px;",
+              h4(".csv for MetaboAnalyst"),
+              uiOutput("export_metabo")
+            )
+          )
         )
       )
     ),

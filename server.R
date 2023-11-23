@@ -260,40 +260,35 @@ shinyServer(function(session, input, output) {
   })
 
   observeEvent(rv$choices, {
+    output$downloadSequence <- downloadHandler(
+      filename <- function() {
+        paste0(names(rv$data[rv$activeFile]), "_seq.csv")
+      },
+      content = function(file) {
+        write.csv(cbind("sample" = rownames(rv$sequence[[rv$activeFile]]), rv$sequence[[rv$activeFile]]), file, row.names = FALSE) # TODO
+      }
+    )
+    
+    # Export panel
     output$export_ui <- renderUI({
-      box(
-        title = ".csv", width = 4,
-        lapply(1:length(rv$choices), function(x) {
-          fluidRow(column(12, downloadLink(paste0("dwn", x), paste0(rv$choices[x], ".csv"))))
-        }),
-      )
+      lapply(1:length(rv$choices), function(x) {
+        fluidRow(column(12, downloadLink(paste0("dwn", x), paste0(rv$choices[x], ".csv"))))
+      })   
     })
-
     output$export_metabo <- renderUI({
-      box(
-        title = ".csv for metaboanalyst", width = 4,
         lapply(1:length(rv$choices), function(x) {
           fluidRow(column(12, downloadLink(paste0("dwn_metabo", x), paste0(rv$choices[x], "_metabo.csv"))))
         })
-      )
     })
-
     output$export_stats <- renderUI({
-      box(
-        title = "Statistics results", width = 4,
         lapply(1:length(rv$choices), function(x) {
           fluidRow(column(12, downloadLink(paste0("dwn_stats", x), paste0(rv$choices[x], "_results.csv"))))
         })
-      )
     })
-
     output$export_settings <- renderUI({
-      box(
-        title = "Settings used in app", width = 4,
         lapply(1:length(rv$choices), function(x) {
           fluidRow(column(12, downloadLink(paste0("dwn_settings", x), paste0(rv$choices[x], ".txt"))))
         })
-      )
     })
 
     lapply(1:length(rv$choices), function(x) {
@@ -331,15 +326,6 @@ shinyServer(function(session, input, output) {
         }
       )
     })
-
-    output$downloadSequence <- downloadHandler(
-      filename <- function() {
-        paste0(names(rv$data[rv$activeFile]), "_seq.csv")
-      },
-      content = function(file) {
-        write.csv(cbind("sample" = rownames(rv$sequence[[rv$activeFile]]), rv$sequence[[rv$activeFile]]), file, row.names = FALSE) # TODO
-      }
-    )
 
     updateCheckboxGroupInput(session, "export_xml_list", choices = rv$choices, selected = NULL)
     updateSelectInput(session, "mergeFile", choices = rv$choices, selected = rv$choices[length(rv$choices)])
@@ -1288,8 +1274,9 @@ shinyServer(function(session, input, output) {
       numrep=NumReps, numcond=NumCond, grouped=F,
       firstquantcol=2, expr_matrix=as.list(as.data.frame(tdata))
     ))
-    updateTextInput(session, "app_log", value="Opening PolySTest and data upload ...")
-    js$send_message(url=input$url_polystest, dat=PolySTestMessage, tool="PolySTest")
+    updateTextInput(session, "connection_polystest", value="Opening PolySTest and data upload ...")
+    js$send_message(url="http://computproteomics.bmb.sdu.dk:443/app_direct/PolySTest/", 
+                    dat=PolySTestMessage, tool="PolySTest")
     #enable("retrieve_polystest")
   })
 
@@ -1308,7 +1295,8 @@ shinyServer(function(session, input, output) {
       numrep=NumReps, numcond=NumCond, grouped=F, 
       modsandprots=F, expr_matrix=as.list(as.data.frame(tdata))
     ))
-    updateTextInput(session, "app_log", value="Opening VSClust and data upload ...")
-    js$send_message(url=input$url_vsclust, dat=VSClustMessage, tool="VSClust")
+    updateTextInput(session, "connection_vsclust", value="Opening VSClust and data upload ...")
+    js$send_message(url="http://computproteomics.bmb.sdu.dk/app_direct/VSClust/",
+                    dat=VSClustMessage, tool="VSClust")
   })
 })
