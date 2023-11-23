@@ -10,8 +10,8 @@ checkSequence <- function(sequence) {
 
 checkColumns <- function(columns, labels) {
   if(any(labels == "-")) {
-    sendSweetAlert(title = "Info", text = paste("Columns ", paste(columns[labels == "-"], collapse = ", "), " labeled '-'. 
-        If this is wrong, check the columns for invalid characters."), type = "info")
+    sendSweetAlert(title = "Info", text = paste("Columns ", paste(columns[labels == "-"], collapse = ", "), " labeled '-'.\n
+        If this is wrong, check file for invalid characters in these columns."), type = "info")
   }
 }
 
