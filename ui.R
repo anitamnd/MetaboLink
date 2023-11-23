@@ -45,20 +45,18 @@ shinyUI(dashboardPage(
         id = "menu", multiple = FALSE, open = "Data input",
         bsCollapsePanel("Data input",
           style = "primary",
-          fluidRow(
-            style = "padding: 0px;",
-            column(12, selectInput("fileType", "Select file format",
+          fluidRow(style = "padding: 0px;",
+            selectInput("fileType", "Select file format",
               choices = c("Samples in columns", "Samples in rows"),
               selected = "Samples in columns",
               width = "100%"
-            ), style = "padding: 0px;")
+            )
           ),
-          fluidRow(
-            style = "padding: 0px;",
-            column(12, fileInput("inputFile", "Upload file (.txt or .csv)",
+          fluidRow(style = "padding: 0px;",
+            fileInput("inputFile", "Upload file (.txt or .csv)",
               accept = c("txt/csv", "text/comma-seperated-values, text/plain", ".csv"),
               width = "100%"
-            ), style = "padding: 0px;")
+            )
           ),
           fluidRow(
             style = "margin-right: 0px;",
@@ -92,13 +90,13 @@ shinyUI(dashboardPage(
           fluidRow(
             style = "padding: 0px;",
             column(12,
-              sliderInput("mvf_cutoff", "Minimum percentage of messured values", 0, 100, 80, step = 5, width = "100%"),
+              sliderInput("cutoffNAs", "Minimum percentage of messured values", 0, 100, 80, step = 5, width = "100%"),
               style = "padding: 0px"
             )
           ),
           fluidRow(column(
             6,
-            prettyCheckboxGroup("mvf_conditions", "", choices = c("in QC", "in group", "entire data"))
+            prettyCheckboxGroup("filterNAmethod", "", choices = c("in QC", "in group", "entire data"))
           )),
           fluidRow(column(
             6,
@@ -106,8 +104,8 @@ shinyUI(dashboardPage(
           )),
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, bsButton("mvf_run", "Run", width = "100%"), style = "padding-left:0px;"),
-            column(6, bsButton("mvf_save", "Save", width = "100%"), style = "padding-left:0px;")
+            column(6, bsButton("runFilterNA", "Run", width = "100%"), style = "padding-left:0px;"),
+            column(6, bsButton("saveFilterNA", "Save", width = "100%"), style = "padding-left:0px;")
           )
         ),
         bsCollapsePanel("IS normalization",
@@ -147,35 +145,35 @@ shinyUI(dashboardPage(
         ),
         bsCollapsePanel("Imputation",
           style = "primary",
-          fluidRow(selectInput("imp_method", "Imputation method", choices = c("KNN", "Min/X", "Median"), width = "100%")),
-          fluidRow(hidden(div(id = "imp_remaining_hide", selectInput("imp_remaining", "Remaining missing values", choices = c("zero", "Min/X", "Median"), width = "100%")))),
-          fluidRow(hidden(div(id = "imp_minx_hide", sliderInput("imp_minx", "Divide min by", min = 1, max = 10, value = 1, step = 1, width = "100%")))),
+          fluidRow(selectInput("imputationMethod", "Imputation method", choices = c("KNN", "Min/X", "Median"), width = "100%")),
+          fluidRow(hidden(div(id = "imp_remaining_hide", selectInput("remainingNAs", "Remaining missing values", choices = c("zero", "Min/X", "Median"), width = "100%")))),
+          fluidRow(hidden(div(id = "imp_minx_hide", sliderInput("imputationMinX", "Divide min by", min = 1, max = 10, value = 1, step = 1, width = "100%")))),
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, prettyCheckbox("imp_onlyqc", "Only imputate QC")),
+            column(6, prettyCheckbox("imp_onlyQC", "Only imputate QC")),
             column(6)
           ),
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, checkboxInput("imp_newsave", "Save as new file", value = T, width = "100%"), style = "padding: 0px; margin-top: -10px; margin-left: 10px; margin-right: -10px;")
+            column(6, checkboxInput("newFileImp", "Save as new file", value = T, width = "100%"), style = "padding: 0px; margin-top: -10px; margin-left: 10px; margin-right: -10px;")
           ),
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, bsButton("imp_run", "Run", width = "100%"), style = "padding-left:0px;"),
-            column(6, bsButton("imp_save", "Save", width = "100%"), style = "padding-left:0px;")
+            column(6, bsButton("runImputation", "Run", width = "100%"), style = "padding-left:0px;"),
+            column(6, bsButton("saveImputation", "Save", width = "100%"), style = "padding-left:0px;")
           )
         ),
         bsCollapsePanel("Drift correction",
           style = "primary",
-          fluidRow(selectInput("dcMethod", "Signal correction method", choices = c("QC-RFSC (random forrest)", "QC-RLSC (robust LOESS)"), width = "100%")),
-          fluidRow(div(id = "dc_ntree_hide", sliderInput("dc_ntree", "ntree", min = 100, max = 1000, value = 500, step = 100, width = "100%"))),
-          fluidRow(hidden(div(id = "dc_qcspan_hide", sliderInput("dc_qcspan", "QCspan", min = 0.2, max = 0.75, value = 0.7, step = 0.05, width = "100%")))),
-          fluidRow(hidden(div(id = "dc_degree_hide", sliderInput("dc_degree", "degree", min = 0, max = 2, value = 2, step = 1, width = "100%")))),
+          fluidRow(selectInput("driftMethod", "Signal correction method", choices = c("QC-RFSC (random forrest)", "QC-RLSC (robust LOESS)"), width = "100%")),
+          fluidRow(div(id = "dc_ntree_hide", sliderInput("driftTrees", "ntree", min = 100, max = 1000, value = 500, step = 100, width = "100%"))),
+          fluidRow(hidden(div(id = "dc_qcspan_hide", sliderInput("driftQCspan", "QCspan", min = 0.2, max = 0.75, value = 0.7, step = 0.05, width = "100%")))),
+          fluidRow(hidden(div(id = "dc_degree_hide", sliderInput("driftDegree", "degree", min = 0, max = 2, value = 2, step = 1, width = "100%")))),
           fluidRow(
             style = "margin-right: 0px;",
-            column(12, checkboxInput("dc_newsave", "Save as new file", value = T, width = "100%"), style = "padding: 0px; margin-top: -10px; margin-left: 10px; margin-right: -10px;"),
-            column(6, bsButton("dc_run", "Run", width = "100%"), style = "padding-left:0px;"),
-            column(6, bsButton("dc_save", "Save", width = "100%"), style = "padding-left:0px;")
+            column(12, checkboxInput("newFileDrift", "Save as new file", value = T, width = "100%"), style = "padding: 0px; margin-top: -10px; margin-left: 10px; margin-right: -10px;"),
+            column(6, bsButton("runDrift", "Run", width = "100%"), style = "padding-left:0px;"),
+            column(6, bsButton("saveDrift", "Save", width = "100%"), style = "padding-left:0px;")
           )
         ),
         bsCollapsePanel("Merge datasets",
@@ -183,12 +181,12 @@ shinyUI(dashboardPage(
           fluidRow(selectInput("mergeFile", "Select dataset to merge with", choices = NULL, width = "100%")),
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, numericInput("md_ppm", "M/z tolerance ppm", min = 0, value = 10, width = "100%"), style = "padding-left:0px;"),
-            column(6, numericInput("md_rt", "RT tolerance", min = 0, value = 0.1, step = 0.01, width = "100%"), style = "padding-left:0px;")
+            column(6, numericInput("merge_ppm", "M/z tolerance ppm", min = 0, value = 10, width = "100%"), style = "padding-left:0px;"),
+            column(6, numericInput("merge_rt", "RT tolerance", min = 0, value = 0.1, step = 0.01, width = "100%"), style = "padding-left:0px;")
           ),
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, bsButton("md_rankings", "Edit priorities", width = "100%"), style = "padding-left:0px;"),
+            column(6, bsButton("mergeRankings", "Edit priorities", width = "100%"), style = "padding-left:0px;"),
             column(6, bsButton("mergeDatasets", "Run", width = "100%"), style = "padding-left:0px;")
           )
         ),
@@ -232,7 +230,7 @@ shinyUI(dashboardPage(
         style = "default",
         block = T
       )),
-      column(3, bsButton("datatable",
+      column(3, bsButton("explore",
         label = "Explore data",
         icon = icon("table"),
         style = "default",
@@ -375,29 +373,6 @@ shinyUI(dashboardPage(
         )
       )
     ),
-    # fluidRow(
-    #   hidden(
-    #     div(
-    #       id = "pca_panel",
-    #       fluidPage(
-    #         fluidRow(
-    #           column(6, selectInput("selectpca1", "", choices = NULL, width = "100%")),
-    #           column(6, selectInput("selectpca2", "", choices = NULL, width = "100%"))
-    #         ),
-    #         fluidRow(
-    #           tabBox(
-    #             tabPanel(title = "PCA", plotlyOutput("plotpca1"))
-    #           ),
-    #           tabBox(tabPanel(title = "PCA", plotlyOutput("plotpca2")))
-    #         ),
-    #         fluidRow(
-    #           tabBox(tabPanel(title = "Details", htmlOutput("pca1Details"))),
-    #           tabBox(tabPanel(title = "Details", htmlOutput("pca2Details")))
-    #         )
-    #       )
-    #     )
-    #   )
-    # ),
     fluidRow(
       hidden(
         div(
@@ -449,63 +424,6 @@ shinyUI(dashboardPage(
         )
       )
     ),
-    # fluidRow(
-    #   hidden(
-    #     div(
-    #       id = "boxplot_panel",
-    #       column(3, box(width = NULL, DTOutput("dt_boxplot_panel"))),
-    #       column(9, box(width = NULL, 
-    #         fluidRow(
-    #           column(6,
-    #             radioButtons(
-    #               inputId = "bloxplot_log",
-    #               label = "Log",
-    #               choices = c("None", "ln", "log2", "log10"),
-    #               selected = "None",
-    #               inline = TRUE
-    #             )
-    #           ),
-    #           column(6, radioButtons(
-    #             inputId = "bloxplot_ylog",
-    #             label = "Y axis log",
-    #             choices = c("None", "log2", "log10"),
-    #             selected = "None",
-    #             inline = TRUE
-    #           ))
-    #         )),
-    #         uiOutput("boxplot_ui")
-    #       )
-    #     )
-    #   )
-    # ),
-    # fluidRow(
-    #   hidden(
-    #     div(
-    #       id = "drift_panel",
-    #       column(3, box(width = NULL, DTOutput("dt_drift_panel"))),
-    #       column(9, 
-    #         box(
-    #           width = NULL,
-    #           fluidRow(
-    #             column(4, selectizeInput("drift_select", "Select dataset to compare with", choices = NULL, width = "100%", options = list(placeholder = "Select file"))),
-    #             column(2, style = "margin-top: 25px;", bsButton("drift_1", label = "Individual", block = TRUE)),
-    #             column(2, style = "margin-top: 25px;", bsButton("drift_2", label = "CV variation", block = TRUE)),
-    #             column(2, style = "margin-top: 25px;", bsButton("drift_3", label = "CV distribution", block = TRUE))
-    #           ),
-    #         ),
-    #         uiOutput("drift_ui")
-    #       )
-    #     )
-    #   )
-    # ),
-    # fluidRow(
-    #   hidden(
-    #     div(
-    #       id = "info_panel",
-    #       column(12, box(width = NULL, uiOutput("info_ui"), htmlOutput("cvinfo_ui")))
-    #     )
-    #   )
-    # ),
     fluidRow(
       div(
         id = "welcome_panel",
