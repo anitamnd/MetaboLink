@@ -18,6 +18,7 @@ library(igraph)
 library(stringi)
 library(BiocManager)
 library(shinycssloaders)
+library(jsonlite)
 options(repos = BiocManager::repositories())
 source("functions.R")
 source("plotfunctions.R")
@@ -34,6 +35,8 @@ shinyUI(dashboardPage(
     width = "400",
     useShinyjs(),
     tags$style(HTML(".panel-primary {color: #000000;}")),
+    tags$head(tags$script(src="CallShiny.js")),
+    extendShinyjs(script="CallShiny.js", functions=c("retrieve_results","send_message","run_button")),
     fluidPage(
       fluidRow(
         selectizeInput("selectDataset", "Active dataset",
@@ -412,15 +415,41 @@ shinyUI(dashboardPage(
       hidden(
         div(
           id = "export_panel",
-          uiOutput("export_ui"),
-          uiOutput("export_metabo"),
-          box(title = ".xlsx", width = 4, 
-            column(12,
-              fluidRow(checkboxGroupInput("export_xml_list", "Choose sheets", choices = NULL, selected = NULL)),
-              fluidRow(downloadButton("export_xml", "Export combined .xlsx"))
-          )),
-          uiOutput("export_stats"),
-          uiOutput("export_settings")
+          box(title = strong(".csv and .xlsx"), width = 6,
+            column(12, 
+              h4(".csv"),
+              uiOutput("export_ui")
+            ),
+            column(12, style = "margin-top: 20px;",
+              h4(".xlsx"),
+              checkboxGroupInput("export_xml_list", "Choose sheets", choices = NULL, selected = NULL),
+              downloadButton("export_xml", "Export combined .xlsx")
+            ),
+            column(12, style = "margin-top: 20px;",
+              h4("Statistics results"),
+              uiOutput("export_stats")
+            ),
+            column(12, style = "margin-top: 20px;",
+              h4("Settings used in app"),
+              uiOutput("export_settings")
+            )
+          ),
+          box(title = strong("Export to other apps"), width = 6,
+            column(12, 
+              h4("Statistical testing"),
+              actionButton("send_polystest", "Send to PolySTest"),
+              span(textOutput("connection_polystest"), style="color:#33DD33;")
+            ),
+            column(12, style = "margin-top: 20px;",
+              h4("Clustering"),
+              actionButton("send_vsclust", "Send to VSClust"),
+              span(textOutput("connection_vsclust"), style="color:#33DD33;")
+            ),
+            column(12, style = "margin-top: 20px;",
+              h4(".csv for MetaboAnalyst"),
+              uiOutput("export_metabo")
+            )
+          )
         )
       )
     ),
