@@ -18,6 +18,7 @@ library(igraph)
 library(stringi)
 library(BiocManager)
 library(shinycssloaders)
+library(jsonlite)
 options(repos = BiocManager::repositories())
 source("functions.R")
 source("plotfunctions.R")
@@ -34,6 +35,8 @@ shinyUI(dashboardPage(
     width = "400",
     useShinyjs(),
     tags$style(HTML(".panel-primary {color: #000000;}")),
+    tags$head(tags$script(src="CallShiny.js")),
+    extendShinyjs(script="CallShiny.js", functions=c("retrieve_results","send_message","run_button")),
     fluidPage(
       fluidRow(
         selectizeInput("selectDataset", "Active dataset",
@@ -412,6 +415,24 @@ shinyUI(dashboardPage(
       hidden(
         div(
           id = "export_panel",
+          fluidRow(
+            box(title = "Statistical Testing", width = 6,
+              column(12,
+                fluidRow(actionButton("send_polystest", "Send to PolySTest")),
+                fluidRow(span(textOutput("connection_polystest"), style="color:#33DD33;")),
+                fluidRow(textInput("url_polystest", label="URL", value="http://computproteomics.bmb.sdu.dk:443/app_direct/PolySTest/"))
+                #fluidRow(disabled(actionButton("retrieve_polystest", "Retrieve results from PolySTest"))) 
+              )
+            ),
+            box(title = "Clustering", width = 6,
+              column(12,
+                fluidRow(actionButton("send_vsclust", "Send to VSClust")),
+                fluidRow(span(textOutput("connection_vsclust"), style="color:#33DD33;")),
+                fluidRow(textInput("url_vsclust", label="URL", value="http://computproteomics.bmb.sdu.dk/app_direct/VSClust/"))
+                #fluidRow(disabled(actionButton("retrieve_polystest", "Retrieve results from PolySTest"))) 
+              )
+            )
+          ),
           uiOutput("export_ui"),
           uiOutput("export_metabo"),
           box(title = ".xlsx", width = 4, 

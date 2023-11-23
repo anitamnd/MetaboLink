@@ -340,6 +340,7 @@ shinyServer(function(session, input, output) {
         write.csv(cbind("sample" = rownames(rv$sequence[[rv$activeFile]]), rv$sequence[[rv$activeFile]]), file, row.names = FALSE) # TODO
       }
     )
+
     updateCheckboxGroupInput(session, "export_xml_list", choices = rv$choices, selected = NULL)
     updateSelectInput(session, "mergeFile", choices = rv$choices, selected = rv$choices[length(rv$choices)])
     updateSelectInput(session, "drift_select", choices = c("None", rv$choices))
@@ -1270,5 +1271,44 @@ shinyServer(function(session, input, output) {
         )
       }
     })
+  })
+
+  observeEvent(input$send_polystest, {
+    # Select Name and Samples (no QCs)
+    sequence <- rv$sequence[[rv$activeFile]]
+    tdata <- rv$data[[rv$activeFile]][, sequence[, 1] %in% c("Name",  "Sample")]
+    tseq <- sequence[sequence[, 1] %in% c("Name",  "Sample"), ]
+    groups <- factor(tseq[, 4], exclude = NA)
+    NumReps <- max(table(groups))
+    NumCond <- length(levels(groups))
+    groups <- levels(groups)
+
+    tdata <- addEmptyCols(tdata, tseq, groups, NumReps)
+    PolySTestMessage <- toJSON(list(
+      numrep=NumReps, numcond=NumCond, grouped=F,
+      firstquantcol=2, expr_matrix=as.list(as.data.frame(tdata))
+    ))
+    updateTextInput(session, "app_log", value="Opening PolySTest and data upload ...")
+    js$send_message(url=input$url_polystest, dat=PolySTestMessage, tool="PolySTest")
+    #enable("retrieve_polystest")
+  })
+
+  observeEvent(input$send_vsclust, {
+    sequence <- rv$sequence[[rv$activeFile]]
+    tdata <- rv$data[[rv$activeFile]][, sequence[, 1] %in% c("Name",  "Sample")]
+    tseq <- sequence[sequence[, 1] %in% c("Name",  "Sample"), ]
+    groups <- factor(tseq[, 4], exclude = NA)
+    NumReps <- max(table(groups))
+    NumCond <- length(levels(groups))
+    groups <- levels(groups)
+
+    tdata <- addEmptyCols(tdata, tseq, groups, NumReps)
+
+    VSClustMessage <- toJSON(list(
+      numrep=NumReps, numcond=NumCond, grouped=F, 
+      modsandprots=F, expr_matrix=as.list(as.data.frame(tdata))
+    ))
+    updateTextInput(session, "app_log", value="Opening VSClust and data upload ...")
+    js$send_message(url=input$url_vsclust, dat=VSClustMessage, tool="VSClust")
   })
 })

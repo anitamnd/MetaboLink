@@ -470,32 +470,33 @@ meanCenter <- function(x){
   x - mean(x)
 }
 
-# Statistics
+# PolySTest
 
-addcols <- function(data, seq, groups, maxreps) {
-  tdat <- data[,1]
-  rgroup <- c("")
-  rtime <- c("")
+addEmptyCols <- function(data, sequence, groups, replicates) {
+  processed <- data[, 1] # feature names
+  rgroup <- c("") # group vector
+  rtime <- c("") # time vector
+
   for(group in 1:length(groups)) {
-    groupdat <- data[, seq[, 4] %in% groups[group]]
-    time <- seq[seq[, 4] %in% groups[group], 5]
-    tdat <- cbind(tdat, groupdat)
-    if(length(groupdat) < maxreps) {
-      fcol <- t(rep(NA, maxreps - length(groupdat)))
-      tdat <- cbind(tdat, fcol)
+    groupCols <- data[, sequence[, 4] %in% groups[group]]
+    time <- sequence[sequence[, 4] %in% groups[group], 5]
+    processed <- cbind(processed, groupCols)
+    if(length(groupCols) < replicates) {
+      missing <- t(rep(NA, replicates - length(groupCols)))
+      processed <- cbind(processed, missing)
     }
-    rgroup <- append(rgroup, rep(paste("g", groups[group], sep = ""), maxreps))
-    if(any(complete.cases(seq[, 5])))
+    rgroup <- append(rgroup, rep(paste("g", groups[group], sep = ""), replicates))
+    if(any(complete.cases(sequence[, 5])))
       rtime <- append(rtime, t(time))
   }
-  tdat <- rbind(rgroup, tdat)
-  if(any(complete.cases(seq[, 5])))
-    colnames(tdat) <- paste(colnames(tdat), rgroup, paste("t", rtime, sep=""), sep = "_")
+  if(any(complete.cases(sequence[, 5])))
+    colnames(processed) <- paste(colnames(processed), rgroup, paste("t", rtime, sep=""), sep = "_")
   else
-    colnames(tdat) <- paste(colnames(tdat), rgroup, sep = "_")
-  return(tdat)
+    colnames(processed) <- paste(colnames(processed), rgroup, sep = "_")
+  return(processed)
 }
 
+# Statistics
 groupsTest <- function(data, seq) {
   library(limma)
   group <- paste("G", seq[, 1], sep="")
