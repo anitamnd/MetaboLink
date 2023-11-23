@@ -53,23 +53,29 @@ shinyServer(function(session, input, output) {
       if(input$fileType == "Samples in rows") {
         inputFile <- t(inputFile)
       }
-      labels <- identifyLabels(inputFile)
-      checkColumns(colnames(inputFile), labels)
     },
       blocking_level = 'message'
     )
-    batch <- NA
-    order <- NA
-    class <- NA
-    time <- NA
-    paired <- NA
-    initializeVariables()
-    rv$sequence[[length(rv$sequence) + 1]] <- data.frame(labels, batch, order, class, time, paired)
-    rv$data[[length(rv$data) + 1]] <- inputFile
-    names(rv$data)[length(rv$data)] <- substr(input$inputFile$name, 1, nchar(input$inputFile$name) - 4)
-    rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
-    updateTabItems(session, "tabs", selected = "Datainput")
-    show("buttons")
+    if(any(duplicated(names(inputFile)))) {
+      sendSweetAlert(title = "Error", text = paste("Duplicate columns found."), type = "error")
+    } else if(any(duplicated(inputFile[, 1]))) {
+      sendSweetAlert(title = "Error", text = paste("Duplicate rows found."), type = "error")
+    } else {
+      labels <- identifyLabels(inputFile)
+      checkColumns(colnames(inputFile), labels)
+      batch <- NA
+      order <- NA
+      class <- NA
+      time <- NA
+      paired <- NA
+      initializeVariables()
+      rv$sequence[[length(rv$sequence) + 1]] <- data.frame(labels, batch, order, class, time, paired)
+      rv$data[[length(rv$data) + 1]] <- inputFile
+      names(rv$data)[length(rv$data)] <- substr(input$inputFile$name, 1, nchar(input$inputFile$name) - 4)
+      rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
+      updateTabItems(session, "tabs", selected = "Datainput")
+      show("buttons")
+    }
   })
 
   observeEvent(input$inputSequence, {
@@ -100,7 +106,6 @@ shinyServer(function(session, input, output) {
     row.names(sequence) <- sequence[, 1]
     sequence <- sequence[, -1]
     rv$sequence[[rv$activeFile]] <- sequence
-
   })
 
   observeEvent(input$editSequence, {
