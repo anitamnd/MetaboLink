@@ -12,27 +12,15 @@ shinyServer(function(session, input, output) {
 
   rankings <- read.csv("./csvfiles/rankings.csv", stringsAsFactors = FALSE)
 
-  observeEvent(list(c(input$sequence, input$example, input$inputFile)), {
+  observeEvent(list(c(input$sequence, input$example, input$submit)), {
       windowselect("sequence")
     }, ignoreInit = T
   )
-  observeEvent(input$datatable, {
+  observeEvent(input$explore, {
     windowselect("datatable")
-  })
-  observeEvent(input$pca_button, {
-    windowselect("pca")
-  })
-  observeEvent(input$drift_button, {
-    windowselect("drift")
   })
   observeEvent(input$export, {
     windowselect("export")
-  })
-  observeEvent(input$feature_button, {
-    windowselect("feature")
-  })
-  observeEvent(input$info_button, {
-    windowselect("info")
   })
   observeEvent(input$statistics_button, {
     windowselect("statistics")
@@ -59,7 +47,7 @@ shinyServer(function(session, input, output) {
         "<br/>group ", input$group2, ": ", paste(rownames(sequence)[sequence[, 4] %in% input$group2], collapse = ", "))
   })
 
-  observeEvent(input$inputFile, {
+  observeEvent(input$submit, {
     shinyCatch({
       inputFile <- read.csv(input$inputFile$datapath, header = 1, stringsAsFactors = F, check.names = FALSE)
       if(input$fileType == "Samples in rows") {
@@ -210,6 +198,7 @@ shinyServer(function(session, input, output) {
     updateTabItems(session, "tabs", selected = "Datainput")
     show("buttons")
     updateCollapse(session, "menu", close = "Data input")
+    disable("example")
   })
 
   # Update selected data
@@ -217,22 +206,38 @@ shinyServer(function(session, input, output) {
     rv$activeFile <- which(rv$choices %in% input$selectDataset)
     rows <- nrow(rv$data[[rv$activeFile]])
     cols <- ncol(rv$data[[rv$activeFile]])
-    if(rows > 30)
-      rows <- 30
-    if(cols > 15)
-      cols <- 15
+    if(rows > 50)
+      rows <- 50
+    if(cols > 30)
+      cols <- 30
     forVisuals <- rv$data[[rv$activeFile]][1:rows, 1:cols]
+    sequence <- rv$sequence[[rv$activeFile]]
+    data <- rv$data[[rv$activeFile]]
 
     output$seq_table <- renderDT(rv$sequence[[rv$activeFile]], extensions = c('FixedHeader', 'Responsive'), server = F, 
           editable = T, selection = 'none', options = list(pageLength = nrow(rv$sequence[[rv$activeFile]]), 
           fixedHeader = TRUE))
     output$diboxtitle <- renderText(names(rv$data[rv$activeFile]))
-    output$dttable <- renderDT(forVisuals, rownames = FALSE, options = list(scrollX = TRUE, 
+    output$dttable <- renderDT(data, rownames = FALSE, options = list(scrollX = TRUE, 
               scrollY = "700px"))
     output$dt_drift_panel <- renderDT(rv$data[[rv$activeFile]][rv$sequence[[rv$activeFile]][, 1] %in% "Name"], rownames = FALSE, 
               options = list(autoWidth = TRUE, scrollY = "700px", pageLength = 20))
     output$dt_boxplot_panel <- renderDT(rv$data[[rv$activeFile]][rv$sequence[[rv$activeFile]][, 1] %in% "Name"], rownames = FALSE, 
               options = list(autoWidth = TRUE, scrollY = "700px", pageLength = 20))
+    
+    output$histogram <- renderPlotly({
+      samples <- data[, sequence[ , 'labels'] %in% "Sample"]
+      samples[is.na(samples)] <- 0
+      medians <- apply(samples, 2, median)
+      median_data <- data.frame(
+        Sample = names(medians),
+        Median = medians
+      )
+      ggplot(median_data, aes(x = Sample, y = Median)) +
+        geom_col(fill = "skyblue", color = "black") +
+        labs(title = "Medians across samples", x = "Sample", y = "Median") +
+        theme_minimal()
+    })
 
     if (sum(rv$sequence[[rv$activeFile]][, 1] %in% "Name") == 1) {
       internalStandards <- findInternalStandards(rv$data[[rv$activeFile]][rv$sequence[[rv$activeFile]][, 1] %in% "Name"])
@@ -261,7 +266,6 @@ shinyServer(function(session, input, output) {
         lapply(1:length(rv$choices), function(x) {
           fluidRow(column(12, downloadLink(paste0("dwn", x), paste0(rv$choices[x], ".csv"))))
         }),
-        fluidRow(column(3, actionButton("export_edit", "Edit", width = "100%")))
       )
     })
 
@@ -310,7 +314,7 @@ shinyServer(function(session, input, output) {
         }
       )
     })
-    
+
     lapply(1:length(rv$choices), function(x) {
       dat <- rv$data[[x]]
       seq <- rv$sequence[[x]]
@@ -342,50 +346,28 @@ shinyServer(function(session, input, output) {
     updateSelectInput(session, "selectDataset", choices = rv$choices, selected = rv$choices[length(rv$choices)])
     updateSelectInput(session, "selectpca1", choices = rv$choices, selected = rv$choices[length(rv$choices)])
     updateSelectInput(session, "selectpca2", choices = rv$choices, selected = rv$choices[length(rv$choices)])
-
+    updateCheckboxGroupInput(session, "filesToRemove", choices = names(rv$data), selected = NULL)
   })
 
-  observeEvent(input$export_edit, {
-    showModal(
-      modalDialog(
-        title = "Edit datasets", size = "m", easyClose = TRUE,
-        footer = list(actionButton("export_edit_confirm", "Confirm"), modalButton("Dismiss")),
-        fluidRow(
-          column(width = 10, h4("Names")),
-          column(width = 2, style = "text-align: left;", h4("Keep"))
-        ),
-        lapply(1:length(rv$choices), function(x) {
-          fluidRow(
-            column(
-              width = 10,
-              textInput(paste0("export_edit_name", x), NULL, value = names(rv$data[x]), width = "100%")
-            ),
-            column(
-              width = 2, style = "text-align: left;",
-              prettyCheckbox(paste0("export_edit_keep", x), NULL, status = "info", value = TRUE)
-            ),
-          )
-        }),
-      )
-    )
-  })
-
-  observeEvent(input$export_edit_confirm, {
-    sapply(1:length(rv$choices), function(x) {        
-        isolate(names(rv$data)[x] <- input[[paste0("export_edit_name", x)]])
-    })
-    keep <- sapply(1:length(rv$choices), function(x) input[[paste0("export_edit_keep", x)]])
-    rv$data <- rv$data[keep]
-    rv$sequence <- rv$sequence[keep]
-    rv$info <- rv$info[keep]
-    st$stats <- st$stats[keep]
-    st$sequence <- st$sequence[keep]
-    st$results <- st$results[keep]
-    st$comparisons <- st$comparisons[keep]
-    st$colcomp <- st$colcomp[keep]
-    rv$activeFile <- names(rv$data)[length(rv$data)]
-    rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
-    removeModal()
+  observeEvent(input$removeFiles, {
+    if (is.null(input$filesToRemove)) {
+      showNotification("No files selected.", type = "error")
+    } else if(length(input$filesToRemove) == length(rv$choices)) {
+      showNotification("At least one file must be kept.", type = "error")
+    } else {
+      keep <- !names(rv$data) %in% input$filesToRemove      
+      rv$data <- rv$data[keep]
+      rv$sequence <- rv$sequence[keep]
+      rv$info <- rv$info[keep]
+      st$stats <- st$stats[keep]
+      st$sequence <- st$sequence[keep]
+      st$results <- st$results[keep]
+      st$comparisons <- st$comparisons[keep]
+      st$colcomp <- st$colcomp[keep]
+      rv$activeFile <- names(rv$data)[length(rv$data)]
+      rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
+      showNotification("Files removed.", type = "message")
+    }
   })
 
   observeEvent(input$export_xml_list, {
@@ -436,6 +418,7 @@ shinyServer(function(session, input, output) {
     rv$data[[rv$activeFile]] <- data
   })
 
+  # Blank filtration
   observeEvent(input$blankFiltrate, {
     if(is.null(rv$activeFile)) {
       showNotification("No data", type = "error")
@@ -487,6 +470,7 @@ shinyServer(function(session, input, output) {
     }
   })
 
+  # IS normalization
   observeEvent(input$normalizeIS, {
     if (is.null(rv$activeFile)) {
       showNotification("No data", type = "error")
@@ -507,10 +491,14 @@ shinyServer(function(session, input, output) {
   })
 
   observeEvent(input$optimizeIS, {
-    sequence <- rv$sequence[[rv$activeFile]]
-    data <- rv$data[[rv$activeFile]]
-    optimized <- optimizeIS(data, sequence, input$isChoose, input$isMethod, input$normalizeQC)
-    updateCheckboxGroupInput(session, "isChoose", selected = optimized)
+    if (is.null(rv$activeFile)) {
+      showNotification("No data", type = "error")
+    } else {
+      sequence <- rv$sequence[[rv$activeFile]]
+      data <- rv$data[[rv$activeFile]]
+      optimized <- optimizeIS(data, sequence, input$isChoose, input$isMethod, input$normalizeQC)
+      updateCheckboxGroupInput(session, "isChoose", selected = optimized)
+    }
   })
 
   observeEvent(input$saveIS, {
@@ -535,30 +523,35 @@ shinyServer(function(session, input, output) {
   })
 
   observeEvent(input$removeIS, {
-    data <- rv$data[[rv$activeFile]]
-    sequence <- rv$sequence[[rv$activeFile]]
-    toRemove <- data[sequence[, 1] %in% "Name"]
-    data <- data[!grepl("\\(IS\\)", toupper(toRemove[ , 1])), ]
-    rv$data[[rv$activeFile]] <- data
-    updateCheckboxGroupInput(session, "isChoose", choices = character(0), selected = NULL)
+    if (is.null(rv$activeFile)) {
+      showNotification("No data", type = "error")
+    } else {
+      data <- rv$data[[rv$activeFile]]
+      sequence <- rv$sequence[[rv$activeFile]]
+      toRemove <- data[sequence[, 1] %in% "Name"]
+      data <- data[!grepl("\\(IS\\)", toupper(toRemove[ , 1])), ]
+      rv$data[[rv$activeFile]] <- data
+      updateCheckboxGroupInput(session, "isChoose", choices = character(0), selected = NULL)
+    }
   })
 
-  observeEvent(input$mvf_run, {
-    if (is.null(rv$activeFile)) {
-      sendSweetAlert(session, "No data", type = "error")
+  # Missing value filtration
+  observeEvent(input$runFilterNA, {
+    if(is.null(rv$activeFile)) {
+      showNotification("No data", type = "error")
     } else {
-      mvf_seq <- rv$sequence[[rv$activeFile]]
-      method <- input$mvf_conditions
-      if(("in group" %in% method) & !any(complete.cases(mvf_seq[, 4]))) {
+      sequence <- rv$sequence[[rv$activeFile]]
+      method <- input$filterNAmethod
+      if(("in group" %in% method) & !any(complete.cases(sequence[, 4]))) {
         shinyalert("Error!", "Group information needed.")
       }
       else if(is.null(method)) {
         shinyalert("Error!", "No method selected.")
       }
       else {
-        mvf_dat <- cutoffrm(rv$data[[rv$activeFile]], mvf_seq, input$mvf_cutoff, method)
+        mvf_dat <- cutoffrm(rv$data[[rv$activeFile]], sequence, input$cutoffNAs, method)
         rv$tmpData <- mvf_dat
-        rv$tmpSequence <- mvf_seq
+        rv$tmpSequence <- sequence
         updateSelectInput(session, "selectpca1", selected = "Unsaved data", choices = c("Unsaved data", rv$choices))
         output$dttable <- renderDataTable(rv$tmpData, rownames = FALSE, options = list(scrollX = TRUE, scrollY = "700px", pageLength = 20))
         sendSweetAlert(
@@ -570,7 +563,7 @@ shinyServer(function(session, input, output) {
     }
   })
 
-  observeEvent(input$mvf_save, {
+  observeEvent(input$saveFilterNA, {
     if (is.null(rv$tmpData)) {
       showNotification("Filtrate first", type = "error")
     } else {
@@ -585,60 +578,60 @@ shinyServer(function(session, input, output) {
         names(rv$data)[rv$activeFile] <- paste0(names(rv$data)[rv$activeFile], "_mvr")
       }
       rv$info[length(rv$data)] <- paste(ifelse(is.na(rv$info[rv$activeFile]), "", rv$info[rv$activeFile]), "Missing value filtration using", 
-                input$mvf_cutoff, "% as threshold and method -", paste(input$mvf_conditions, collapse=", "), "\n")
+                input$cutoffNAs, "% as threshold and method -", paste(input$filterNAmethod, collapse=", "), "\n")
       rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
       rv$tmpData <- NULL
       rv$tmpSequence <- NULL   
     }
   })
 
-  observeEvent(input$imp_run, {
+  # Imputation
+  observeEvent(input$runImputation, {
     if (is.null(rv$activeFile)) {
       showNotification("No data", type = "error")
     } else if (sum(rv$sequence[[rv$activeFile]][, 1] %in% "Sample") < 1) {
       showNotification("Data must have at least one Sample", type = "error")
     } else {
-      imp_seq <- rv$sequence[[rv$activeFile]]
-      imp_dat <- imputation(
-        dat = rv$data[[rv$activeFile]],
-        seq = imp_seq,
-        method = input$imp_method,
-        minx = input$imp_minx,
-        onlyqc = input$imp_onlyqc,
-        remaining = input$imp_remaining
+      data <- rv$data[[rv$activeFile]]
+      sequence <- rv$sequence[[rv$activeFile]]
+      imputed <- imputation(data, sequence,
+        method = input$imputationMethod,
+        minx = input$imputationMinX,
+        onlyqc = input$imp_onlyQC,
+        remaining = input$remainingNAs
       )
-      rv$tmpData <- imp_dat
-      rv$tmpSequence <- imp_seq
+      rv$tmpData <- imputed
+      rv$tmpSequence <- sequence
       updateSelectInput(session, "selectpca1", selected = "Unsaved data", choices = c("Unsaved data", rv$choices))
       output$dttable <- renderDataTable(rv$tmpData, rownames = FALSE, options = list(scrollX = TRUE, scrollY = "700px", pageLength = 20))
       sendSweetAlert(
         title = "Success",
-        text = paste0(sum(is.na(rv$data[[rv$activeFile]]) | rv$data[[rv$activeFile]] == 0) - sum(is.na(rv$tmpData) | rv$tmpData == 0), " missing values was imputed"),
+        text = paste0(sum(is.na(rv$data[[rv$activeFile]]) | rv$data[[rv$activeFile]] == 0) - sum(is.na(rv$tmpData) | rv$tmpData == 0), " missing values were imputed."),
         type = "success"
       )
     }
   })
 
-  observeEvent(list(input$imp_method, input$imp_remaining), {
-    if (input$imp_method == "KNN") {
+  observeEvent(list(input$imputationMethod, input$remainingNAs), {
+    if (input$imputationMethod == "KNN") {
       hide("imp_minx_hide")
       hide("imp_remaining_hide")
     } else {
       show("imp_remaining_hide")
     }
 
-    if (input$imp_method == "Min/X" || input$imp_remaining == "Min/X") {
+    if (input$imputationMethod == "Min/X" || input$remainingNAs == "Min/X") {
       show("imp_minx_hide")
     } else {
       hide("imp_minx_hide")
     }
   })
 
-  observeEvent(input$imp_save, {
+  observeEvent(input$saveImputation, {
     if (is.null(rv$tmpData)) {
       showNotification("Imputate first", type = "error")
     } else {
-      if(input$imp_newsave) {
+      if(input$newFileImp) {
         rv$data[[length(rv$data) + 1]] <- rv$tmpData
         rv$sequence[[length(rv$sequence) + 1]] <- rv$tmpSequence
         names(rv$data)[length(rv$data)] <- paste0(names(rv$data)[rv$activeFile], "_imp")
@@ -648,15 +641,16 @@ shinyServer(function(session, input, output) {
         rv$sequence[[rv$activeFile]] <- rv$tmpSequence
         names(rv$data)[rv$activeFile] <- paste0(names(rv$data)[rv$activeFile], "_imp")
       }
-      rv$info[length(rv$data)] <- paste(ifelse(is.na(rv$info[rv$activeFile]), "", rv$info[rv$activeFile]), "Missing values imputation with", input$imp_method, "\n")
+      rv$info[length(rv$data)] <- paste(ifelse(is.na(rv$info[rv$activeFile]), "", rv$info[rv$activeFile]), "Missing values imputation with", input$imputationMethod, "\n")
       rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
       rv$tmpData <- NULL
       rv$tmpSequence <- NULL   
     }
   })
 
-  observeEvent(input$dcMethod, {
-    if (input$dcMethod == "QC-RFSC (random forrest)") {
+  # Drift correction
+  observeEvent(input$driftMethod, {
+    if (input$driftMethod == "QC-RFSC (random forrest)") {
       hide("dc_qcspan_hide")
       hide("dc_degree_hide")
       show("dc_ntree_hide")
@@ -667,34 +661,36 @@ shinyServer(function(session, input, output) {
     }
   })
 
-  observeEvent(input$dc_run, {
-    dc_dat <- rv$data[[rv$activeFile]]
-    dc_seq <- rv$sequence[[rv$activeFile]]  
-    dat_qc <- dc_dat[, dc_seq[, 1] %in% "QC"]
+  observeEvent(input$runDrift, {
+    if (is.null(rv$activeFile)) {
+      showNotification("No data", type = "error")
+    } else {
+      data <- rv$data[[rv$activeFile]]
+      sequence <- rv$sequence[[rv$activeFile]]  
+      dat_qc <- data[, sequence[, 1] %in% "QC"]
 
-    if(any(colSums(!is.na(dat_qc)) != nrow(dat_qc))) {
-      sendSweetAlert(session = session, title = "Error", text = "QCs cannot have missing values.", type = "error")
+      if(any(colSums(!is.na(dat_qc)) != nrow(dat_qc))) {
+        sendSweetAlert(session = session, title = "Error", text = "QCs cannot have missing values.", type = "error")
+      }
+      else {
+        corrected <- driftcorrection(data, sequence,
+          method = input$driftMethod,
+          ntree = input$driftTrees,
+          QCspan = input$driftQCspan
+        )
+        rv$tmpData <- corrected
+        rv$tmpSequence <- sequence
+        updateSelectInput(session, "selectpca1", selected = "Unsaved data", choices = c("Unsaved data", rv$choices))
+        output$dttable <- renderDataTable(rv$tmpData, rownames = FALSE, options = list(scrollX = TRUE, scrollY = "700px", pageLength = 20))
+      }
     }
-    else {
-      dc_dat <- driftcorrection(
-        dat = dc_dat,
-        seq = dc_seq,
-        method = input$dcMethod,
-        ntree = input$dc_ntree,
-        QCspan = input$dc_qcspan
-      )
-    }
-    rv$tmpData <- dc_dat
-    rv$tmpSequence <- dc_seq
-    updateSelectInput(session, "selectpca1", selected = "Unsaved data", choices = c("Unsaved data", rv$choices))
-    output$dttable <- renderDataTable(rv$tmpData, rownames = FALSE, options = list(scrollX = TRUE, scrollY = "700px", pageLength = 20))
   })
 
-  observeEvent(input$dc_save, {
+  observeEvent(input$saveDrift, {
     if (is.null(rv$tmpData)) {
       showNotification("Drift correct first", type = "error")
     } else {
-      if (input$dc_newsave) {
+      if (input$newFileDrift) {
         rv$data[[length(rv$data) + 1]] <- rv$tmpData
         rv$sequence[[length(rv$sequence) + 1]] <- rv$tmpSequence
         names(rv$data)[length(rv$data)] <- paste0(names(rv$data)[rv$activeFile], "_dc")
@@ -705,14 +701,15 @@ shinyServer(function(session, input, output) {
         rv$sequence[[rv$activeFile]] <- rv$tmpSequence
         names(rv$data)[rv$activeFile] <- paste0(names(rv$data)[rv$activeFile], "_dc")
       }
-      rv$info[length(rv$data)] <- paste(ifelse(is.na(rv$info[rv$activeFile]), "", rv$info[rv$activeFile]), "Drift correction", input$dcMethod, "and", input$dc_ntree, "\n")
+      rv$info[length(rv$data)] <- paste(ifelse(is.na(rv$info[rv$activeFile]), "", rv$info[rv$activeFile]), "Drift correction", input$driftMethod, "and", input$driftTrees, "\n")
       rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
       rv$tmpData <- NULL
       rv$tmpSequence <- NULL   
     }
   })
 
-  observeEvent(input$md_rankings, {
+  # Merge datasets
+  observeEvent(input$mergeRankings, {
     showModal(
       modalDialog(
         title = "Change the priority of annotations", size = "s", easyClose = TRUE,
@@ -742,91 +739,99 @@ shinyServer(function(session, input, output) {
   })
 
   observeEvent(input$mergeDatasets, {
-    activeSequence <- rv$sequence[[rv$activeFile]]
-    activeDataset <- rv$data[[rv$activeFile]]
-    selected <- which(rv$choices %in% input$mergeFile)
-    sequenceToMerge <- rv$sequence[[selected]]
-    datasetToMerge <- rv$data[[selected]]
-
-    if(names(rv$data)[rv$activeFile] == names(rv$data)[selected]) {
-      sendSweetAlert(session = session, title = "Error", text = "Cannot merge a dataset with itself.", type = "error")
-    }
-    else {
-
-      if (sum(activeSequence[, 1] %in% c("Adduct_pos", "Adduct_neg")) != 1 || sum(sequenceToMerge[, 1] %in% c("Adduct_pos", "Adduct_neg")) != 1) {
-        sendSweetAlert(session = session, title = "Error", text = "Each dataset must contain exactly one adduct column labeled in the sequence file.", type = "error")
-      } else if (ncol(activeDataset) != ncol(datasetToMerge)) {
-        sendSweetAlert(session = session, title = "Error", text = "Datasets must have the same number of columns", type = "error")
+    if (is.null(rv$activeFile)) {
+      showNotification("No data", type = "error")
+    } else {
+      activeSequence <- rv$sequence[[rv$activeFile]]
+      activeDataset <- rv$data[[rv$activeFile]]
+      selected <- which(rv$choices %in% input$mergeFile)
+      if(is.null(selected)) {
+        showNotification("No file selected", type = "error")
       } else {
-        mergedDatasets <<- mergeDatasets(activeDataset, activeSequence,
-              datasetToMerge, sequenceToMerge, input$md_ppm, input$md_rt)
-        clustn <- data.frame(table(mergedDatasets$mergeID))
-        dub_clust <- clustn[clustn$Freq > 1, ]
-        dub_dat <- mergedDatasets[mergedDatasets$mergeID %in% dub_clust[, 1], ]
-        dub_qc <- dub_dat[, activeSequence[, 1] %in% "QC"]
-        cov <- cv(dub_qc)
-        nclust <- sapply(dub_dat$mergeID, function(x) {
-          table(dub_dat$mergeID)[names(table(dub_dat$mergeID)) == x]
-        })
+        sequenceToMerge <- rv$sequence[[selected]]
+        datasetToMerge <- rv$data[[selected]]
 
-        out_dub <- data.frame(
-          "nClust" = nclust,
-          "Cluster_ID" = dub_dat$mergeID,
-          "Ion_mode" = dub_dat$ionmode,
-          "Adductor" = dub_dat$add,
-          "Name" = dub_dat[, which(activeSequence[, 1] %in% "Name")],
-          "RT" = dub_dat[, which(activeSequence[, 1] %in% "RT")],
-          "Mass" = dub_dat[, which(activeSequence[, 1] %in% "Mass")],
-          "CV" = cov
-        )
-        out_dub <- out_dub[order(out_dub[, 1], out_dub[, 2], decreasing = T), ]
-        md_dup <<- out_dub
-        cluster_ends <- which(!duplicated(out_dub[, 2]))
-        output$md_modal_dt <- renderDataTable({
-            datatable(out_dub,
-              rownames = F,
-              options = list(dom = "t", autowidth = T, paging = F),
-              selection = list(selected = finddup(out_dub, rankings))
-            ) %>% formatStyle(1:8, `border-top` = styleRow(cluster_ends, "solid 2px"))
-          },
-          server = T
-        )
+        if(names(rv$data)[rv$activeFile] == names(rv$data)[selected]) {
+          sendSweetAlert(session = session, title = "Error", text = "Cannot merge a dataset with itself.", type = "error")
+        }
+        else {
+          if (sum(activeSequence[, 1] %in% c("Adduct_pos", "Adduct_neg")) != 1 || sum(sequenceToMerge[, 1] %in% c("Adduct_pos", "Adduct_neg")) != 1) {
+            sendSweetAlert(session = session, title = "Error", text = "Each dataset must contain exactly one adduct column labeled in the sequence file.", type = "error")
+          } else if (ncol(activeDataset) != ncol(datasetToMerge)) {
+            sendSweetAlert(session = session, title = "Error", text = "Datasets must have the same number of columns", type = "error")
+          } else {
+            mergedDatasets <<- mergeDatasets(activeDataset, activeSequence,
+                  datasetToMerge, sequenceToMerge, input$merge_ppm, input$merge_rt)
+            clustn <- data.frame(table(mergedDatasets$mergeID))
+            dub_clust <- clustn[clustn$Freq > 1, ]
+            dub_dat <- mergedDatasets[mergedDatasets$mergeID %in% dub_clust[, 1], ]
+            dub_qc <- dub_dat[, activeSequence[, 1] %in% "QC"]
+            cov <- cv(dub_qc)
+            nclust <- sapply(dub_dat$mergeID, function(x) {
+              table(dub_dat$mergeID)[names(table(dub_dat$mergeID)) == x]
+            })
 
-        showModal(
-          modalDialog(
-            title = "Select features to keep", size = "l",
-            p(paste0(length(unique(dub_dat$mergeID))), " duplicate clusters found, of those ", paste0(length(unique(out_dub[out_dub[, 1] > 2, ][, 2]))), " consists of more than 2 features."),
-            DTOutput("md_modal_dt"),
-            footer = list(actionButton("md_modal_go", "Remove duplicates"), modalButton("Dismiss"))
-          )
-        )
+            out_dub <- data.frame(
+              "nClust" = nclust,
+              "Cluster_ID" = dub_dat$mergeID,
+              "Ion_mode" = dub_dat$ionmode,
+              "Adductor" = dub_dat$add,
+              "Name" = dub_dat[, which(activeSequence[, 1] %in% "Name")],
+              "RT" = dub_dat[, which(activeSequence[, 1] %in% "RT")],
+              "Mass" = dub_dat[, which(activeSequence[, 1] %in% "Mass")],
+              "CV" = cov
+            )
+            out_dub <- out_dub[order(out_dub[, 1], out_dub[, 2], decreasing = T), ]
+            md_dup <<- out_dub
+            cluster_ends <- which(!duplicated(out_dub[, 2]))
+            output$md_modal_dt <- renderDataTable({
+                datatable(out_dub,
+                  rownames = F,
+                  options = list(dom = "t", autowidth = T, paging = F),
+                  selection = list(selected = finddup(out_dub, rankings))
+                ) %>% formatStyle(1:8, `border-top` = styleRow(cluster_ends, "solid 2px"))
+              },
+              server = T
+            )
+
+            showModal(
+              modalDialog(
+                title = "Select features to keep", size = "l",
+                p(paste0(length(unique(dub_dat$mergeID))), " duplicate clusters found, of those ", paste0(length(unique(out_dub[out_dub[, 1] > 2, ][, 2]))), " consists of more than 2 features."),
+                DTOutput("md_modal_dt"),
+                footer = list(actionButton("confirmMerging", "Remove duplicates"), modalButton("Dismiss"))
+              )
+            )
+          }
+        }
       }
     }
   })
 
-  observeEvent(input$md_modal_go, {
+  observeEvent(input$confirmMerging, {
     duplicates <- as.numeric(rownames(md_dup[-input$md_modal_dt_rows_selected, ]))
     merged <<- mergedDatasets[-duplicates, ]
     output$dttable <- renderDataTable(merged, rownames = F, options = list(scrollX = TRUE, scrollY = "700px", pageLength = 20))
     removeModal()
-    confirmSweetAlert(session, inputId = "md_newsave", title = "Merge complete", text = "Save as new file?", btn_labels = c("No", "Yes"), type = "success")
+    confirmSweetAlert(session, inputId = "newFileMerge", title = "Merge complete", text = "Save as new file?", btn_labels = c("No", "Yes"), type = "success")
   })
 
-  observeEvent(input$md_newsave, {
-    if (isTRUE(input$md_newsave)) {
+  observeEvent(input$newFileMerge, {
+    if (isTRUE(input$newFileMerge)) {
       rv$data[[length(rv$data) + 1]] <- merged[, seq(ncol(merged) - 2)]
       rv$sequence[[length(rv$sequence) + 1]] <- rv$sequence[[rv$activeFile]]
       names(rv$data)[length(rv$data)] <- paste0(names(rv$data)[rv$activeFile], "_merged")
       initializeVariables()
-    } else if (isFALSE(input$md_newsave)) {
+    } else if (isFALSE(input$newFileMerge)) {
       rv$data[[rv$activeFile]] <- merged[, seq(ncol(merged) - 2)]
       names(rv$data)[rv$activeFile] <- paste0(names(rv$data)[rv$activeFile], "_merged")
     }
-    rv$info[length(rv$data)] <- paste(ifelse(is.na(rv$info[rv$activeFile]), "", rv$info[rv$activeFile]), "Positive and negative mode merged: M/z tolerance ppm", input$md_ppm, "and RT tolerance", input$md_rt, "\n")
+    rv$info[length(rv$data)] <- paste(ifelse(is.na(rv$info[rv$activeFile]), "", rv$info[rv$activeFile]), "Positive and negative mode merged: M/z tolerance ppm", input$merge_ppm, "and RT tolerance", input$merge_rt, "\n")
     rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
   })
 
-  observeEvent(list(input$selectpca1, input$blankFiltrate, input$updateSequence, input$is, input$inputSequence, input$imp_run), ignoreInit = T, {
+  #TODO
+  observeEvent(list(input$selectpca1, input$blankFiltrate, input$updateSequence, input$normalizeIS, input$inputSequence, input$runImputation), ignoreInit = T, {
     if (!is.null(rv$activeFile)) {
       if (input$selectpca1 == "Unsaved data") {
         data <- rv$tmpData
@@ -1065,8 +1070,11 @@ shinyServer(function(session, input, output) {
         classcv <- NULL
       }
       text <- c(qccv, classcv)
+      output$title <- renderText({
+        HTML("<h3>", names(rv$data)[rv$activeFile], "</h3>")
+      })
       output$info_ui <- renderUI({
-        HTML("<h2>", names(rv$data)[rv$activeFile], "</h2>", nrow(dat) - 1, " features.<br>", ncol(dat[seq[, 1] %in% "Sample"]), " samples.<br>", ncol(dat[seq[, 1] %in% "QC"]), " QC samples.<br>", ncol(dat[seq[, 1] %in% "Blank"]), " Blank samples.<br>", "<br>", sample_mv, " missing values in Samples<br>", qc_mv, " missing values in QC samples<br>", blank_mv, " missing values in Blank samples<br><br>")
+        HTML(nrow(dat) - 1, " features.<br>", ncol(dat[seq[, 1] %in% "Sample"]), " samples.<br>", ncol(dat[seq[, 1] %in% "QC"]), " QC samples.<br>", ncol(dat[seq[, 1] %in% "Blank"]), " Blank samples.<br>", "<br>", sample_mv, " missing values in Samples<br>", qc_mv, " missing values in QC samples<br>", blank_mv, " missing values in Blank samples<br><br>")
       })
       output$cvinfo_ui <- renderUI({
         HTML(text)
@@ -1115,36 +1123,47 @@ shinyServer(function(session, input, output) {
   })
 
   observeEvent(input$saveNormalization, {
-    rv$data[[length(rv$data) + 1]] <- rv$tmpData
-    rv$sequence[[length(rv$sequence) + 1]] <- rv$tmpSequence
-    names(rv$data)[length(rv$data)] <- paste0(names(rv$data)[rv$activeFile], "_normalized")
-    initializeVariables()
-    rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
-    rv$info[length(rv$data)] <- paste(ifelse(is.na(rv$info[rv$activeFile]), "", rv$info[rv$activeFile]), "Normalized with", input$normMethod, " method\n")
-    removeModal()
-    rv$tmpData <- NULL
-    rv$tmpSequence <- NULL   
+    if(is.null(rv$tmpData)) {
+      showNotification("Normalize first", type = "error")
+    } else {
+      rv$data[[length(rv$data) + 1]] <- rv$tmpData
+      rv$sequence[[length(rv$sequence) + 1]] <- rv$tmpSequence
+      names(rv$data)[length(rv$data)] <- paste0(names(rv$data)[rv$activeFile], "_normalized")
+      initializeVariables()
+      rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
+      rv$info[length(rv$data)] <- paste(ifelse(is.na(rv$info[rv$activeFile]), "", rv$info[rv$activeFile]), "Normalized with", input$normMethod, " method\n")
+      removeModal()
+      rv$tmpData <- NULL
+      rv$tmpSequence <- NULL
+    }
   })
 
   observeEvent(input$transform, {
-    data <- rv$data[[rv$activeFile]]
-    sequence <- rv$sequence[[rv$activeFile]]
-
-    transformed <- transformation(data, sequence, input$logTransform, input$scaling)
-    data[, sequence[, 1] %in% c("QC", "Sample")] <- transformed
-    rv$tmpData <- data
-
-    output$dttable <- renderDataTable(rv$tmpData, rownames = FALSE, options = list(scrollX = TRUE, scrollY = "700px", pageLength = 20))
+    if (is.null(rv$activeFile)) {
+      showNotification("No data", type = "error")
+    } else if(input$logTransform == "None" & input$scaling == "None") {
+      sendSweetAlert(session = session, title = "Warning", text = "No method selected.", type = "warning")
+    } else {
+      data <- rv$data[[rv$activeFile]]
+      sequence <- rv$sequence[[rv$activeFile]]
+      transformed <- transformation(data, sequence, input$logTransform, input$scaling)
+      data[, sequence[, 1] %in% c("QC", "Sample")] <- transformed
+      rv$tmpData <- data
+      output$dttable <- renderDataTable(rv$tmpData, rownames = FALSE, options = list(scrollX = TRUE, scrollY = "700px", pageLength = 20))
+    }
   })
 
   observeEvent(input$saveTransform, {
-    rv$data[[length(rv$data) + 1]] <- rv$tmpData
-    rv$sequence[[length(rv$sequence) + 1]] <- rv$sequence[[rv$activeFile]]
-    names(rv$data)[length(rv$data)] <- paste0(names(rv$data)[rv$activeFile], "_transformed")
-    initializeVariables()
-    #updates()
-    rv$tmpData <- NULL
-    rv$tmpSequence <- NULL   
+    if(is.null(rv$tmpData)) {
+      showNotification("Normalize first", type = "error")
+    } else {
+      rv$data[[length(rv$data) + 1]] <- rv$tmpData
+      rv$sequence[[length(rv$sequence) + 1]] <- rv$sequence[[rv$activeFile]]
+      names(rv$data)[length(rv$data)] <- paste0(names(rv$data)[rv$activeFile], "_transformed")
+      initializeVariables()
+      rv$tmpData <- NULL
+      rv$tmpSequence <- NULL
+    }
   })
 
   # Statistics

@@ -270,15 +270,16 @@ driftcorrection <- function(dat, seq, method, ntree = 500, degree = 2, QCspan) {
   seqsq <- seq[seq[, 1] %in% c("Sample", "QC"), ]
   datsq <- dat[, seq[, 1] %in% c("Sample", "QC")]
   datsqsorted <- datsq %>% select(order(seqsq$order))
-  qcid <- as.numeric(sort(seqsq[seqsq[, 1] %in% "QC", ]$order))
-  frame <- data.frame("qcid" = 1:ncol(datsq))
+  qcid <- as.numeric(sort(seqsq[seqsq[, 1] %in% "QC", ]$order)) # order of QCs
+  frame <- data.frame("qcid" = 1:ncol(datsq)) 
   dcdat <- as.matrix(datsqsorted)
+  dcdat1 <- dcdat
   progressSweetAlert(id = "pbdc", title = "Correcting drift", value = 0, total = nrow(dcdat), striped = T, display_pct = T)
   if (method == "QC-RFSC (random forrest)") {
     for (i in 1:nrow(dcdat)) {
       forest <- randomForest(data.frame(qcid), as.numeric(dcdat[i, qcid]), ntree = ntree)
       pv <- predict(forest, frame)
-      dcdat[i, ] <- as.numeric(dcdat[i, ]) / pv
+      dcdat[i, ] <- (as.numeric(dcdat[i, ]) ^ 2) / pv
       updateProgressBar(id = "pbdc", value = i, total = nrow(dcdat))
     }
   }
@@ -289,7 +290,7 @@ driftcorrection <- function(dat, seq, method, ntree = 500, degree = 2, QCspan) {
         degree = degree
       )
       pv <- predict(loess, frame)
-      dcdat[i, ] <- as.numeric(dcdat[i, ]) / pv
+      dcdat[i, ] <- (as.numeric(dcdat[i, ]) ^ 2) / pv
       updateProgressBar(id = "pbdc", value = i, total = nrow(dcdat))
     }
   }
