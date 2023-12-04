@@ -58,8 +58,6 @@ shinyServer(function(session, input, output) {
     )
     if(any(duplicated(names(inputFile)))) {
       sendSweetAlert(title = "Error", text = paste("Duplicate columns found."), type = "error")
-    } else if(any(duplicated(inputFile[, 1]))) {
-      sendSweetAlert(title = "Error", text = paste("Duplicate rows found."), type = "error")
     } else {
       labels <- identifyLabels(inputFile)
       checkColumns(colnames(inputFile), labels)
