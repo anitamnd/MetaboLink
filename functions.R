@@ -588,5 +588,4 @@ windowselect <- function(input) {
   if (input == "statistics") show("statistics_panel") else hide("statistics_panel")
   if (input == "export") show("export_panel") else hide("export_panel")
   if (input == "info") show("info_panel") else hide("info_panel")
-  if (input == "manual") show("user_manual") else hide("user_manual")
 }

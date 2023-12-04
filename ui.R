@@ -31,7 +31,8 @@ shinyUI(dashboardPage(
       icon = icon("question-circle"),
       badgeStatus = NULL,
       headerText = "Help",
-      tags$li(class = "dropdown", actionLink("userManual", "User manual"), icon = icon("book")),
+      notificationItem("User manual", icon = icon("book"),
+                                         href = "https://github.com/anitamnd/jlspec_2_0/user_manual")
       notificationItem("Source code and installation", icon = icon("file"),
                                          href = "https://github.com/anitamnd/jlspec_2_0"),
       notificationItem("Institution", icon = icon("university"),
