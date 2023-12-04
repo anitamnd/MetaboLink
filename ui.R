@@ -32,7 +32,7 @@ shinyUI(dashboardPage(
       badgeStatus = NULL,
       headerText = "Help",
       notificationItem("User manual", icon = icon("book"),
-                                         href = "https://github.com/anitamnd/jlspec_2_0/user_manual")
+                                         href = "https://github.com/anitamnd/jlspec_2_0/user_manual"),
       notificationItem("Source code and installation", icon = icon("file"),
                                          href = "https://github.com/anitamnd/jlspec_2_0"),
       notificationItem("Institution", icon = icon("university"),
@@ -470,14 +470,6 @@ shinyUI(dashboardPage(
       div(
         id = "welcome_panel",
         column(12, box(width = NULL, includeHTML("intro_text.html")))
-      )
-    ),
-    fluidRow(
-      hidden(
-        div(
-          id = "user_manual",
-          column(12, box(width = NULL, includeHTML("user_manual.html")))
-        )
       )
     )
   )
