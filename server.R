@@ -22,6 +22,9 @@ shinyServer(function(session, input, output) {
   observeEvent(input$export, {
     windowselect("export")
   })
+  observeEvent(input$userManual, {
+    windowselect("manual")
+  })
   observeEvent(input$statistics_button, {
     windowselect("statistics")
     updateSelectInput(session, "group1", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'class']))

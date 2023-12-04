@@ -26,7 +26,17 @@ source("plotfunctions.R")
 shinyUI(dashboardPage(
   dashboardHeader(
     title = "JLspec",
-    titleWidth = 400
+    titleWidth = 400,
+    dropdownMenu(type = "notifications", 
+      icon = icon("question-circle"),
+      badgeStatus = NULL,
+      headerText = "Help",
+      tags$li(class = "dropdown", actionLink("userManual", "User manual"), icon = icon("book")),
+      notificationItem("Source code and installation", icon = icon("file"),
+                                         href = "https://github.com/anitamnd/jlspec_2_0"),
+      notificationItem("Institution", icon = icon("university"),
+                                         href = "sdu.dk")
+    )
   ),
 
   # Sidebar 
@@ -299,15 +309,6 @@ shinyUI(dashboardPage(
           id = "datatable_panel",
           tabsetPanel(
             tabPanel("Data table",
-              box(width = NULL,
-                fluidRow(
-                  column(12,htmlOutput("title")),
-                ),
-                fluidRow(
-                  column(6, uiOutput("info_ui")),
-                  column(6, htmlOutput("cvinfo_ui"))
-                )
-              ),
               fluidRow(
                 column(12, box(width = NULL, DTOutput("dttable") %>% withSpinner(color="#0A4F8F")))
               )
@@ -369,6 +370,17 @@ shinyUI(dashboardPage(
                     ))
                   )),
                   uiOutput("boxplot_ui")
+                )
+              )
+            ),
+            tabPanel("Summary",
+              box(width = NULL,
+                fluidRow(
+                  column(12,htmlOutput("title")),
+                ),
+                fluidRow(
+                  column(6, uiOutput("info_ui")),
+                  column(6, htmlOutput("cvinfo_ui"))
                 )
               )
             )
@@ -457,6 +469,14 @@ shinyUI(dashboardPage(
       div(
         id = "welcome_panel",
         column(12, box(width = NULL, includeHTML("intro_text.html")))
+      )
+    ),
+    fluidRow(
+      hidden(
+        div(
+          id = "user_manual",
+          column(12, box(width = NULL, includeHTML("user_manual.html")))
+        )
       )
     )
   )
