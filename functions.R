@@ -279,7 +279,7 @@ driftcorrection <- function(dat, seq, method, ntree = 500, degree = 2, QCspan) {
     for (i in 1:nrow(dcdat)) {
       forest <- randomForest(data.frame(qcid), as.numeric(dcdat[i, qcid]), ntree = ntree)
       pv <- predict(forest, frame)
-      dcdat[i, ] <- (as.numeric(dcdat[i, ]) ^ 2) / pv
+      dcdat[i, ] <- as.numeric(dcdat[i, ]) / pv
       updateProgressBar(id = "pbdc", value = i, total = nrow(dcdat))
     }
   }
@@ -290,7 +290,7 @@ driftcorrection <- function(dat, seq, method, ntree = 500, degree = 2, QCspan) {
         degree = degree
       )
       pv <- predict(loess, frame)
-      dcdat[i, ] <- (as.numeric(dcdat[i, ]) ^ 2) / pv
+      dcdat[i, ] <- as.numeric(dcdat[i, ]) / pv
       updateProgressBar(id = "pbdc", value = i, total = nrow(dcdat))
     }
   }
