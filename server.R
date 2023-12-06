@@ -28,6 +28,7 @@ shinyServer(function(session, input, output) {
     updateSelectInput(session, "group2", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'class']))
     updateSelectInput(session, "time1", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'time']))
     updateSelectInput(session, "time2", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'time']))
+    updateSelectInput(session, "referenceGroup", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'class']))
   })
 
   # Functions

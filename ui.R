@@ -399,17 +399,42 @@ shinyUI(dashboardPage(
                 id = "pr_c3",
                 h4("Select groups for comparison"), 
                 fluidRow(
-                  column(6, selectInput("group1", "Group", choices = NULL, width = "100%")),
-                  column(6, selectInput("time1", "Time", choices = NULL, width = "100%"))
+                  column(12, p("Remember to log-transform and scale data before running tests.")),
+                  column(12, selectInput("testType", "Select test", choices = c("2 group comparison (unpaired)",
+                                            "1 group FC over time (paired)",
+                                            "2 group comparison with multiple time points (paired)",
+                                            "Compare to reference group", "Time course"), 
+                                            width = "100%"))
+                                            # calculate fold change as the ratio between 2 group means?
                 ),
-                fluidRow(
-                  column(6, selectInput("group2", "Group", choices = NULL, width = "100%")),
-                  column(6, selectInput("time2", "Time", choices = NULL, width = "100%"))
+                conditionalPanel(
+                  condition = "input.testType == '2 group comparison'",
+                  fluidRow(
+                    column(6, selectInput("group1", "Group", choices = NULL, width = "100%")),
+                    column(6, selectInput("time1", "Time", choices = NULL, width = "100%"))
+                  ),
+                  fluidRow(
+                    column(6, selectInput("group2", "Group", choices = NULL, width = "100%")),
+                    column(6, selectInput("time2", "Time", choices = NULL, width = "100%"))
+                  ),
+                  checkboxInput(inputId = "isPaired", label = "Paired tests?", value = F)                  
                 ),
-                checkboxInput(inputId = "isPaired", label = "Paired tests?", value = F),
+                conditionalPanel(
+                  condition = "input.testType == '1 group FC over time (paired)'",
+                  fluidRow(
+                    column(12, selectInput("referenceGroup", "Select reference group", choices = NULL, width = "100%"))
+                  )
+                ),
+                conditionalPanel(
+                  condition = "input.testType == 'Compare to reference group'",
+                  fluidRow(
+                    column(12, selectInput("referenceGroup", "Select reference group", choices = NULL, width = "100%"))
+                  )
+                ),
                 column(12,
-                  actionButton("selectTest", "Select data"),
-                  disabled(actionButton("runTest", "Run test")))
+                    actionButton("selectTest", "Select data"),
+                    disabled(actionButton("runTest", "Run test"))
+                )         
               ),
               column(6,
                 id = "pr_c2",
