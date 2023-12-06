@@ -1280,7 +1280,6 @@ shinyServer(function(session, input, output) {
     updateTextInput(session, "connection_polystest", value="Opening PolySTest and data upload ...")
     js$send_message(url="http://computproteomics.bmb.sdu.dk:443/app_direct/PolySTest/", 
                     dat=PolySTestMessage, tool="PolySTest")
-    #enable("retrieve_polystest")
   })
 
   observeEvent(input$send_vsclust, {

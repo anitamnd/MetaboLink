@@ -32,11 +32,11 @@ shinyUI(dashboardPage(
       badgeStatus = NULL,
       headerText = "Help",
       notificationItem("User manual", icon = icon("book"),
-                                         href = "https://github.com/anitamnd/jlspec_2_0/user_manual"),
+                                         href = "https://github.com/anitamnd/jlspec_2_0/wiki"),
       notificationItem("Source code and installation", icon = icon("file"),
                                          href = "https://github.com/anitamnd/jlspec_2_0"),
       notificationItem("Institution", icon = icon("university"),
-                                         href = "sdu.dk")
+                                         href = "https://www.sdu.dk/en")
     )
   ),
 
