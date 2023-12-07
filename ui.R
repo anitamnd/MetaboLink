@@ -22,7 +22,7 @@ library(jsonlite)
 options(repos = BiocManager::repositories())
 source("functions.R")
 source("plotfunctions.R")
-#source("analysis_functions.R")
+source("analysis_functions.R")
 
 shinyUI(dashboardPage(
   dashboardHeader(
