@@ -4,6 +4,13 @@ selectTest <- function(data, test) {
     return(list(results = results, test = test, groups = groups))
 }
 
+getGroupTime <- function(sequence) {
+    sequence <- sequence[complete.cases(sequence[, 4]), ]
+    group <- paste("G", sequence[, 4], sep="")
+    time <- paste("T", sequence[, 5], sep="")
+    group_time <- paste(group, time, sep="_")
+}
+
 groupComparison <- function(data, sequence, groups) {
     library(limma)
     # Select samples corresponding to groups
@@ -33,10 +40,8 @@ referenceGroupComparison <- function(data, reference, groups) {
     library(qvalue)
     groups <- factor(groups)
     design <- model.matrix(~ 0 + groups)
-    print(design)
     numConditions <- length(levels(groups))
     contrasts <- NULL
-    reference <- 1 # change to input reference group
     for (i in (1:numConditions)[-reference]) {
         contrasts <- append(contrasts, paste(colnames(design)[i], "-", colnames(design)[reference], sep = ""))
     }
@@ -74,27 +79,30 @@ generate_contrasts <- function(combinations) {
 
 
 pairedAnalysis <- function(data, group_time, contrasts, paired) {
+
+    library(limma)
     # show contrasts for paired analysis - user check if correct
-    # paired <- factor(sequence[, 'paired'],  exclude = NA)
-    # group_time <- factor(group_time,  exclude = NA)
 
     # unique group_time 
     # combinations for contrasts - checklist
     # G1_T1 vs G1_T21 (block = paired)
     # levels = ? unique group_time = design right?
-
+    features <- data[, 1]
+    samples <- data[, 2:ncol(data)]
 
     design <- model.matrix(~0+group_time)
     colnames(design) <- levels(group_time)
-
-    corfit <- duplicateCorrelation(data, design, block=paired)
+    print(design)
+    corfit <- duplicateCorrelation(samples, design, block=paired)
     print(corfit$consensus)
+    print(length(paired))
 
-    lm.fit <- lmFit(data, design, block=paired, correlation=corfit$consensus)
+    lm.fit <- lmFit(data, design, block = paired, correlation=corfit$consensus)
     contrast_table <- makeContrasts(contrasts = contrasts, levels = design)
     lm.contr <- contrasts.fit(lm.fit,contrast_table)
     lm.ebayes <- eBayes(lm.contr)
 
     results <- topTable(lm.ebayes, adjust = "BH", number = Inf)
+    detach(package:limma, unload = TRUE)
     return(results)
 }

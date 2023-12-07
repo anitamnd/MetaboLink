@@ -403,7 +403,7 @@ shinyUI(dashboardPage(
                   column(12, p("Remember to log-transform and scale data before running tests.")),
                   column(12, selectInput("testType", "Select test", choices = c("2 group comparison (unpaired)" = "GroupsUnpaired",
                                             "2 group comparison with multiple time points (paired)" = "GroupsMultipleTime",
-                                            "Compare to reference group" = "CompareToReference"), 
+                                            "Compare to reference group" = "CompareToReference"), selected = NULL, 
                                             width = "100%"))
                                             # calculate fold change as the ratio between 2 group means?                                            
                 ),
