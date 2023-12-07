@@ -1157,43 +1157,7 @@ shinyServer(function(session, input, output) {
   })
 
   # Statistics
-
-  # observeEvent(input$selectTest, {
-  #   if(input$group1==input$group2 & input$time1==input$time2) {
-  #     shinyalert("Oops!", "Choose different groups or time points to compare.")
-  #   } else if(input$group1 != "" & input$group2 != "") {
-  #     group1 <- input$group1
-  #     group2 <- input$group2
-  #     time1 <- if(input$time1 == "") NA else input$time1
-  #     time2 <- if(input$time2 == "") NA else input$time2
-  #     data <- rv$data[[rv$activeFile]]
-  #     sequence <- rv$sequence[[rv$activeFile]]
-  #     keep <- sequence[, 1] %in% "Name" | (sequence[, 4] %in% c(group1, group2) & sequence[, 5] %in% c(time1, time2))
-  #     keepSeq <- sequence[, 4] %in% c(group1, group2) & sequence[, 5] %in% c(time1, time2)
-
-  #     if(any(complete.cases(sequence[, 6])))
-  #       sequence <- sequence[keepSeq, 4:6]
-  #     else if(any(complete.cases(sequence[, 5]))) 
-  #       sequence <- sequence[keepSeq, 4:5]
-  #     else {
-  #       sequence <- data.frame(sequence[keepSeq, 4], row.names=rownames(sequence[keepSeq,]))
-  #       colnames(sequence) <- "group" 
-  #     }
-
-  #     comparison <- paste("Comparison ", paste("G", group1, sep=""), if(is.na(time1)) "" else paste("T", time1, sep=""), " vs. ", 
-  #           paste("G", group2, sep=""), if(is.na(time2)) "" else paste("T", time2, sep=""))
-
-  #     st$comparisons[[rv$activeFile]] <- append(st$comparisons[[rv$activeFile]], comparison)
-
-  #     data <- data[, keep] # first column = feature names
-  #     st$stats[[rv$activeFile]] <- data
-  #     st$sequence[[rv$activeFile]] <- sequence
-
-  #     enable("runTest")
-  #   }
-  # })
-
-  observeEvent(input$testType, {
+  observeEvent(input$testType, { #TODO move this to functions file? 
     sequence <- rv$sequence[[rv$activeFile]]
     switch(input$testType, 
       GroupsUnpaired={
@@ -1211,10 +1175,6 @@ shinyServer(function(session, input, output) {
           valid_combinations <- combinations[, apply(combinations, 2, function(cols) is_valid_combination(cols[1], cols[2]))]
           contrasts <- generate_contrasts(valid_combinations)
 
-    # Additional contrasts? - add textbox
-    # Diff = group1 - group2
-    # most important: paired
-
           updateCheckboxGroupInput(session, "contrasts", choices = contrasts, selected = NULL)
         } else {
           shinyalert("Oops!", "Invalid test. No paired samples or time points in dataset.")
@@ -1230,7 +1190,7 @@ shinyServer(function(session, input, output) {
   }, ignoreInit = T
   )
 
-  observeEvent(input$selectTest, {
+  observeEvent(input$selectTest, { #TODO move this to functions file?
     data <- rv$data[[rv$activeFile]]
     sequence <- rv$sequence[[rv$activeFile]]
     switch(input$testType, 
@@ -1249,7 +1209,7 @@ shinyServer(function(session, input, output) {
         group_time <- factor(group_time, exclude = NA)
         paired <- factor(sequence[, 'paired'],  exclude = NA)
         results <- pairedAnalysis(data, group_time, input$contrasts, paired)
-        # for x in contrasts - show 1 table for each
+        #TODO for x in contrasts - show 1 table for each
         st$results[[rv$activeFile]] <- results
       },
       CompareToReference = {
@@ -1349,7 +1309,6 @@ shinyServer(function(session, input, output) {
       numrep=NumReps, numcond=NumCond, grouped=F,
       firstquantcol=2, expr_matrix=as.list(as.data.frame(tdata))
     ))
-    updateTextInput(session, "connection_polystest", value="Opening PolySTest and data upload ...")
     js$send_message(url="http://computproteomics.bmb.sdu.dk:443/app_direct/PolySTest/", 
                     dat=PolySTestMessage, tool="PolySTest")
     #enable("retrieve_polystest")
@@ -1370,7 +1329,6 @@ shinyServer(function(session, input, output) {
       numrep=NumReps, numcond=NumCond, grouped=F, 
       modsandprots=F, expr_matrix=as.list(as.data.frame(tdata))
     ))
-    updateTextInput(session, "connection_vsclust", value="Opening VSClust and data upload ...")
     js$send_message(url="http://computproteomics.bmb.sdu.dk/app_direct/VSClust/",
                     dat=VSClustMessage, tool="VSClust")
   })

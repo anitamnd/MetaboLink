@@ -76,17 +76,8 @@ generate_contrasts <- function(combinations) {
     return(contrasts)
 }
 
-
-
 pairedAnalysis <- function(data, group_time, contrasts, paired) {
-
     library(limma)
-    # show contrasts for paired analysis - user check if correct
-
-    # unique group_time 
-    # combinations for contrasts - checklist
-    # G1_T1 vs G1_T21 (block = paired)
-    # levels = ? unique group_time = design right?
     features <- data[, 1]
     samples <- data[, 2:ncol(data)]
 

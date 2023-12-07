@@ -428,10 +428,11 @@ shinyUI(dashboardPage(
                 conditionalPanel(
                   condition = "input.testType == 'GroupsMultipleTime'",
                   fluidRow(
-                    column(12, selectInput("groups", "Choose groups for analysis", choices = NULL, multiple = TRUE)),
-                    column(12, checkboxGroupInput("contrasts", NULL, choices = NULL, selected = NULL, inline = FALSE))
-                    #column(6, selectInput("pairedGroup1", "Group 1", choices = NULL, width = "100%")),
-                    #column(6, selectInput("pairedGroup2", "Group 2", choices = NULL, width = "100%"))
+                    column(12, checkboxGroupInput("contrasts", "Select contrasts", choices = NULL, selected = NULL, inline = FALSE)),
+                    column(12, textInput("contrastName", "Add more contrasts", value = NULL, width = "100%", 
+                                  placeholder = "Contrast_Name = (G1_T2 - G1_T1) - (G2_T2 - G2_T1)"),
+                              actionButton("addContrast", "Add", width = "100%") #TODO if add: add to options
+                    )
                   )
                 ),
                 column(12,
