@@ -22,6 +22,7 @@ library(jsonlite)
 options(repos = BiocManager::repositories())
 source("functions.R")
 source("plotfunctions.R")
+source("analysis_functions.R")
 
 shinyUI(dashboardPage(
   dashboardHeader(
@@ -251,7 +252,7 @@ shinyUI(dashboardPage(
         block = T
       )),
       column(3, bsButton("statistics_button",
-        label = "Statistics",
+        label = "Data analysis",
         icon = icon("clipboard"),
         style = "default",
         block = T
@@ -400,15 +401,14 @@ shinyUI(dashboardPage(
                 h4("Select groups for comparison"), 
                 fluidRow(
                   column(12, p("Remember to log-transform and scale data before running tests.")),
-                  column(12, selectInput("testType", "Select test", choices = c("2 group comparison (unpaired)",
-                                            "1 group FC over time (paired)",
-                                            "2 group comparison with multiple time points (paired)",
-                                            "Compare to reference group", "Time course"), 
+                  column(12, selectInput("testType", "Select test", choices = c("2 group comparison (unpaired)" = "GroupsUnpaired",
+                                            "2 group comparison with multiple time points (paired)" = "GroupsMultipleTime",
+                                            "Compare to reference group" = "CompareToReference"), 
                                             width = "100%"))
-                                            # calculate fold change as the ratio between 2 group means?
+                                            # calculate fold change as the ratio between 2 group means?                                            
                 ),
                 conditionalPanel(
-                  condition = "input.testType == '2 group comparison'",
+                  condition = "input.testType == 'GroupsUnpaired'",
                   fluidRow(
                     column(6, selectInput("group1", "Group", choices = NULL, width = "100%")),
                     column(6, selectInput("time1", "Time", choices = NULL, width = "100%"))
@@ -420,15 +420,18 @@ shinyUI(dashboardPage(
                   checkboxInput(inputId = "isPaired", label = "Paired tests?", value = F)                  
                 ),
                 conditionalPanel(
-                  condition = "input.testType == '1 group FC over time (paired)'",
+                  condition = "input.testType == 'CompareToReference'",
                   fluidRow(
                     column(12, selectInput("referenceGroup", "Select reference group", choices = NULL, width = "100%"))
                   )
                 ),
                 conditionalPanel(
-                  condition = "input.testType == 'Compare to reference group'",
+                  condition = "input.testType == 'GroupsMultipleTime'",
                   fluidRow(
-                    column(12, selectInput("referenceGroup", "Select reference group", choices = NULL, width = "100%"))
+                    column(12, selectInput("groups", "Choose groups for analysis", choices = NULL, multiple = TRUE)),
+                    column(12, checkboxGroupInput("contrasts", NULL, choices = NULL, selected = NULL, inline = FALSE))
+                    #column(6, selectInput("pairedGroup1", "Group 1", choices = NULL, width = "100%")),
+                    #column(6, selectInput("pairedGroup2", "Group 2", choices = NULL, width = "100%"))
                   )
                 ),
                 column(12,

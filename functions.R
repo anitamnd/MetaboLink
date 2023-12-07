@@ -15,6 +15,14 @@ checkColumns <- function(columns, labels) {
   }
 }
 
+selectColumns <- function(data, sequence, labels) {
+  return(list(data = data[, sequence[, 1] %in% labels], sequence = sequence[sequence[, 1] %in% labels, ]))
+}
+
+metaboAnalyst <- function() {
+
+}
+
 blankFiltration <- function(data, sequence, signalStrength, keepIs) {
   data[sequence[, 1] %in% "Blank"][is.na(data[sequence[, 1] %in% "Blank"])] <- 0
   bf <- apply(data[sequence[, 1] %in% "Blank"], 1, mean) * signalStrength < 
@@ -449,7 +457,7 @@ transformation <- function(data, sequence, logMethod, scaleMethod) {
   filtered[is.na(filtered)] <- 0
   rowNames <- rownames(filtered)
   colNames <- colnames(filtered)
-  if(logMethod == "log10") {
+  if(logMethod == "log10" | logMethod == "log2") {
     min.val <- min(abs(filtered[filtered!=0]))/10
     transformed <- t(apply(filtered, 1, logNorm, min.val))
   }
