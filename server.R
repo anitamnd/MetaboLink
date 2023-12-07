@@ -217,7 +217,7 @@ shinyServer(function(session, input, output) {
     sequence <- rv$sequence[[rv$activeFile]]
     data <- rv$data[[rv$activeFile]]
 
-    output$seq_table <- renderDT(rv$sequence[[rv$activeFile]], extensions = c('FixedHeader', 'Responsive'), server = F, 
+    output$seq_table <- renderDT(rv$sequence[[rv$activeFile]], extensions = 'Responsive', server = F, 
           editable = T, selection = 'none', options = list(pageLength = nrow(rv$sequence[[rv$activeFile]]), 
           fixedHeader = TRUE))
     output$diboxtitle <- renderText(names(rv$data[rv$activeFile]))

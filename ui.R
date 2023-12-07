@@ -22,6 +22,7 @@ library(jsonlite)
 options(repos = BiocManager::repositories())
 source("functions.R")
 source("plotfunctions.R")
+#source("analysis_functions.R")
 
 shinyUI(dashboardPage(
   dashboardHeader(
@@ -32,11 +33,11 @@ shinyUI(dashboardPage(
       badgeStatus = NULL,
       headerText = "Help",
       notificationItem("User manual", icon = icon("book"),
-                                         href = "https://github.com/anitamnd/jlspec_2_0/user_manual"),
+                                         href = "https://github.com/anitamnd/jlspec_2_0/wiki"),
       notificationItem("Source code and installation", icon = icon("file"),
                                          href = "https://github.com/anitamnd/jlspec_2_0"),
       notificationItem("Institution", icon = icon("university"),
-                                         href = "sdu.dk")
+                                         href = "https://www.sdu.dk/en")
     )
   ),
 
@@ -251,7 +252,7 @@ shinyUI(dashboardPage(
         block = T
       )),
       column(3, bsButton("statistics_button",
-        label = "Statistics",
+        label = "Data analysis",
         icon = icon("clipboard"),
         style = "default",
         block = T
@@ -399,17 +400,44 @@ shinyUI(dashboardPage(
                 id = "pr_c3",
                 h4("Select groups for comparison"), 
                 fluidRow(
-                  column(6, selectInput("group1", "Group", choices = NULL, width = "100%")),
-                  column(6, selectInput("time1", "Time", choices = NULL, width = "100%"))
+                  column(12, p("Remember to log-transform and scale data before running tests.")),
+                  column(12, selectInput("testType", "Select test", choices = c("2 group comparison (unpaired)" = "GroupsUnpaired",
+                                            "2 group comparison with multiple time points (paired)" = "GroupsMultipleTime",
+                                            "Compare to reference group" = "CompareToReference"), 
+                                            width = "100%"))
+                                            # calculate fold change as the ratio between 2 group means?                                            
                 ),
-                fluidRow(
-                  column(6, selectInput("group2", "Group", choices = NULL, width = "100%")),
-                  column(6, selectInput("time2", "Time", choices = NULL, width = "100%"))
+                conditionalPanel(
+                  condition = "input.testType == 'GroupsUnpaired'",
+                  fluidRow(
+                    column(6, selectInput("group1", "Group", choices = NULL, width = "100%")),
+                    column(6, selectInput("time1", "Time", choices = NULL, width = "100%"))
+                  ),
+                  fluidRow(
+                    column(6, selectInput("group2", "Group", choices = NULL, width = "100%")),
+                    column(6, selectInput("time2", "Time", choices = NULL, width = "100%"))
+                  ),
+                  checkboxInput(inputId = "isPaired", label = "Paired tests?", value = F)                  
                 ),
-                checkboxInput(inputId = "isPaired", label = "Paired tests?", value = F),
+                conditionalPanel(
+                  condition = "input.testType == 'CompareToReference'",
+                  fluidRow(
+                    column(12, selectInput("referenceGroup", "Select reference group", choices = NULL, width = "100%"))
+                  )
+                ),
+                conditionalPanel(
+                  condition = "input.testType == 'GroupsMultipleTime'",
+                  fluidRow(
+                    column(12, selectInput("groups", "Choose groups for analysis", choices = NULL, multiple = TRUE)),
+                    column(12, checkboxGroupInput("contrasts", NULL, choices = NULL, selected = NULL, inline = FALSE))
+                    #column(6, selectInput("pairedGroup1", "Group 1", choices = NULL, width = "100%")),
+                    #column(6, selectInput("pairedGroup2", "Group 2", choices = NULL, width = "100%"))
+                  )
+                ),
                 column(12,
-                  actionButton("selectTest", "Select data"),
-                  disabled(actionButton("runTest", "Run test")))
+                    actionButton("selectTest", "Select data"),
+                    disabled(actionButton("runTest", "Run test"))
+                )         
               ),
               column(6,
                 id = "pr_c2",
