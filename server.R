@@ -1152,6 +1152,7 @@ shinyServer(function(session, input, output) {
       rv$sequence[[length(rv$sequence) + 1]] <- rv$sequence[[rv$activeFile]]
       names(rv$data)[length(rv$data)] <- paste0(names(rv$data)[rv$activeFile], "_transformed")
       initializeVariables()
+      rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
       rv$tmpData <- NULL
       rv$tmpSequence <- NULL
     }

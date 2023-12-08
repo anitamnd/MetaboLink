@@ -413,6 +413,7 @@ duplicaterank <- function(duplicate, rankings) {
   }
 }
 
+# Normalization
 normalization <- function(data, sequence, qualityControls, method) {
   filteredData <- data[, sequence[, 1] %in% c("QC", "Sample")]
   rowNames <- rownames(filteredData)
@@ -430,7 +431,6 @@ normalization <- function(data, sequence, qualityControls, method) {
   return(normalizedData)
 }
 
-# column normalization
 probQuotientNormalization <- function(x, reference) {
   x/median(as.numeric(x/reference), na.rm=TRUE)
 }
@@ -443,31 +443,41 @@ sumNormalization <- function(x){
   1000*x/sum(x, na.rm=TRUE)
 }
 
-# row normalization
+
+# Log transform and scale
+meanCenter <- function(x) {
+  abs(x - mean(x))
+}
+autoNorm <- function(x) {
+  abs((x - mean(x)))/sd(x, na.rm=T)
+}
+
+selectLogMethod <- function(data, method) {
+  switch(method,
+    log2 = log2(data),
+    log10 = log10(data),
+    ln = log(data),
+    None = data
+  )
+}
+
+selectScalingMethod <- function(data, method) {
+  switch(method,
+    "Mean center" = t(apply(data, 1, meanCenter)),
+    "Auto scale" = t(apply(data, 1, autoNorm)),
+    "None" =  data
+  )
+}
+
 transformation <- function(data, sequence, logMethod, scaleMethod) {
   filtered <- data[, sequence[, 1] %in% c("QC", "Sample")]
   filtered[is.na(filtered)] <- 0
-  rowNames <- rownames(filtered)
-  colNames <- colnames(filtered)
-  if(logMethod == "log10") {
-    min.val <- min(abs(filtered[filtered!=0]))/10
-    transformed <- t(apply(filtered, 1, logNorm, min.val))
-  }
-  if(scaleMethod == "Mean center") {
-    transformed <- apply(filtered, 1, meanCenter)
-    transformed <- t(transformed)
-  }
-  rownames(transformed) <- rowNames
-  colnames(transformed) <- colNames
-  return(transformed)
-}
 
-logNorm <- function(x, min.val){
-  log10((x + sqrt(x^2 + min.val^2))/2)
-}
-
-meanCenter <- function(x){
-  x - mean(x)
+  transformed <- selectLogMethod(filtered, logMethod)
+  scaled <- selectScalingMethod(transformed, scaleMethod)
+  rownames(scaled) <- rownames(filtered)
+  colnames(scaled) <- colnames(filtered)
+  return(scaled)
 }
 
 # PolySTest
