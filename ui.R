@@ -431,7 +431,7 @@ shinyUI(dashboardPage(
                     column(12, checkboxGroupInput("contrasts", "Select contrasts", choices = NULL, selected = NULL, inline = FALSE)),
                     column(12, textInput("contrastName", "Add more contrasts", value = NULL, width = "100%", 
                                   placeholder = "Contrast_Name = (G1_T2 - G1_T1) - (G2_T2 - G2_T1)"),
-                              actionButton("addContrast", "Add", width = "100%") #TODO if add: add to options
+                              actionButton("addContrast", "Add", width = "50%") #TODO if add: add to options
                     )
                   )
                 ),
@@ -448,7 +448,8 @@ shinyUI(dashboardPage(
             ),
             br(),
             h4("Results"),
-            fluidRow(column(12, box(width = NULL, DTOutput("results_table"))))
+            fluidRow(column(12, box(width = NULL, DTOutput("results_table")))),
+            uiOutput("results_ui")
           )
         )
       )

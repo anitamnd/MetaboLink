@@ -35,7 +35,7 @@ shinyServer(function(session, input, output) {
   initializeVariables <- function() {
     st$stats[[length(st$stats) + 1]] <- data.frame()
     st$sequence[[length(st$stats) + 1]] <- data.frame()
-    st$results[[length(st$results) + 1]] <- data.frame()
+    st$results[[length(st$results) + 1]] <- list()
     st$comparisons[[length(st$comparisons) + 1]] <- vector("character")
     st$colcomp[[length(st$colcomp) + 1]] <- vector("numeric")
   }
@@ -257,8 +257,8 @@ shinyServer(function(session, input, output) {
     updateSelectInput(session, "group2", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'class']))
     updateSelectInput(session, "time1", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'time']))
     updateSelectInput(session, "time2", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'time']))
-    output$results_table <- renderDT(st$results[[rv$activeFile]], rownames = TRUE, options = list(scrollX = TRUE,
-              scrollY = TRUE, pageLength = 20))
+    # output$results_table <- renderDT(st$results[[rv$activeFile]], rownames = TRUE, options = list(scrollX = TRUE,
+    #           scrollY = TRUE, pageLength = 20))
 
   })
 
@@ -285,7 +285,7 @@ shinyServer(function(session, input, output) {
     })
     output$export_stats <- renderUI({
         lapply(1:length(rv$choices), function(x) {
-          fluidRow(column(12, downloadLink(paste0("dwn_stats", x), paste0(rv$choices[x], "_results.csv"))))
+          fluidRow(column(12, downloadLink(paste0("dwn_stats", x), paste0(rv$choices[x], "_results.xlsx"))))
         })
     })
     output$export_settings <- renderUI({
@@ -295,20 +295,23 @@ shinyServer(function(session, input, output) {
     })
 
     lapply(1:length(rv$choices), function(x) {
+      output[[paste0("dwn_stats", x)]] <- downloadHandler(
+        filename = function() {
+          paste0(names(rv$data[[x]]), "_results.xlsx")
+        },
+        content = function(file) {
+          write_xlsx(st$results[[x]], file)
+        }
+      )
+    })
+
+    lapply(1:length(rv$choices), function(x) {
       output[[paste0("dwn", x)]] <- downloadHandler(
         filename = function() {
           paste0(names(rv$data[x]), ".csv")
         },
         content = function(file) {
           write.csv(rv$data[[x]], file, row.names = FALSE)
-        }
-      )
-      output[[paste0("dwn_settings", x)]] <- downloadHandler(
-        filename = function() {
-          paste0(names(rv$data[x]), ".txt")
-        },
-        content = function(file) {
-          write(rv$info[x], file)
         }
       )
     })
@@ -1199,6 +1202,10 @@ shinyServer(function(session, input, output) {
           shinyalert("Oops!", "Choose different groups to compare.")
         } else {
           results <- groupComparison(data, sequence, c(input$group1, input$group2))
+
+          output$results_ui <- renderDT({
+            results
+          })
         }
       },
       GroupsMultipleTime = { # multi-level in limma 
@@ -1209,7 +1216,22 @@ shinyServer(function(session, input, output) {
         group_time <- factor(group_time, exclude = NA)
         paired <- factor(sequence[, 'paired'],  exclude = NA)
         results <- pairedAnalysis(data, group_time, input$contrasts, paired)
-        #TODO for x in contrasts - show 1 table for each
+        
+        # Render one table for each contrast 
+        output$results_ui <- renderUI({
+          lapply(seq_along(results), function(i) {
+            fluidRow(
+              column(12, strong(names(results)[i])),
+              column(12, box(width = NULL, DTOutput(paste0("results", i))))
+            )
+          })
+        })
+        lapply(seq_along(results), function(i) {
+          output[[paste0("results", i)]] <- renderDT({
+            results[[i]]
+          })
+        })
+
         st$results[[rv$activeFile]] <- results
       },
       CompareToReference = {
@@ -1264,11 +1286,11 @@ shinyServer(function(session, input, output) {
         )
       ))
 
-    output$results_table <- DT::renderDataTable(DT::datatable(st$results[[rv$activeFile]],
-                            options = list(scrollX=TRUE, 
-                              #columnDefs = list(list(width = '20%', targets = colnames(data))),
-                              autowidth=TRUE),
-                              container = sketch))
+    # output$results_table <- DT::renderDataTable(DT::datatable(st$results[[rv$activeFile]],
+    #                         options = list(scrollX=TRUE, 
+    #                           #columnDefs = list(list(width = '20%', targets = colnames(data))),
+    #                           autowidth=TRUE),
+    #                           container = sketch))
 
     # TODO check for a better way to do this
     lapply(1:length(rv$choices), function(x) {

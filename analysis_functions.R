@@ -92,8 +92,14 @@ pairedAnalysis <- function(data, group_time, contrasts, paired) {
     contrast_table <- makeContrasts(contrasts = contrasts, levels = design)
     lm.contr <- contrasts.fit(lm.fit,contrast_table)
     lm.ebayes <- eBayes(lm.contr)
-
-    results <- topTable(lm.ebayes, adjust = "BH", number = Inf)
+    
+    results <- list()
+    for(contrast in contrasts) {
+        results[[contrast]] <- topTable(lm.ebayes, coef = contrast, adjust = "BH", number = Inf)
+    }
+    print(length(results))
+    print(names(results))
+    #results <- topTable(lm.ebayes, adjust = "BH", number = Inf)
     detach(package:limma, unload = TRUE)
     return(results)
 }
