@@ -40,13 +40,6 @@ shinyServer(function(session, input, output) {
     st$colcomp[[length(st$colcomp) + 1]] <- vector("numeric")
   }
 
-  output$input_stats <- renderText({
-    sequence <- isolate(rv$sequence[[rv$activeFile]])
-    paste("Selected:<br/>",
-        "group ", input$group1, ": ", paste(rownames(sequence)[sequence[, 4] %in% input$group1], collapse = ", "),
-        "<br/>group ", input$group2, ": ", paste(rownames(sequence)[sequence[, 4] %in% input$group2], collapse = ", "))
-  })
-
   observeEvent(input$submit, {
     shinyCatch({
       inputFile <- read.csv(input$inputFile$datapath, header = 1, stringsAsFactors = F, check.names = FALSE)
@@ -297,7 +290,7 @@ shinyServer(function(session, input, output) {
     lapply(1:length(rv$choices), function(x) {
       output[[paste0("dwn_stats", x)]] <- downloadHandler(
         filename = function() {
-          paste0(names(rv$data[[x]]), "_results.xlsx")
+          paste0(names(rv$data[x]), "_results.xlsx")
         },
         content = function(file) {
           write_xlsx(st$results[[x]], file)
@@ -1095,23 +1088,23 @@ shinyServer(function(session, input, output) {
             list(scrollX = TRUE, scrollY = "700px", pageLength = 20))
         
       # Plot variance in QC samples before and after normalization
-      output$beforeNormalization <- renderPlot({
-        boxplot(log2(qualityControls), main = "Before Normalization", xlab = "Metabolite", ylab = "Intensity")
-      })
-      output$afterNormalization <- renderPlot({
-        boxplot(log2(normalizedQCs), main = "After Normalization", xlab = "Metabolite", ylab = "Intensity")
-      })
+      # output$beforeNormalization <- renderPlot({
+      #   boxplot(log2(qualityControls), main = "Before Normalization", xlab = "Metabolite", ylab = "Intensity")
+      # })
+      # output$afterNormalization <- renderPlot({
+      #   boxplot(log2(normalizedQCs), main = "After Normalization", xlab = "Metabolite", ylab = "Intensity")
+      # })
 
-      showModal(
-        modalDialog(
-          title = "Assess data quality", size = "m",
-          fluidRow(
-              column(6, plotOutput("beforeNormalization", height = 280, width = "100%")),
-              column(6, plotOutput("afterNormalization", height = 280, width = "100%"))
-          ),
-          footer = list(actionButton("saveNormalization", "Save changes"), modalButton("Dismiss"))
-        )
-      )
+      # showModal(
+      #   modalDialog(
+      #     title = "Assess data quality", size = "m",
+      #     fluidRow(
+      #         column(6, plotOutput("beforeNormalization", height = 280, width = "100%")),
+      #         column(6, plotOutput("afterNormalization", height = 280, width = "100%"))
+      #     ),
+      #     footer = list(actionButton("saveNormalization", "Save changes"), modalButton("Dismiss"))
+      #   )
+      # )
     }
   })
 
@@ -1119,15 +1112,20 @@ shinyServer(function(session, input, output) {
     if(is.null(rv$tmpData)) {
       showNotification("Normalize first", type = "error")
     } else {
-      rv$data[[length(rv$data) + 1]] <- rv$tmpData
-      rv$sequence[[length(rv$sequence) + 1]] <- rv$tmpSequence
-      names(rv$data)[length(rv$data)] <- paste0(names(rv$data)[rv$activeFile], "_normalized")
-      initializeVariables()
+      if (input$newFileNorm) {
+        rv$data[[length(rv$data) + 1]] <- rv$tmpData
+        rv$sequence[[length(rv$sequence) + 1]] <- rv$tmpSequence
+        names(rv$data)[length(rv$data)] <- paste0(names(rv$data)[rv$activeFile], "_normalized")
+        initializeVariables()
+      } else {
+        rv$data[[rv$activeFile]] <- rv$tmpData
+        rv$sequence[[rv$activeFile]] <- rv$tmpSequence
+        names(rv$data)[rv$activeFile] <- paste0(names(rv$data)[rv$activeFile], "_normalized")
+      }
       rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
       rv$info[length(rv$data)] <- paste(ifelse(is.na(rv$info[rv$activeFile]), "", rv$info[rv$activeFile]), "Normalized with", input$normMethod, " method\n")
-      removeModal()
       rv$tmpData <- NULL
-      rv$tmpSequence <- NULL
+      rv$tmpSequence <- NULL   
     }
   })
 
@@ -1148,7 +1146,7 @@ shinyServer(function(session, input, output) {
 
   observeEvent(input$saveTransform, {
     if(is.null(rv$tmpData)) {
-      showNotification("Normalize first", type = "error")
+      showNotification("Transform first", type = "error")
     } else {
       rv$data[[length(rv$data) + 1]] <- rv$tmpData
       rv$sequence[[length(rv$sequence) + 1]] <- rv$sequence[[rv$activeFile]]
@@ -1162,10 +1160,12 @@ shinyServer(function(session, input, output) {
   # Statistics
   observeEvent(input$testType, { #TODO move this to functions file? 
     sequence <- rv$sequence[[rv$activeFile]]
+    enable("selectTest")
     switch(input$testType, 
       GroupsUnpaired={
         if(!any(complete.cases(sequence[, 4]))) {
           shinyalert("Oops!", "Invalid test. Provide information on different groups/conditions.")
+          disable("selectTest")
         }
       },
       GroupsMultipleTime={
@@ -1181,10 +1181,16 @@ shinyServer(function(session, input, output) {
           updateCheckboxGroupInput(session, "contrasts", choices = contrasts, selected = NULL)
         } else {
           shinyalert("Oops!", "Invalid test. No paired samples or time points in dataset.")
+          disable("selectTest")
         }
       },
       CompareToReference={
-        updateSelectInput(session, "referenceGroup", label = NULL, choices = na.omit(sequence[, 'class']))
+        if(!any(complete.cases(sequence[, 4]))) {
+          shinyalert("Oops!", "Invalid test. Provide information on different groups/conditions.")
+          disable("selectTest")
+        } else {
+          updateSelectInput(session, "referenceGroup", label = NULL, choices = na.omit(sequence[, 'class']))
+        }
       },
       {
          print('default')
@@ -1206,6 +1212,7 @@ shinyServer(function(session, input, output) {
           output$results_ui <- renderDT({
             results
           })
+          st$results[[rv$activeFile]][length(st$results[[rv$activeFile]])+1] <- results
         }
       },
       GroupsMultipleTime = { # multi-level in limma 
@@ -1238,83 +1245,16 @@ shinyServer(function(session, input, output) {
         data <- data[sequence[, 1] %in% c("Name", "Sample")]
         groups <- sequence[complete.cases(sequence[, 4]), 4]
         results <- referenceGroupComparison(data, input$referenceGroup, groups)
-        st$results[[rv$activeFile]] <- results
+        st$results[[rv$activeFile]][length(st$results[[rv$activeFile]])+1] <- results
       },
       {
          print('default')
       }
     )
-    enable("runTest")
+    #enable("runTest")
   })
 
-  observeEvent(input$runTest, {
-    sequence <- st$sequence[[rv$activeFile]]
-    data <- st$stats[[rv$activeFile]]
-    results <- data.frame()
-    rownames(data) <- data[, 1]
-    data <- data[, -1]
 
-    if(ncol(sequence) == 0) {
-      shinyalert("Error!", "No dataset selected.")
-    } else if(ncol(sequence) == 1) {
-      results <- groupsTest(data, sequence)
-    }
-    else {
-      isPaired <- input$isPaired
-      results <- timeSeriesTest(data, sequence, isPaired)
-    } 
-    
-    if(nrow(st$results[[rv$activeFile]]) == 0) {
-      st$colcomp[[rv$activeFile]] <- c(ncol(results))
-      st$results[[rv$activeFile]] <- results 
-    } else {
-      st$colcomp[[rv$activeFile]] <- append(st$colcomp[[rv$activeFile]], ncol(results))
-      st$results[[rv$activeFile]] <- cbind(st$results[[rv$activeFile]], results)      
-    }
-
-    sketch = htmltools::withTags(table(
-      class = 'display',
-        thead(
-          tr(
-            th('', style="text-align: center;"),
-            lapply(1:length(st$comparisons[[rv$activeFile]]), function(i) th(colspan = st$colcomp[[rv$activeFile]][i], st$comparisons[[rv$activeFile]][i], style = "text-align: center;border-left:thin solid;"))
-          ),
-          tr(
-            th('Feature', style="text-align: center;"),
-            lapply(colnames(st$results[[rv$activeFile]]), th, style="text-align: center;border-left:thin solid;")
-          )
-        )
-      ))
-
-    # output$results_table <- DT::renderDataTable(DT::datatable(st$results[[rv$activeFile]],
-    #                         options = list(scrollX=TRUE, 
-    #                           #columnDefs = list(list(width = '20%', targets = colnames(data))),
-    #                           autowidth=TRUE),
-    #                           container = sketch))
-
-    # TODO check for a better way to do this
-    lapply(1:length(rv$choices), function(x) {
-      if(!(length(st$comparisons[[x]]) == 0)) {
-        comparisons <- st$comparisons[[x]]
-        colcomp <- st$colcomp[[x]]
-        hrow <- c()
-        for(i in 1:length(comparisons)) {
-          hrow <- append(hrow, comparisons[i])
-          hrow <- append(hrow, rep("", colcomp[i]-1))
-        }
-        outdata <- rbind(hrow, st$results[[x]])
-
-        output[[paste0("dwn_stats", x)]] <- downloadHandler(
-          filename = function() {
-            paste0(names(rv$data[x]), "_results.csv")
-          },
-          content = function(file) {
-            write.csv(outdata, file, row.names = TRUE)
-          }
-        )
-      }
-    })
-  })
 
   observeEvent(input$send_polystest, {
     # Select Name and Samples (no QCs)
@@ -1333,7 +1273,6 @@ shinyServer(function(session, input, output) {
     ))
     js$send_message(url="http://computproteomics.bmb.sdu.dk:443/app_direct/PolySTest/", 
                     dat=PolySTestMessage, tool="PolySTest")
-    #enable("retrieve_polystest")
   })
 
   observeEvent(input$send_vsclust, {

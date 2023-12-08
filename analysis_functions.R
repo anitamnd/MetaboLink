@@ -1,9 +1,3 @@
-selectTest <- function(data, test) {
-    # return list with test type, groups selected e.g. and results
-    
-    return(list(results = results, test = test, groups = groups))
-}
-
 getGroupTime <- function(sequence) {
     sequence <- sequence[complete.cases(sequence[, 4]), ]
     group <- paste("G", sequence[, 4], sep="")
@@ -78,7 +72,6 @@ generate_contrasts <- function(combinations) {
 
 pairedAnalysis <- function(data, group_time, contrasts, paired) {
     library(limma)
-    features <- data[, 1]
     samples <- data[, 2:ncol(data)]
 
     design <- model.matrix(~0+group_time)
@@ -86,7 +79,6 @@ pairedAnalysis <- function(data, group_time, contrasts, paired) {
     print(design)
     corfit <- duplicateCorrelation(samples, design, block=paired)
     print(corfit$consensus)
-    print(length(paired))
 
     lm.fit <- lmFit(data, design, block = paired, correlation=corfit$consensus)
     contrast_table <- makeContrasts(contrasts = contrasts, levels = design)
@@ -97,7 +89,6 @@ pairedAnalysis <- function(data, group_time, contrasts, paired) {
     for(contrast in contrasts) {
         results[[contrast]] <- topTable(lm.ebayes, coef = contrast, adjust = "BH", number = Inf)
     }
-    print(length(results))
     print(names(results))
     #results <- topTable(lm.ebayes, adjust = "BH", number = Inf)
     detach(package:limma, unload = TRUE)

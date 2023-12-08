@@ -123,6 +123,26 @@ shinyUI(dashboardPage(
             column(6, bsButton("saveFilterNA", "Save", width = "100%"), style = "padding-left:0px;")
           )
         ),
+        bsCollapsePanel("Imputation",
+          style = "primary",
+          fluidRow(selectInput("imputationMethod", "Imputation method", choices = c("KNN", "Min/X", "Median"), width = "100%")),
+          fluidRow(hidden(div(id = "imp_remaining_hide", selectInput("remainingNAs", "Remaining missing values", choices = c("zero", "Min/X", "Median"), width = "100%")))),
+          fluidRow(hidden(div(id = "imp_minx_hide", sliderInput("imputationMinX", "Divide min by", min = 1, max = 10, value = 1, step = 1, width = "100%")))),
+          fluidRow(
+            style = "margin-right: 0px;",
+            column(6, prettyCheckbox("imp_onlyQC", "Only imputate QC")),
+            column(6)
+          ),
+          fluidRow(
+            style = "margin-right: 0px;",
+            column(6, checkboxInput("newFileImp", "Save as new file", value = T, width = "100%"), style = "padding: 0px; margin-top: -10px; margin-left: 10px; margin-right: -10px;")
+          ),
+          fluidRow(
+            style = "margin-right: 0px;",
+            column(6, bsButton("runImputation", "Run", width = "100%"), style = "padding-left:0px;"),
+            column(6, bsButton("saveImputation", "Save", width = "100%"), style = "padding-left:0px;")
+          )
+        ),
         bsCollapsePanel("IS normalization",
           style = "primary",
           fluidRow(
@@ -154,28 +174,13 @@ shinyUI(dashboardPage(
           style = "primary",
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, selectInput("normMethod", "Function", choices = c("QC (PQN)", "Sum", "Median"), width = "100%"), style = "padding-left:0px;"),
-            column(6, bsButton("normalize", "Run", width = "100%"), style = "padding-left:0px; margin-top: 30px;")
-          )
-        ),
-        bsCollapsePanel("Imputation",
-          style = "primary",
-          fluidRow(selectInput("imputationMethod", "Imputation method", choices = c("KNN", "Min/X", "Median"), width = "100%")),
-          fluidRow(hidden(div(id = "imp_remaining_hide", selectInput("remainingNAs", "Remaining missing values", choices = c("zero", "Min/X", "Median"), width = "100%")))),
-          fluidRow(hidden(div(id = "imp_minx_hide", sliderInput("imputationMinX", "Divide min by", min = 1, max = 10, value = 1, step = 1, width = "100%")))),
-          fluidRow(
-            style = "margin-right: 0px;",
-            column(6, prettyCheckbox("imp_onlyQC", "Only imputate QC")),
-            column(6)
+            column(12, selectInput("normMethod", "Function", choices = c("QC (PQN)", "Sum", "Median"), width = "100%"), style = "padding-left:0px;")
           ),
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, checkboxInput("newFileImp", "Save as new file", value = T, width = "100%"), style = "padding: 0px; margin-top: -10px; margin-left: 10px; margin-right: -10px;")
-          ),
-          fluidRow(
-            style = "margin-right: 0px;",
-            column(6, bsButton("runImputation", "Run", width = "100%"), style = "padding-left:0px;"),
-            column(6, bsButton("saveImputation", "Save", width = "100%"), style = "padding-left:0px;")
+            column(12, checkboxInput("newFileNorm", "Save as new file", value = F, width = "100%"), style = "padding: 0px; margin-top: -10px; margin-left: 10px; margin-right: -10px;"),
+            column(6, bsButton("normalize", "Run", width = "100%"), style = "padding-left:0px;"),
+            column(6, bsButton("saveNormalization", "Save", width = "100%"), style = "padding-left:0px;")
           )
         ),
         bsCollapsePanel("Drift correction",
@@ -191,6 +196,19 @@ shinyUI(dashboardPage(
             column(6, bsButton("saveDrift", "Save", width = "100%"), style = "padding-left:0px;")
           )
         ),
+        bsCollapsePanel("Log transform and scaling",
+          style = "primary",
+          fluidRow(
+            style = "margin-right: 0px;",
+            column(6, selectInput("logTransform", "Log transform", choices = c("None", "log2", "log10", "ln"), width = "100%"), style = "padding-left:0px;"),
+            column(6, selectInput("scaling", "Data scaling", choices = c("None", "Mean center", "Auto scale"), width = "100%"), style = "padding-left:0px;")
+          ),
+          fluidRow(
+            style = "margin-right: 0px;",
+            column(6, bsButton("transform", "Run", width = "100%"), style = "padding-left:0px;"),
+            column(6, bsButton("saveTransform", "Save", width = "100%"), style = "padding-left:0px;")
+          )
+        ),
         bsCollapsePanel("Merge datasets",
           style = "primary",
           fluidRow(selectInput("mergeFile", "Select dataset to merge with", choices = NULL, width = "100%")),
@@ -203,19 +221,6 @@ shinyUI(dashboardPage(
             style = "margin-right: 0px;",
             column(6, bsButton("mergeRankings", "Edit priorities", width = "100%"), style = "padding-left:0px;"),
             column(6, bsButton("mergeDatasets", "Run", width = "100%"), style = "padding-left:0px;")
-          )
-        ),
-        bsCollapsePanel("Log transform and scaling",
-          style = "primary",
-          fluidRow(
-            style = "margin-right: 0px;",
-            column(6, selectInput("logTransform", "Log transform", choices = c("None", "log2", "log10", "ln"), width = "100%"), style = "padding-left:0px;"),
-            column(6, selectInput("scaling", "Data scaling", choices = c("None", "Mean center", "Auto scale"), width = "100%"), style = "padding-left:0px;")
-          ),
-          fluidRow(
-            style = "margin-right: 0px;",
-            column(6, bsButton("transform", "Run", width = "100%"), style = "padding-left:0px;"),
-            column(6, bsButton("saveTransform", "Save", width = "100%"), style = "padding-left:0px;")
           )
         ),
         bsCollapsePanel("Remove files",
@@ -398,7 +403,7 @@ shinyUI(dashboardPage(
             fluidRow(
               column(5,
                 id = "pr_c3",
-                h4("Select groups for comparison"), 
+                h4("Analysis parameters"), 
                 fluidRow(
                   column(12, p("Remember to log-transform and scale data before running tests.")),
                   column(12, selectInput("testType", "Select test", choices = c("2 group comparison (unpaired)" = "GroupsUnpaired",
@@ -416,8 +421,7 @@ shinyUI(dashboardPage(
                   fluidRow(
                     column(6, selectInput("group2", "Group", choices = NULL, width = "100%")),
                     column(6, selectInput("time2", "Time", choices = NULL, width = "100%"))
-                  ),
-                  checkboxInput(inputId = "isPaired", label = "Paired tests?", value = F)                  
+                  )
                 ),
                 conditionalPanel(
                   condition = "input.testType == 'CompareToReference'",
@@ -428,17 +432,12 @@ shinyUI(dashboardPage(
                 conditionalPanel(
                   condition = "input.testType == 'GroupsMultipleTime'",
                   fluidRow(
-                    column(12, checkboxGroupInput("contrasts", "Select contrasts", choices = NULL, selected = NULL, inline = FALSE)),
-                    column(12, textInput("contrastName", "Add more contrasts", value = NULL, width = "100%", 
-                                  placeholder = "Contrast_Name = (G1_T2 - G1_T1) - (G2_T2 - G2_T1)"),
-                              actionButton("addContrast", "Add", width = "50%") #TODO if add: add to options
-                    )
+                    column(12, checkboxGroupInput("contrasts", "Select contrasts", choices = NULL, selected = NULL, inline = FALSE))
                   )
                 ),
-                column(12,
-                    actionButton("selectTest", "Select data"),
-                    disabled(actionButton("runTest", "Run test"))
-                )         
+                fluidRow(
+                  column(12, actionButton("selectTest", "Run test", width = "40%", style="float:right; margin-right: 0px;"))
+                )    
               ),
               column(6,
                 id = "pr_c2",
@@ -448,7 +447,7 @@ shinyUI(dashboardPage(
             ),
             br(),
             h4("Results"),
-            fluidRow(column(12, box(width = NULL, DTOutput("results_table")))),
+            #fluidRow(column(12, box(width = NULL, DTOutput("results_table")))),
             uiOutput("results_ui")
           )
         )
