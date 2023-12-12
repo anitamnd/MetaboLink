@@ -817,7 +817,7 @@ shinyServer(function(session, input, output) {
   })
 
   #TODO
-  observeEvent(list(input$selectpca1, input$blankFiltrate, input$updateSequence, input$normalizeIS, input$inputSequence, input$runImputation), ignoreInit = T, {
+  observeEvent(input$run_pca1, {
     if (!is.null(rv$activeFile)) {
       if (input$selectpca1 == "Unsaved data") {
         data <- rv$tmpData
@@ -834,7 +834,7 @@ shinyServer(function(session, input, output) {
 
         sdata <- data[seq[, 1] %in% c("Sample", "QC")]
         sclass <- seq[seq[, 1] %in% c("Sample", "QC"), ][, 4]
-        pca <- pcaplot(sdata, sclass)
+        pca <- pcaplot(sdata, sclass, input$pca1_islog)
         output$plotpca1 <- renderPlotly(pca)
 
         if (sum(seq[, 1] %in% "QC") > 0) {
@@ -861,7 +861,7 @@ shinyServer(function(session, input, output) {
     }
   })
 
-  observeEvent(input$selectpca2, ignoreInit = T, {
+  observeEvent(input$run_pca2, {
     selectchoices <- paste(1:length(rv$data), ": ", names(rv$data))
     sd <- which(rv$choices %in% input$selectpca2)
     if ("Sample" %in% rv$sequence[[sd]][, 1]) {
@@ -875,7 +875,7 @@ shinyServer(function(session, input, output) {
       
       sdata <- data[seq[, 1] %in% c("Sample", "QC")]
       sclass <- seq[seq[, 1] %in% c("Sample", "QC"), ][, 4]
-      pca <- pcaplot(sdata, sclass)
+      pca <- pcaplot(sdata, sclass, input$pca2_islog)
       output$plotpca2 <- renderPlotly(pca)
 
       if (sum(seq$labels %in% "QC") > 0) {
@@ -1250,8 +1250,6 @@ shinyServer(function(session, input, output) {
         })
     #enable("runTest")
   })
-
-
 
   observeEvent(input$send_polystest, {
     # Select Name and Samples (no QCs)
