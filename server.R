@@ -1227,7 +1227,7 @@ shinyServer(function(session, input, output) {
       CompareToReference = {
         data <- data[sequence[, 1] %in% c("Name", "Sample")]
         groups <- sequence[complete.cases(sequence[, 4]), 4]
-        results <- referenceGroupComparison(data, input$referenceGroup, groups)
+        results <- referenceGroupComparison(data, as.numeric(input$referenceGroup), groups)
         st$results[[rv$activeFile]][[length(st$results[[rv$activeFile]])+1]] <- results
       },
       {
