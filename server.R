@@ -1210,10 +1210,7 @@ shinyServer(function(session, input, output) {
         } else {
           results <- groupComparison(data, sequence, c(input$group1, input$group2))
 
-          output$results_ui <- renderDT({
-            results
-          })
-          st$results[[rv$activeFile]][length(st$results[[rv$activeFile]])+1] <- results
+          st$results[[rv$activeFile]][[length(st$results[[rv$activeFile]])+1]] <- results
         }
       },
       GroupsMultipleTime = { # multi-level in limma 
@@ -1224,21 +1221,6 @@ shinyServer(function(session, input, output) {
         group_time <- factor(group_time, exclude = NA)
         paired <- factor(sequence[, 'paired'],  exclude = NA)
         results <- pairedAnalysis(data, group_time, input$contrasts, paired)
-        
-        # Render one table for each contrast 
-        output$results_ui <- renderUI({
-          lapply(seq_along(results), function(i) {
-            fluidRow(
-              column(12, strong(names(results)[i])),
-              column(12, box(width = NULL, DTOutput(paste0("results", i))))
-            )
-          })
-        })
-        lapply(seq_along(results), function(i) {
-          output[[paste0("results", i)]] <- renderDT({
-            results[[i]]
-          })
-        })
 
         st$results[[rv$activeFile]] <- results
       },
@@ -1246,12 +1228,26 @@ shinyServer(function(session, input, output) {
         data <- data[sequence[, 1] %in% c("Name", "Sample")]
         groups <- sequence[complete.cases(sequence[, 4]), 4]
         results <- referenceGroupComparison(data, input$referenceGroup, groups)
-        st$results[[rv$activeFile]][length(st$results[[rv$activeFile]])+1] <- results
+        st$results[[rv$activeFile]][[length(st$results[[rv$activeFile]])+1]] <- results
       },
       {
          print('default')
       }
     )
+    # Render one table for each contrast 
+        output$results_ui <- renderUI({
+          lapply(seq_along(st$results[[rv$activeFile]]), function(i) {
+            fluidRow(
+              column(12, strong(names(results)[i])),
+              column(12, box(width = NULL, DTOutput(paste0("results", i))))
+            )
+          })
+        })
+        lapply(seq_along(st$results[[rv$activeFile]]), function(i) {
+          output[[paste0("results", i)]] <- renderDT({
+            st$results[[rv$activeFile]][[i]]
+          })
+        })
     #enable("runTest")
   })
 
