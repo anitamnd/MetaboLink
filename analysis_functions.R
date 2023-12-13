@@ -35,8 +35,9 @@ referenceGroupComparison <- function(data, reference, groups) {
     groups <- factor(groups)
     design <- model.matrix(~ 0 + groups)
     numConditions <- length(levels(groups))
+    position <- match(reference, levels(groups))
     contrasts <- NULL
-    for (i in (1:numConditions)[-reference]) {
+    for (i in (1:numConditions)[-position]) {
         contrasts <- append(contrasts, paste(colnames(design)[i], "-", colnames(design)[reference], sep = ""))
     }
     contrast.matrix <- makeContrasts(contrasts = contrasts, levels = design)
