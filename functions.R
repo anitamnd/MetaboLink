@@ -234,12 +234,13 @@ cv <- function(data) {
   round(apply(data, 1, sd, na.rm = T) / apply(data, 1, mean, na.rm = T) * 100, 2)
 }
 
-pcaplot <- function(data, class) {
+pcaplot <- function(data, class, islog) {
   data[data == 0] <- NA
   data <- data[complete.cases(data), ]
   class[!is.na(class)] <- class[!is.na(class)]
   class[is.na(class)] <- "No class"
-  prin <- prcomp(log(t(data)), rank. = 2, scale = F)
+  ifelse(islog, data <- t(data), data <- log(t(data)))
+  prin <- prcomp(data, rank. = 2, center = T, scale = F)
   pov <- summary(prin)[["importance"]]["Proportion of Variance", ]
   pov <- round(pov * 100, 2)
   components <- prin[["x"]]
@@ -413,75 +414,7 @@ duplicaterank <- function(duplicate, rankings) {
   }
 }
 
-# Normalization
-normalization <- function(data, sequence, qualityControls, method) {
-  filteredData <- data[, sequence[, 1] %in% c("QC", "Sample")]
-  rowNames <- rownames(filteredData)
-  colNames <- colnames(filteredData)
-  if(method == "QC (PQN)") {
-    meanQC <- rowMeans(qualityControls)
-    normalizedData <- apply(filteredData, 2, probQuotientNormalization, meanQC)
-  } else if(method == "Median") {
-    normalizedData <- apply(filteredData, 2, medianNormalization)
-  } else if(method == "Sum") {
-    normalizedData <- apply(filteredData, 2, sumNormalization)
-  }
-  rownames(normalizedData) <- rowNames
-  colnames(normalizedData) <- colNames
-  return(normalizedData)
-}
-
-probQuotientNormalization <- function(x, reference) {
-  x/median(as.numeric(x/reference), na.rm=TRUE)
-}
-
-medianNormalization <- function(x) {
-  x/median(x, na.rm=TRUE)
-}
-
-sumNormalization <- function(x){
-  1000*x/sum(x, na.rm=TRUE)
-}
-
-
-# Log transform and scale
-meanCenter <- function(x) {
-  abs(x - mean(x))
-}
-autoNorm <- function(x) {
-  abs((x - mean(x)))/sd(x, na.rm=T)
-}
-
-selectLogMethod <- function(data, method) {
-  switch(method,
-    log2 = log2(data),
-    log10 = log10(data),
-    ln = log(data),
-    None = data
-  )
-}
-
-selectScalingMethod <- function(data, method) {
-  switch(method,
-    "Mean center" = t(apply(data, 1, meanCenter)),
-    "Auto scale" = t(apply(data, 1, autoNorm)),
-    "None" =  data
-  )
-}
-
-transformation <- function(data, sequence, logMethod, scaleMethod) {
-  filtered <- data[, sequence[, 1] %in% c("QC", "Sample")]
-  filtered[is.na(filtered)] <- 0
-
-  transformed <- selectLogMethod(filtered, logMethod)
-  scaled <- selectScalingMethod(transformed, scaleMethod)
-  rownames(scaled) <- rownames(filtered)
-  colnames(scaled) <- colnames(filtered)
-  return(scaled)
-}
-
 # PolySTest
-
 addEmptyCols <- function(data, sequence, groups, replicates) {
   processed <- data[, 1] # feature names
   rgroup <- c("") # group vector
@@ -504,88 +437,6 @@ addEmptyCols <- function(data, sequence, groups, replicates) {
   else
     colnames(processed) <- paste(colnames(processed), rgroup, sep = "_")
   return(processed)
-}
-
-# Statistics
-groupsTest <- function(data, seq) {
-  library(limma)
-  group <- paste("G", seq[, 1], sep="")
-  sample <- rownames(seq)
-  group <- factor(group)
-  sample <- factor(sample)
-
-  colnames(data) <- paste(group, colnames(data), sep=".")
-  design <- model.matrix(~0+group)
-  colnames(design) <- levels(group)
-  contrast.matrix <- makeContrasts(contrasts=paste(colnames(design)[1], "-", colnames(design)[2]),levels=design)
-
-  lm.fit <- lmFit(data, design)
-  lm.contr <- contrasts.fit(lm.fit,contrast.matrix)
-  lm.ebayes <- eBayes(lm.contr)
-  results <- topTable(lm.ebayes, adjust="BH", number=Inf)
-  detach(package:limma,unload=TRUE)
-  return(results)
-}
-
-timeSeriesTest <- function(data, seq, isPaired) {
-  library(limma)
-  library(statmod)
-  group <- paste("G", seq[, 1], sep="")
-  time <- paste("T", seq[, 2], sep="")
-  sample <- rownames(seq)
-  group_time <- paste(group, time, sep="_")
-
-  group <- factor(group)
-  time <- factor(time)
-  sample <- factor(sample)
-  group_time <- factor(group_time)
-  pairs <- factor(seq[, 3])
-
-  if(length(levels(time)) == 1) {
-    colnames(data) <- paste(group, colnames(data), sep=".")
-    if(isPaired) { 
-      design <- model.matrix(~pairs+group)
-      coef <- paste("group", levels(group)[length(levels(group))], sep="")
-    } else {
-      design <- model.matrix(~0+group)
-      colnames(design) <- levels(group)
-      coef <- NULL
-    }
-    fit <- lmFit(data, design) # TODO partial NA coefficients?
-    print(coef)
-  }
-  else if (length(levels(group)) == 1) {
-    colnames(data) <- paste(time, colnames(data), sep=".")
-    if(isPaired) { 
-      design <- model.matrix(~pairs+time)
-      coef <- paste("time", levels(time)[length(levels(time))], sep="")
-    } else {
-      design <- model.matrix(~0+time)
-      colnames(design) <- levels(time)
-      coef <- NULL
-    }
-    fit <- lmFit(data, design)
-  }
-  else {
-    colnames(data) <- paste(group_time, colnames(data), sep=".")
-    print(colnames(data))
-
-    design <- model.matrix(~0+group_time)
-    colnames(design) <- levels(group_time)
-  }
-  #  block = paired! makes sense??
-  # duplicate correlation ONLY if we have paired samples
-  # if(paired)
-  #   corfit <- duplicateCorrelation(data, design, block=sample)
-  # fit <- lmFit(data, design, block=sample, correlation=corfit$consensus)
-  # contrast_table <- makeContrasts(contrasts = paste("S=", levels(group_time)[1], "-", levels(group_time)[2]),
-  #                                 levels = design)
-  # fit <- contrasts.fit(fit, contrast_table)
-  fit <- eBayes(fit)
-  
-  results <- topTable(fit, coef=coef, adjust="BH")
-  detach(package:limma,unload=TRUE)
-  return(results)
 }
 
 windowselect <- function(input) {

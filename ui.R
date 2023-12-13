@@ -23,6 +23,7 @@ options(repos = BiocManager::repositories())
 source("functions.R")
 source("plotfunctions.R")
 source("analysis_functions.R")
+source("normalization.R")
 
 shinyUI(dashboardPage(
   dashboardHeader(
@@ -323,8 +324,16 @@ shinyUI(dashboardPage(
             tabPanel("Check samples", plotlyOutput("histogram")),
             tabPanel("PCA", 
             fluidRow(
-              column(6, selectInput("selectpca1", "", choices = NULL, width = "100%")),
-              column(6, selectInput("selectpca2", "", choices = NULL, width = "100%"))
+              column(6,
+                selectInput("selectpca1", "", choices = NULL, width = "100%"),
+                checkboxInput("pca1_islog", "Is data log-transformed?", value = F, width = "100%"),
+                actionButton("run_pca1", "Run PCA", width = "50%")
+              ),
+              column(6, 
+                selectInput("selectpca2", "", choices = NULL, width = "100%"),
+                checkboxInput("pca2_islog", "Is data log-transformed?", value = F, width = "100%"),
+                actionButton("run_pca2", "Run PCA", width = "50%")
+              )
             ),
             fluidRow(
               tabBox(
