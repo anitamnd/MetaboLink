@@ -31,10 +31,10 @@ normalization <- function(data, sequence, qualityControls, method) {
 
 # Transformation
 meanCenter <- function(x) {
-  abs(x - mean(x))
+  x - mean(x)
 }
 autoNorm <- function(x) {
-  abs((x - mean(x)))/sd(x, na.rm=T)
+  (x - mean(x))/sd(x, na.rm=T)
 }
 
 selectLogMethod <- function(data, method) {
