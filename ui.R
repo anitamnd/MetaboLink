@@ -153,12 +153,9 @@ shinyUI(dashboardPage(
             checkboxGroupInput("isChoose", NULL, choices = NULL, selected = NULL, inline = FALSE)
           ),
           fluidRow(
-            textOutput("notFoundIS"), style= "padding: 0px; margin-top: -30px; margin-bottom: 10px;  margin-left: 10px",
-          ),
-          fluidRow(
             style = "margin-right: 0px;",
-            column(6, checkboxInput("normalizeQC", "Normalize QC", value = T, width = "100%"), style = "padding: 0px; margin-top: -20px; margin-left: 10px; margin-right: -10px;"),
-            column(6, checkboxInput("newFileIS", "Save as new file", value = T, width = "100%"), style = "padding: 0px; margin-top: -20px; margin-left: 10px; margin-right: -10px;")
+            column(6, checkboxInput("normalizeQC", "Normalize QC", value = T, width = "100%"), style = "padding: 0px; margin-top: 0px; margin-left: 10px; margin-right: -10px;"),
+            column(6, checkboxInput("newFileIS", "Save as new file", value = T, width = "100%"), style = "padding: 0px; margin-top: 0px; margin-left: 10px; margin-right: -10px;")
           ),
           fluidRow(
             style = "margin-right: 0px;",

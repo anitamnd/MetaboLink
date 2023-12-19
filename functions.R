@@ -55,11 +55,10 @@ normalizationIS <- function(data, sequence, is, method, qc) {
       sdat[i, j] <- sdat[i, j] / sdat[is, j][near[i]]
     })
   })
-
   isnorm <- sapply(seq(nrow(sdat)), function(x) {
     isname[near[x]]
   })
-  data[seq[, 1] %in% sel] <- sdat
+  data[sequence[, 1] %in% sel] <- sdat
   data <- cbind(data, data.frame(isnorm = isnorm))
   return(data)
 }

@@ -240,7 +240,6 @@ shinyServer(function(session, input, output) {
       updateCheckboxGroupInput(session, "isChoose", choices = internalStandards, selected = internalStandards)
       enable("normalizeIS"); enable("optimizeIS"); enable("removeIS"); enable("saveIS")
       if(length(internalStandards) == 0) {
-        output$notFoundIS <- renderText({"No internal standards found."})
         disable("normalizeIS"); disable("optimizeIS"); disable("removeIS"); disable("saveIS")
       } 
     }
@@ -471,6 +470,7 @@ shinyServer(function(session, input, output) {
       normalized <- normalizationIS(data, sequence, input$isChoose, input$isMethod, input$normalizeQC)
       rv$tmpData <- normalized
       rv$tmpSequence <- sequence
+      sendSweetAlert(session, title = "Success", text = paste0("Internal standards normalized with ", input$isMethod, " method"), type = "success")
       updateSelectInput(session, "selectpca1", selected = "Unsaved data", choices = c("Unsaved data", rv$choices))
       output$dttable <- renderDataTable(rv$tmpData, rownames = FALSE, options = list(scrollX = TRUE, scrollY = "700px", pageLength = 20))
     }
@@ -738,7 +738,12 @@ shinyServer(function(session, input, output) {
         datasetToMerge <- rv$data[[selected]]
 
         if(names(rv$data)[rv$activeFile] == names(rv$data)[selected]) {
-          sendSweetAlert(session = session, title = "Error", text = "Cannot merge a dataset with itself.", type = "error")
+          showModal(
+            modalDialog(
+              title = "Do you want to merge a dataset with itself?", size = "m",
+              footer = list(actionButton("confirmMerging", "Yes"), modalButton("No"))
+            )
+          )
         }
         else {
           if (sum(activeSequence[, 1] %in% c("Adduct_pos", "Adduct_neg")) != 1 || sum(sequenceToMerge[, 1] %in% c("Adduct_pos", "Adduct_neg")) != 1) {
