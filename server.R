@@ -240,7 +240,6 @@ shinyServer(function(session, input, output) {
       updateCheckboxGroupInput(session, "isChoose", choices = internalStandards, selected = internalStandards)
       enable("normalizeIS"); enable("optimizeIS"); enable("removeIS"); enable("saveIS")
       if(length(internalStandards) == 0) {
-        output$notFoundIS <- renderText({"No internal standards found."})
         disable("normalizeIS"); disable("optimizeIS"); disable("removeIS"); disable("saveIS")
       } 
     }
