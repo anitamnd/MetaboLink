@@ -50,7 +50,7 @@ shinyServer(function(session, input, output) {
       blocking_level = 'message'
     )
     if(any(duplicated(names(inputFile)))) {
-      sendSweetAlert(title = "Error", text = paste("Duplicate columns found."), type = "error")
+      sendSweetAlert(session, title = "Error", text = paste("Duplicate columns found."), type = "error")
     } else {
       labels <- identifyLabels(inputFile)
       checkColumns(colnames(inputFile), labels)
@@ -529,10 +529,10 @@ shinyServer(function(session, input, output) {
       sequence <- rv$sequence[[rv$activeFile]]
       method <- input$filterNAmethod
       if(("in group" %in% method) & !any(complete.cases(sequence[, 4]))) {
-        shinyalert("Error!", "Group information needed.")
+        sendSweetAlert(session, "Error!", "Group information needed.", type = "error")
       }
       else if(is.null(method)) {
-        shinyalert("Error!", "No method selected.")
+        sendSweetAlert(session, "Error!", "No method selected.", type = "error")
       }
       else {
         mvf_dat <- cutoffrm(rv$data[[rv$activeFile]], sequence, input$cutoffNAs, method)
@@ -1170,7 +1170,7 @@ shinyServer(function(session, input, output) {
     switch(input$testType, 
       GroupsUnpaired={
         if(!any(complete.cases(sequence[, 4]))) {
-          shinyalert("Oops!", "Invalid test. Provide information on different groups/conditions.")
+          sendSweetAlert(session, "Oops!", "Invalid test. Provide information on different groups/conditions.", type = "error")
           disable("selectTest")
         }
       },
@@ -1186,13 +1186,13 @@ shinyServer(function(session, input, output) {
 
           updateCheckboxGroupInput(session, "contrasts", choices = contrasts, selected = NULL)
         } else {
-          shinyalert("Oops!", "Invalid test. No paired samples or time points in dataset.")
+          sendSweetAlert(session, "Oops!", "Invalid test. No paired samples or time points in dataset.", type = "error")
           disable("selectTest")
         }
       },
       CompareToReference={
         if(!any(complete.cases(sequence[, 4]))) {
-          shinyalert("Oops!", "Invalid test. Provide information on different groups/conditions.")
+          sendSweetAlert(session, "Oops!", "Invalid test. Provide information on different groups/conditions.", type = "error")
           disable("selectTest")
         } else {
           updateSelectInput(session, "referenceGroup", label = NULL, choices = na.omit(sequence[, 'class']))
@@ -1211,7 +1211,7 @@ shinyServer(function(session, input, output) {
     switch(input$testType, 
       GroupsUnpaired = {
         if(input$group1 == input$group2) {
-          shinyalert("Oops!", "Choose different groups to compare.")
+          sendSweetAlert(session, "Oops!", "Choose different groups to compare.", type="error")
         } else {
           results <- groupComparison(data, sequence, c(input$group1, input$group2))
 

@@ -2,8 +2,8 @@ library(shiny)
 library(shinydashboard)
 library(shinyBS)
 library(shinyjs)
-library(shinyalert)
-library(shinyWidgets)
+#slibrary(shinyalert)
+#library(shinyWidgets)
 library(spsComps)
 library(DT)
 library(dplyr)
@@ -76,7 +76,8 @@ shinyUI(dashboardPage(
           ),
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, bsButton("submit", "Submit", width = "100%"), style = "padding-left:0px;"),
+            column(6, style = "padding-left:0px;",
+              bsButton("submit", "Submit", width = "100%")),
             column(6, bsButton("example", "Load example", width = "100%"), style = "padding-left:0px;")
           )
         ),
