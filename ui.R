@@ -2,8 +2,8 @@ library(shiny)
 library(shinydashboard)
 library(shinyBS)
 library(shinyjs)
-#slibrary(shinyalert)
-#library(shinyWidgets)
+#library(shinyalert)
+library(shinyWidgets)
 library(spsComps)
 library(DT)
 library(dplyr)
@@ -34,11 +34,11 @@ shinyUI(dashboardPage(
       badgeStatus = NULL,
       headerText = "Help",
       notificationItem("User manual", icon = icon("book"),
-                                         href = "https://github.com/anitamnd/jlspec_2_0/wiki"),
+                       href = "https://github.com/anitamnd/jlspec_2_0/wiki"),
       notificationItem("Source code and installation", icon = icon("file"),
-                                         href = "https://github.com/anitamnd/jlspec_2_0"),
+                       href = "https://github.com/anitamnd/jlspec_2_0"),
       notificationItem("Institution", icon = icon("university"),
-                                         href = "https://www.sdu.dk/en")
+                       href = "https://www.sdu.dk/en")
     )
   ),
 
@@ -78,7 +78,8 @@ shinyUI(dashboardPage(
             style = "margin-right: 0px;",
             column(6, style = "padding-left:0px;",
               bsButton("submit", "Submit", width = "100%")),
-            column(6, bsButton("example", "Load example", width = "100%"), style = "padding-left:0px;")
+            column(6, style = "padding-left:0px;",
+              bsButton("example", "Load example", width = "100%"))
           )
         ),
         bsCollapsePanel("Blank filtration",
@@ -92,14 +93,27 @@ shinyUI(dashboardPage(
           ),
           fluidRow(
             style = "margin-right: 0px;",
-            column(12, checkboxInput("discardBlank", "Discard blank", value = T, width = "100%"), style = "padding: 0px; margin-top: -25px; margin-bottom: -15px; margin-left: 5px;"),
-            column(12, checkboxInput("keepIS", "Keep internal standards", value = T, width = "100%"), style = "padding: 0px; margin-top: -15px; margin-bottom: -15px; margin-left: 5px;"),
-            column(12, checkboxInput("newFileBF", "Save as new file", value = T, width = "100%"), style = "padding: 0px; margin-top: -15px; margin-bottom: -15px; margin-left: 5px;")
+            column(12,
+              checkboxInput("discardBlank", "Discard blank", value = T, width = "100%"),
+              style = "padding: 0px; margin-top: -25px; margin-bottom: -15px; margin-left: 5px;"
+            ),
+            column(12,
+              checkboxInput("keepIS", "Keep internal standards", value = T, width = "100%"),
+              style = "padding: 0px; margin-top: -15px; margin-bottom: -15px; margin-left: 5px;"
+            ),
+            column(12,
+              checkboxInput("newFileBF", "Save as new file", value = T, width = "100%"),
+              style = "padding: 0px; margin-top: -15px; margin-bottom: -15px; margin-left: 5px;"
+            )
           ),
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, bsButton("blankFiltrate", "Blank filtrate", width = "100%"), style = "padding-left:0px; margin-top: 10px;"),
-            column(6, bsButton("saveBF", "Save", width = "100%"), style = "padding-left:0px; margin-top: 10px;")
+            column(6, bsButton("blankFiltrate", "Blank filtrate", width = "100%"),
+              style = "padding-left:0px; margin-top: 10px;"
+            ),
+            column(6, bsButton("saveBF", "Save", width = "100%"),
+              style = "padding-left:0px; margin-top: 10px;"
+            )
           )
         ),
         bsCollapsePanel("Missing value filtration",
@@ -111,12 +125,12 @@ shinyUI(dashboardPage(
               style = "padding: 0px"
             )
           ),
-          fluidRow(column(
-            6,
-            prettyCheckboxGroup("filterNAmethod", "", choices = c("in QC", "in group", "entire data"))
+          fluidRow(
+            column(6,
+              prettyCheckboxGroup("filterNAmethod", "", choices = c("in QC", "in group", "entire data"))
           )),
-          fluidRow(column(
-            6,
+          fluidRow(
+            column(6,
             checkboxInput("mvf_newsave", "Save as new file", value = T, width = "100%")
           )),
           fluidRow(
@@ -137,7 +151,9 @@ shinyUI(dashboardPage(
           ),
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, checkboxInput("newFileImp", "Save as new file", value = T, width = "100%"), style = "padding: 0px; margin-top: -10px; margin-left: 10px; margin-right: -10px;")
+            column(6,
+              checkboxInput("newFileImp", "Save as new file", value = T, width = "100%"), 
+              style = "padding: 0px; margin-top: -10px; margin-left: 10px; margin-right: -10px;")
           ),
           fluidRow(
             style = "margin-right: 0px;",

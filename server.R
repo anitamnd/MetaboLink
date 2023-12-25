@@ -366,22 +366,27 @@ shinyServer(function(session, input, output) {
     )
   })
 
-  observeEvent(input$updateSequence, {
-    if (!is.null(rv$activeFile)) {
-      labs <- sapply(1:ncol(rv$data[[rv$activeFile]]), function(x) {
-        isolate(input[[paste0("labels", rv$activeFile, x)]])
-      })
+  observeEvent(input$seq_table_cell_edit, {
+    sequence <- rv$sequence[[rv$activeFile]]
+    info <- input$seq_table_cell_edit
+    str(info)
+    i <- info$row
+    j <- info$col
+    v <- info$value
+    if(j == 1) {
+      sendSweetAlert(session, title = "Warning", text = "Column 'labels' cannot be edited", type = "warning")
+    } else {
+      sequence[i, j] <- v
+      rv$sequence[[rv$activeFile]] <- sequence
+    }
+  })
 
-      if (sum(labs == "Name") > 1) {
-        sendSweetAlert(title = "Error", text = "Only one name Label allowed", type = "error")
-      } else {
-        lapply(1:ncol(rv$data[[rv$activeFile]]), function(x) {
-          isolate(rv$sequence[[rv$activeFile]][x, 1] <- input[[paste0("labels", rv$activeFile, x)]])
-          isolate(rv$sequence[[rv$activeFile]][x, 2] <- input[[paste0("bat", rv$activeFile, x)]])
-          isolate(rv$sequence[[rv$activeFile]][x, 3] <- input[[paste0("ord", rv$activeFile, x)]])
-          isolate(rv$sequence[[rv$activeFile]][x, 4] <- input[[paste0("cla", rv$activeFile, x)]])
-        })
-      }
+  observeEvent(input$updateSequence, {
+    if (!is.null(rv$activeFile) && !is.null(rv$tmpSequence)) {
+      rv$sequence[[rv$activeFile]] <- rv$tmpSequence
+      rv$tmpSequence <- NULL
+    } else {
+      showNotification("No changes to update", type = "message")
     }
   })
 
