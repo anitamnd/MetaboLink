@@ -249,9 +249,6 @@ shinyServer(function(session, input, output) {
     updateSelectInput(session, "group2", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'class']))
     updateSelectInput(session, "time1", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'time']))
     updateSelectInput(session, "time2", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'time']))
-    # output$results_table <- renderDT(st$results[[rv$activeFile]], rownames = TRUE, options = list(scrollX = TRUE,
-    #           scrollY = TRUE, pageLength = 20))
-
   })
 
   observeEvent(rv$choices, {
@@ -304,6 +301,17 @@ shinyServer(function(session, input, output) {
         },
         content = function(file) {
           write.csv(rv$data[[x]], file, row.names = FALSE)
+        }
+      )
+    })
+
+    lapply(1:length(rv$choices), function(x) {
+      output[[paste0("dwn_settings", x)]] <- downloadHandler(
+        filename = function() {
+          paste0(names(rv$data[x]), ".txt")
+        },
+        content = function(file) {
+          write.csv(rv$info[x], file, row.names = FALSE)
         }
       )
     })

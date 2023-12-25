@@ -29,7 +29,7 @@ shinyUI(dashboardPage(
   dashboardHeader(
     title = "JLspec",
     titleWidth = 400,
-    dropdownMenu(type = "notifications", 
+    dropdownMenu(type = "notifications",
       icon = icon("question-circle"),
       badgeStatus = NULL,
       headerText = "Help",
