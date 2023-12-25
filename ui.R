@@ -305,11 +305,6 @@ shinyUI(dashboardPage(
               column(6, actionButton("reuseSequence", label = "Re-use sequence", width = "100%"))
             ),
             box(
-              width = NULL, title = "Extract adducts from name",
-              radioGroupButtons("selectIonMode", "Select ionmode", c("Positive", "Negative"), justified = TRUE),
-              actionButton("extractAdducts", "Run", width = 100)
-            ),
-            box(
               width = NULL, title = "Edit data columns",
               actionButton("editSequence", "Edit", width = 100)
             ),

@@ -398,24 +398,6 @@ shinyServer(function(session, input, output) {
     }
   })
 
-  observeEvent(input$extractAdducts, {
-    sequence <- rv$sequence[[rv$activeFile]]
-    data <- rv$data[[rv$activeFile]]
-    adduct <- findAdduct(data, sequence)
-    data <- cbind(data, adduct)
-    ionMode <- switch(input$selectIonMode,
-      "Positive" = "Adduct_pos",
-      "Negative" = "Adduct_neg"
-    )
-    adduct <- c(ionMode, rep(NA, ncol(sequence)-1))
-    sequence <- rbind(sequence, "adduct" = adduct)
-    sequence[, 2] <- as.numeric(sequence[, 2])
-    sequence[, 3] <- as.numeric(sequence[, 3])
-    sequence[, 4] <- as.numeric(sequence[, 4])
-    rv$sequence[[rv$activeFile]] <- sequence
-    rv$data[[rv$activeFile]] <- data
-  })
-
   # Blank filtration
   observeEvent(input$blankFiltrate, {
     if(is.null(rv$activeFile)) {

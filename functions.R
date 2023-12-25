@@ -103,9 +103,9 @@ identifyLabels <- function(data) {
       "Adduct_pos"
     } else if (grepl("ADDUCT_NEG", toupper(x), fixed = TRUE)) {
       "Adduct_neg"
-    } else if (grepl("ADDUCT", toupper(x)) && grepl("\\+", data[, x])) {
+    } else if (grepl("ADDUCT", toupper(x)) && grepl("\\]\\+", data[, x])) {
       "Adduct_pos"
-    } else if (grepl("ADDUCT", toupper(x)) && grepl("\\-", data[, x])) {
+    } else if (grepl("ADDUCT", toupper(x)) && grepl("\\]\\-", data[, x])) {
       "Adduct_neg"
     } else if (grepl("[[:digit:]]", toupper(x)) && is.numeric(data[, x])) {
       "Sample"
