@@ -291,7 +291,8 @@ shinyUI(dashboardPage(
           id = "sequence_panel",
           column(12, box(width = NULL,
               p("Make sure the columns are labeled correctly before proceeding."),
-              p("If you see a sample column labeled '-', this usually means there are invalid characters in the column."))
+              p("If you see a sample column labeled '-', this usually means there are invalid characters in the column."),
+              p("Labels cannot be edited in the app to avoid crashes. Please edit the file and re-upload."))
           ),
           column(
             width = 8,

@@ -1234,7 +1234,7 @@ shinyServer(function(session, input, output) {
          print('default')
       }
     )
-    # Render one table for each contrast 
+    # Render one table for each contrast
         output$results_ui <- renderUI({
           lapply(seq_along(st$results[[rv$activeFile]]), function(i) {
             fluidRow(

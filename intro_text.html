@@ -36,144 +36,19 @@ td, th {
 <p style="text-align: left;">To start, upload a dataset or press "Load example" for a sample dataset to be loaded into the application.&nbsp;</p>
 <hr />
 
-<h4>1. Input</h4>
+<h4>Input</h4>
 <strong>Data file</strong>
 <p>Comma-separated values (CSV) file with samples in columns and features in rows. If samples are in rows, select file format "Samples in rows".</p>
 
 > If you get an error "Invalid multibyte string at ..." after uploading, your file might have invalid characters. We recommend you only include English letters, underscore, and numbers for naming. 
 
 <strong>Sequence file (metafile)</strong>
-<p>After uploading the datafile, your dashboard will update and open the sequence panel. Here you will be able to upload a CSV file which works as an ID for the main table.</p>
-<p>Comma-separated values (CSV) file with samples in rows and attributes in columns. The sequence panel looks like this:</p>
-
-<table>
-    <tr>
-    <th>Sample</th>
-    <th>Label</th>
-    <th>Batch</th>
-    <th>Group</th>
-    <th>Time</th>
-    <th>Paired</th>
-    </tr>
-    <tr>
-    <td>Names</td>
-    <td>Name</td>
-    <td> </td>
-    <td> </td>
-    <td> </td>
-    <td> </td>
-    </tr>
-    <tr>
-    <td>m.z</td>
-    <td>Mass</td>
-    <td> </td>
-    <td> </td>
-    <td> </td>
-    <td> </td>
-    </tr>
-    <tr>
-    <td>QC09</td>
-    <td>QC</td>
-    <td>1</td>
-    <td> </td>
-    <td> </td>
-    <td> </td>
-    </tr>
-    <tr>
-    <td>X1</td>
-    <td>Sample</td>
-    <td>1</td>
-    <td>2</td>
-    <td>15</td>
-    <td> </td>
-    </tr>
-</table>
-<br>
-<ul>
-    <li><strong>Sample:</strong> should contain the names of the samples and must be consistent with the sample names in the data file</li>
-    <li><strong>Label:</strong> the label is automatically identified by the app when uploading a data file, which means you do not need to include it in your meta file. The labels can be: Name, Mass, Retention time (RT), Blank, Sample, Quality control (QC), Adduct_pos, Adduct_neg, or -</li>
-    <li><strong>Batch:</strong> if your samples are run in different batches, you can include the batch number in this column. This column must be numeric</li>
-    <li><strong>Order:</strong> injection sequence of the samples</li>
-    <li><strong>Group:</strong> group name/number</li>
-    <li><strong>Time:</strong> time point (e.g., 15min/day 1/... )</li>
-    <li><strong>Paired:</strong> paired samples should have the same value in this column (e.g., samples X1 and X3 are paired, so they both have e.g, "1" in this column)</li>
-</ul>
-
-<strong>Important:</strong>
-<p>Your sequence file does not need to have all the columns above, but it should not have more.</p>
-<ul>
-    <li>When manually updating the metafile in the app, the user must press the 'Update' button to save the changed values</li>
-    <li>It is only possible to change the labels in the metafile by changing it <strong>within</strong> the shiny application</li>
-    <li>From the sequence panel, it is possible to rename samples, delete unwanted columns, edit group names, export the meta file</li>
-</ul>
-
-<h4>2. Data Pre-processing</h4>
-
-<strong>2.1 Blank filtration</strong>
-<p>Remove uninformative features based on the ratio of the QC samples mean expression versus the mean expressoon of the blank samples, removing the features which are not abundant in the QCs when compared to the blank samples, using a user-specified filtration ratio.</p>
-
-<strong>2.2 Missing value filtration</strong>
-<p>Removing features with more than a user-defined percentage of missing values.</p>
-<ul>
-    <li>in class</li>
-    <li>entire data</li>
-    <li>QC</li>
-</ul>
-
-<strong>2.3 Internal standards normalization</strong>
-<p>To account for technical variations and enable meaningful comparisons. This function requires a data file including a column of retention times labeled "RT" and a column of annotations labeled "Name". At least one feature should be an internal standard and include "(is)" within its annotation.</p>
-
-<strong>2.4 Normalization</strong>
-<p>Normalize the data using:</p>
-<ul>
-    <li>Probabilistic Quocient Normalization (PQN) using the QC samples as reference</li>
-    <li>Sum</li>
-    <li>Median</li>
-</ul>
-
-<strong>2.5 Imputation</strong>
-<p>Impute missing values with:</p>
-<ul>
-    <li>KNN: impute missing values with KNN algorithm.</li>
-    <li>Median: impute missing values with median value from class.</li>
-    <li>min/X: impute missing values with class minimum divided by X (user-defined).</li>
-</ul>
-
-<strong>2.6 Drift correction</strong>
-<p>By including quality control (QC) samples from a pool of all the samples and correct each metabolite. To find the drift pattern the app uses locally estimated scatterplot smoothing (LOESS).</p>
-<p>QC samples should be included in the sequence file and labeled as "QC". The order of injection is also needed to use this feature.</p>
-
-<strong>2.7 Merge datasets</strong>
-<p>Positive and negative ion modes merge to ensure the best coverage of detected metabolites.</p>
-<p>A column labeled Adduct_neg or Adduct_pos in each file is mandatory to use this feature.</p>
-
-<h4>3. Statistical Analysis</h4>
-<p>JLspec uses the sequence file to detect the different groups/conditions and time points and allows the user to select which they would like to compare.</p>
-<p>The app allows for unpaired, paired and time series tests using the Limma package.</p>
-
-<strong>3.1 Unpaired</strong>
-
-<h4>4. Output</h4>
-<strong>Sequence panel</strong>
-<p>In the sequence panel one can download the sequence (.csv file) on the bottom left.</p>
-
-<strong>Export panel</strong>
-<p>In the export panel one can download:</p>
-<ul>
-    <li>the data file (.csv file)</li>
-    <li>the data file for MetaboAnalyst (.csv file)</li>
-    <li>the statistics results (.xlsx file)</li>
-    <li>the statistics results (.csv file)</li>
-</ul>
-<p>Here you can also export data to:</p>
-<ul>
-    <li>PolySTest</li>
-    <li>VSClust</li>
-</ul>
+<p>After uploading the datafile, your dashboard will update and open the sequence panel. Here you will be able to upload a CSV file which works as an ID for the main table. You can read the requirements in the user manual.</p>
 
 
 <p style="text-align: left;">&nbsp;</p>
-<hr /> Source code available here: <a href="https://github.com/anitamnd/jlspec_2_0">https://github.com/anitamnd/jlspec_2_0</a>
-<p style="text-align: left;"><strong>This version might still have the occasional crash, if you are experiencing trouble please reach out: <a href="mailto:anitamnd@outlook.com">Send Email</a></span></strong></p>
+<hr/> Detailed user manual: <a href="https://github.com/anitamnd/jlspec_2_0/wiki">user manual</a>
+<hr/> Source code available here: <a href="https://github.com/anitamnd/jlspec_2_0">GitHub - anitamnd/jlspec_2_0</a>
+<p style="text-align: left;"><strong>This version might still have the occasional crash, if you are experiencing trouble please reach out: <a href="mailto:anitamnd@outlook.com">send email</a></span></strong></p>
 <p style="text-align: center;"><span style="color: #000000;">Molecular Metabolism and Metabolomics | SDU</p>
 </body>
