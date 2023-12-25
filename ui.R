@@ -289,6 +289,10 @@ shinyUI(dashboardPage(
       hidden(
         div(
           id = "sequence_panel",
+          column(12, box(width = NULL,
+              p("Make sure the columns are labeled correctly before proceeding."),
+              p("If you see a sample column labeled '-', this usually means there are invalid characters in the column."))
+          ),
           column(
             width = 8,
             box(
@@ -355,7 +359,7 @@ shinyUI(dashboardPage(
               tabBox(tabPanel(title = "Details", htmlOutput("pca2Details")))
             )
             ),
-            tabPanel("Feature drift", 
+            tabPanel("Feature drift",
               fluidRow(
                 column(3, box(width = NULL, DTOutput("dt_drift_panel"))),
                 column(9, 
@@ -372,7 +376,7 @@ shinyUI(dashboardPage(
                 )         
               )
             ),
-            tabPanel("Feature viewer", 
+            tabPanel("Feature viewer",
               fluidRow(
                 column(3, box(width = NULL, DTOutput("dt_boxplot_panel"))),
                 column(9, box(width = NULL, 
