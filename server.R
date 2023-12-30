@@ -10,6 +10,8 @@ shinyServer(function(session, input, output) {
   st <- reactiveValues(stats = list(), sequence = list(), results = list(),
                   comparisons = list(), colcomp = list())
 
+  userConfirmation <- reactiveVal(FALSE)
+
   rankings <- read.csv("./csvfiles/rankings.csv", stringsAsFactors = FALSE)
 
   observeEvent(list(c(input$sequence, input$example, input$submit)), {
@@ -736,60 +738,75 @@ shinyServer(function(session, input, output) {
           showModal(
             modalDialog(
               title = "Do you want to merge a dataset with itself?", size = "m",
-              footer = list(actionButton("confirmMerging", "Yes"), modalButton("No"))
+              footer = list(actionButton("mergeSameFile", "Yes"), modalButton("Cancel"))
             )
           )
+        } else {
+          userConfirmation(TRUE)
         }
-        else {
-          if (sum(activeSequence[, 1] %in% c("Adduct_pos", "Adduct_neg")) != 1 || sum(sequenceToMerge[, 1] %in% c("Adduct_pos", "Adduct_neg")) != 1) {
-            sendSweetAlert(session = session, title = "Error", text = "Each dataset must contain exactly one adduct column labeled in the sequence file.", type = "error")
-          } else if (ncol(activeDataset) != ncol(datasetToMerge)) {
-            sendSweetAlert(session = session, title = "Error", text = "Datasets must have the same number of columns", type = "error")
-          } else {
-            mergedDatasets <<- mergeDatasets(activeDataset, activeSequence,
-                  datasetToMerge, sequenceToMerge, input$merge_ppm, input$merge_rt)
-            clustn <- data.frame(table(mergedDatasets$mergeID))
-            dub_clust <- clustn[clustn$Freq > 1, ]
-            dub_dat <- mergedDatasets[mergedDatasets$mergeID %in% dub_clust[, 1], ]
-            dub_qc <- dub_dat[, activeSequence[, 1] %in% "QC"]
-            cov <- cv(dub_qc)
-            nclust <- sapply(dub_dat$mergeID, function(x) {
-              table(dub_dat$mergeID)[names(table(dub_dat$mergeID)) == x]
-            })
+      }
+    }
+  })
+  
+  observeEvent(input$mergeSameFile, {
+    userConfirmation(TRUE)
+    removeModal()
+  })
 
-            out_dub <- data.frame(
-              "nClust" = nclust,
-              "Cluster_ID" = dub_dat$mergeID,
-              "Ion_mode" = dub_dat$ionmode,
-              "Adductor" = dub_dat$add,
-              "Name" = dub_dat[, which(activeSequence[, 1] %in% "Name")],
-              "RT" = dub_dat[, which(activeSequence[, 1] %in% "RT")],
-              "Mass" = dub_dat[, which(activeSequence[, 1] %in% "Mass")],
-              "CV" = cov
-            )
-            out_dub <- out_dub[order(out_dub[, 1], out_dub[, 2], decreasing = T), ]
-            md_dup <<- out_dub
-            cluster_ends <- which(!duplicated(out_dub[, 2]))
-            output$md_modal_dt <- renderDataTable({
-                datatable(out_dub,
-                  rownames = F,
-                  options = list(dom = "t", autowidth = T, paging = F),
-                  selection = list(selected = finddup(out_dub, rankings))
-                ) %>% formatStyle(1:8, `border-top` = styleRow(cluster_ends, "solid 2px"))
-              },
-              server = T
-            )
+  observeEvent(userConfirmation(), {
+    if(userConfirmation()) {
+      activeSequence <- rv$sequence[[rv$activeFile]]
+      activeDataset <- rv$data[[rv$activeFile]]
+      selected <- which(rv$choices %in% input$mergeFile)
+      sequenceToMerge <- rv$sequence[[selected]]
+      datasetToMerge <- rv$data[[selected]]
+      if (sum(activeSequence[, 1] %in% c("Adduct_pos", "Adduct_neg")) != 1 || sum(sequenceToMerge[, 1] %in% c("Adduct_pos", "Adduct_neg")) != 1) {
+        sendSweetAlert(session = session, title = "Error", text = "Each dataset must contain exactly one adduct column labeled in the sequence file.", type = "error")
+      } else if (ncol(activeDataset) != ncol(datasetToMerge)) {
+        sendSweetAlert(session = session, title = "Error", text = "Datasets must have the same number of columns", type = "error")
+      } else {
+        mergedDatasets <<- mergeDatasets(activeDataset, activeSequence,
+              datasetToMerge, sequenceToMerge, input$merge_ppm, input$merge_rt)
+        clustn <- data.frame(table(mergedDatasets$mergeID))
+        dub_clust <- clustn[clustn$Freq > 1, ]
+        dub_dat <- mergedDatasets[mergedDatasets$mergeID %in% dub_clust[, 1], ]
+        dub_qc <- dub_dat[, activeSequence[, 1] %in% "QC"]
+        cov <- cv(dub_qc)
+        nclust <- sapply(dub_dat$mergeID, function(x) {
+          table(dub_dat$mergeID)[names(table(dub_dat$mergeID)) == x]
+        })
 
-            showModal(
-              modalDialog(
-                title = "Select features to keep", size = "l",
-                p(paste0(length(unique(dub_dat$mergeID))), " duplicate clusters found, of those ", paste0(length(unique(out_dub[out_dub[, 1] > 2, ][, 2]))), " consists of more than 2 features."),
-                DTOutput("md_modal_dt"),
-                footer = list(actionButton("confirmMerging", "Remove duplicates"), modalButton("Dismiss"))
-              )
-            )
-          }
-        }
+        out_dub <- data.frame(
+          "nClust" = nclust,
+          "Cluster_ID" = dub_dat$mergeID,
+          "Ion_mode" = dub_dat$ionmode,
+          "Adductor" = dub_dat$add,
+          "Name" = dub_dat[, which(activeSequence[, 1] %in% "Name")],
+          "RT" = dub_dat[, which(activeSequence[, 1] %in% "RT")],
+          "Mass" = dub_dat[, which(activeSequence[, 1] %in% "Mass")],
+          "CV" = cov
+        )
+        out_dub <- out_dub[order(out_dub[, 1], out_dub[, 2], decreasing = T), ]
+        md_dup <<- out_dub
+        cluster_ends <- which(!duplicated(out_dub[, 2]))
+        output$md_modal_dt <- renderDataTable({
+            datatable(out_dub,
+              rownames = F,
+              options = list(dom = "t", autowidth = T, paging = F),
+              selection = list(selected = finddup(out_dub, rankings))
+            ) %>% formatStyle(1:8, `border-top` = styleRow(cluster_ends, "solid 2px"))
+          },
+          server = T
+        )
+        userConfirmation(FALSE)
+        showModal(
+          modalDialog(
+            title = "Select features to keep", size = "l",
+            p(paste0(length(unique(dub_dat$mergeID))), " duplicate clusters found, of those ", paste0(length(unique(out_dub[out_dub[, 1] > 2, ][, 2]))), " consists of more than 2 features."),
+            DTOutput("md_modal_dt"),
+            footer = list(actionButton("confirmMerging", "Remove duplicates"), modalButton("Dismiss"))
+          )
+        )
       }
     }
   })
@@ -1209,8 +1226,8 @@ shinyServer(function(session, input, output) {
           sendSweetAlert(session, "Oops!", "Choose different groups to compare.", type="error")
         } else {
           results <- groupComparison(data, sequence, c(input$group1, input$group2))
-
           st$results[[rv$activeFile]][[length(st$results[[rv$activeFile]])+1]] <- results
+          names(st$results[[rv$activeFile]])[length(st$results[[rv$activeFile]])] <- paste0(input$group1, "_vs_", input$group2)
         }
       },
       GroupsMultipleTime = { # multi-level in limma 
@@ -1238,7 +1255,7 @@ shinyServer(function(session, input, output) {
         output$results_ui <- renderUI({
           lapply(seq_along(st$results[[rv$activeFile]]), function(i) {
             fluidRow(
-              column(12, strong(names(results)[i])),
+              column(12, strong(names(st$results[[rv$activeFile]])[i])),
               column(12, box(width = NULL, DTOutput(paste0("results", i))))
             )
           })
