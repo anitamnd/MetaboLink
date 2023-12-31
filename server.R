@@ -151,10 +151,10 @@ shinyServer(function(session, input, output) {
 
   # Duplicates not allowed
   observeEvent(input$seq_edit_confirm, {
-    sapply(seq(ncol(rv$data[[rv$activeFile]])), function(x) {
-      isolate(colnames(rv$data[[rv$activeFile]])[x] <- input[[paste0("seq_edit_name", x)]])
-      isolate(row.names(rv$sequence[[rv$activeFile]])[x] <- input[[paste0("seq_edit_name", x)]])
-    })
+    # sapply(seq(ncol(rv$data[[rv$activeFile]])), function(x) {
+    #   isolate(colnames(rv$data[[rv$activeFile]])[x] <- input[[paste0("seq_edit_name", x)]])
+    #   isolate(row.names(rv$sequence[[rv$activeFile]])[x] <- input[[paste0("seq_edit_name", x)]])
+    # })
     keep <- sapply(seq(ncol(rv$data[[rv$activeFile]])), function(x) input[[paste0("seq_edit_keep", x)]])
     rv$data[[rv$activeFile]] <- rv$data[[rv$activeFile]][, keep]
     rv$sequence[[rv$activeFile]] <- rv$sequence[[rv$activeFile]][keep, ]
@@ -1103,7 +1103,7 @@ shinyServer(function(session, input, output) {
             choices = c("Unsaved data", rv$choices))
       output$dttable <- renderDataTable(rv$tmpData, rownames = FALSE, options = 
             list(scrollX = TRUE, scrollY = "700px", pageLength = 20))
-        
+      sendSweetAlert(title = "Success", text = paste0("Data normalized using ", input$normMethod), type = "success")
       # Plot variance in QC samples before and after normalization
       # output$beforeNormalization <- renderPlot({
       #   boxplot(log2(qualityControls), main = "Before Normalization", xlab = "Metabolite", ylab = "Intensity")
@@ -1158,6 +1158,7 @@ shinyServer(function(session, input, output) {
       data[, sequence[, 1] %in% c("QC", "Sample")] <- transformed
       rv$tmpData <- data
       output$dttable <- renderDataTable(rv$tmpData, rownames = FALSE, options = list(scrollX = TRUE, scrollY = "700px", pageLength = 20))
+      sendSweetAlert(session, title = "Success", text = "Data transformed.", type = "success")
     }
   })
 
