@@ -185,19 +185,6 @@ shinyUI(dashboardPage(
             column(6, bsButton("saveIS", "Save", width = "100%"), style = "padding-left:0px;")
           )
         ),
-         bsCollapsePanel("Normalization",
-          style = "primary",
-          fluidRow(
-            style = "margin-right: 0px;",
-            column(12, selectInput("normMethod", "Function", choices = c("QC (PQN)", "Sum", "Median"), width = "100%"), style = "padding-left:0px;")
-          ),
-          fluidRow(
-            style = "margin-right: 0px;",
-            column(12, checkboxInput("newFileNorm", "Save as new file", value = F, width = "100%"), style = "padding: 0px; margin-top: -10px; margin-left: 10px; margin-right: -10px;"),
-            column(6, bsButton("normalize", "Run", width = "100%"), style = "padding-left:0px;"),
-            column(6, bsButton("saveNormalization", "Save", width = "100%"), style = "padding-left:0px;")
-          )
-        ),
         bsCollapsePanel("Drift correction",
           style = "primary",
           fluidRow(selectInput("driftMethod", "Signal correction method", choices = c("QC-RFSC (random forrest)", "QC-RLSC (robust LOESS)"), width = "100%")),
@@ -210,12 +197,28 @@ shinyUI(dashboardPage(
             column(6, bsButton("runDrift", "Run", width = "100%"), style = "padding-left:0px;"),
             column(6, bsButton("saveDrift", "Save", width = "100%"), style = "padding-left:0px;")
           )
+        ) %>% bsTooltip("For correct usage, please refer to the user manual.", placement = "bottom", trigger = "hover"),
+        bsCollapsePanel("Normalization",
+          style = "primary",
+          fluidRow(
+            style = "margin-right: 0px;",
+            column(12, selectInput("normMethod", "Function", choices = c("QC (PQN)", "Sum", "Median"), width = "100%"), style = "padding-left:0px;")
+          ),
+          fluidRow(
+            style = "margin-right: 0px;",
+            column(12, checkboxInput("newFileNorm", "Save as new file", value = F, width = "100%"), style = "padding: 0px; margin-top: -10px; margin-left: 10px; margin-right: -10px;"),
+            column(6, bsButton("normalize", "Run", width = "100%"), style = "padding-left:0px;"),
+            column(6, bsButton("saveNormalization", "Save", width = "100%"), style = "padding-left:0px;")
+          )
         ),
         bsCollapsePanel("Log transform and scaling",
           style = "primary",
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, selectInput("logTransform", "Log transform", choices = c("None", "log2", "log10", "ln"), width = "100%"), style = "padding-left:0px;"),
+            column(6, style = "padding-left:0px;",
+              selectInput("logTransform", "Log transform", choices = c("None", "log2", "log10", "ln"), width = "100%") %>%
+                bsTooltip("Do not use log transformation for negative values.", placement = "bottom", trigger = "hover")
+            ),
             column(6, selectInput("scaling", "Data scaling", choices = c("None", "Mean center", "Auto scale"), width = "100%"), style = "padding-left:0px;")
           ),
           fluidRow(
@@ -223,7 +226,7 @@ shinyUI(dashboardPage(
             column(6, bsButton("transform", "Run", width = "100%"), style = "padding-left:0px;"),
             column(6, bsButton("saveTransform", "Save", width = "100%"), style = "padding-left:0px;")
           )
-        ),
+        ) %>% bsTooltip("Some features will be removed after transforming the data if Inf values are introduced.", placement = "bottom", trigger = "hover"),
         bsCollapsePanel("Merge datasets",
           style = "primary",
           fluidRow(selectInput("mergeFile", "Select dataset to merge with", choices = NULL, width = "100%")),
@@ -237,7 +240,7 @@ shinyUI(dashboardPage(
             column(6, bsButton("mergeRankings", "Edit priorities", width = "100%"), style = "padding-left:0px;"),
             column(6, bsButton("mergeDatasets", "Run", width = "100%"), style = "padding-left:0px;")
           )
-        ),
+        ) %>% bsTooltip("Merge datasets with same samples and different ion mode. The datasets must have the same number of samples.", placement = "bottom", trigger = "hover"),
         bsCollapsePanel("Remove files",
           style = "primary",
           fluidRow(
@@ -290,6 +293,7 @@ shinyUI(dashboardPage(
         div(
           id = "sequence_panel",
           column(12, box(width = NULL,
+              strong("User guide"),
               p("Make sure the columns are labeled correctly before proceeding."),
               p("If you see a sample column labeled '-', this usually means there are invalid characters in the column."),
               p("Labels cannot be edited in the app to avoid crashes. Please edit the file and re-upload."))
@@ -335,30 +339,33 @@ shinyUI(dashboardPage(
                 column(12, box(width = NULL, DTOutput("dttable") %>% withSpinner(color="#0A4F8F")))
               )
             ),
-            tabPanel("Check samples", plotlyOutput("histogram")),
-            tabPanel("PCA", 
-            fluidRow(
-              column(6,
-                selectInput("selectpca1", "", choices = NULL, width = "100%"),
-                checkboxInput("pca1_islog", "Is data log-transformed?", value = F, width = "100%"),
-                actionButton("run_pca1", "Run PCA", width = "50%")
-              ),
-              column(6, 
-                selectInput("selectpca2", "", choices = NULL, width = "100%"),
-                checkboxInput("pca2_islog", "Is data log-transformed?", value = F, width = "100%"),
-                actionButton("run_pca2", "Run PCA", width = "50%")
+            tabPanel("Sample distribution", 
+              fluidRow(
+                column(12,
+                  box(width = NULL, h4("Median across samples"), plotlyOutput("histogram")),
+                ),
+                column(12,
+                  box(width = NULL, h4("Median across QCs"), uiOutput("histogram_qc"))
+                )
               )
             ),
-            fluidRow(
-              tabBox(
-                tabPanel(title = "PCA", plotlyOutput("plotpca1"))
+            tabPanel("PCA", 
+              fluidRow(
+                column(6, box(width = NULL, 
+                  selectInput("selectpca1", "", choices = NULL, width = "100%"),
+                  checkboxInput("pca1_islog", "Is data log-transformed?", value = F, width = "100%"),
+                  actionButton("run_pca1", "Run PCA", width = "50%"),
+                  plotlyOutput("plotpca1"), br(),
+                  htmlOutput("pca1Details")
+                )),
+                column(6, box(width = NULL, 
+                  selectInput("selectpca2", "", choices = NULL, width = "100%"),
+                  checkboxInput("pca2_islog", "Is data log-transformed?", value = F, width = "100%"),
+                  actionButton("run_pca2", "Run PCA", width = "50%"),
+                  plotlyOutput("plotpca2"), br(),
+                  htmlOutput("pca2Details")
+                ))
               ),
-              tabBox(tabPanel(title = "PCA", plotlyOutput("plotpca2")))
-            ),
-            fluidRow(
-              tabBox(tabPanel(title = "Details", htmlOutput("pca1Details"))),
-              tabBox(tabPanel(title = "Details", htmlOutput("pca2Details")))
-            )
             ),
             tabPanel("Feature drift",
               fluidRow(
@@ -424,7 +431,7 @@ shinyUI(dashboardPage(
           id = "statistics_panel",
           fluidPage(
             fluidRow(
-              column(5,
+              box(width=NULL, column(5,
                 id = "pr_c3",
                 h4("Analysis parameters"), 
                 fluidRow(
@@ -461,16 +468,15 @@ shinyUI(dashboardPage(
                 fluidRow(
                   column(12, actionButton("selectTest", "Run test", width = "40%", style="float:right; margin-right: 0px;"))
                 )    
-              ),
+              )),
               column(6,
                 id = "pr_c2",
-                h4("Summary"),
-                column(12, span(htmlOutput("input_stats"))),
+                h4("User guide"),
+                p("")
               )
             ),
             br(),
             h4("Results"),
-            #fluidRow(column(12, box(width = NULL, DTOutput("results_table")))),
             uiOutput("results_ui")
           )
         )

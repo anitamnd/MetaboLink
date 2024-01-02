@@ -68,7 +68,6 @@ cleanData <- function(data) {
   return(data)
 }
 
-#TODO tooltip "Do not use log transformation for negative values"
 logTransform <- function(data, sequence, method) {
   filtered <- data[, sequence[, 1] %in% c("QC", "Sample")]
   filtered[is.na(filtered)] <- 0

@@ -233,8 +233,30 @@ shinyServer(function(session, input, output) {
       )
       ggplot(median_data, aes(x = Sample, y = Median)) +
         geom_col(fill = "skyblue", color = "black") +
-        labs(title = "Medians across samples", x = "Sample", y = "Median") +
+        labs(x = "Sample", y = "Median") +
         theme_minimal()
+    })
+
+    output$histogram_qc <- renderUI({
+      QCs <- data[, sequence[ , 'labels'] %in% "QC"]
+      if(ncol(QCs) > 0) {
+        QCs[is.na(QCs)] <- 0
+        medians <- apply(QCs, 2, median)
+        median_QC <- data.frame(
+          QC = names(medians),
+          Median = medians
+        )
+        plotlyOutput("qc_distribution")
+        output$qc_distribution <- renderPlotly({
+          ggplot(median_QC, aes(x = QC, y = Median)) +
+          geom_col(fill = "skyblue", color = "black") +
+          labs(x = "Sample", y = "Median") +
+          theme_minimal()
+        })
+      }
+      else {
+        textOutput("No columns labeled QC.")
+      } 
     })
 
     if (sum(rv$sequence[[rv$activeFile]][, 1] %in% "Name") == 1) {
@@ -859,7 +881,7 @@ shinyServer(function(session, input, output) {
         } else {
           qccv <- "No QC in dataset </br>"
         }
-
+        sclass <- sclass[sclass != "QC"]
         if (sum(!is.na(sclass)) > 0) {
           classcv <- sapply(sort(unique(sclass)), function(x) {
             round(cvmean(sdata[, sclass %in% x]), 2)
@@ -900,7 +922,7 @@ shinyServer(function(session, input, output) {
       } else {
         qccv <- "No QC in dataset </br>"
       }
-
+      sclass <- sclass[sclass != "QC"]
       if (sum(!is.na(sclass)) > 0) {
         classcv <- sapply(sort(unique(sclass)), function(x) {
           round(cvmean(sdata[sclass %in% x]), 2)
