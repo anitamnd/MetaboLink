@@ -1202,22 +1202,21 @@ shinyServer(function(session, input, output) {
   observeEvent(input$testType, { #TODO move this to functions file? 
     sequence <- rv$sequence[[rv$activeFile]]
     enable("selectTest")
-    switch(input$testType, 
-      GroupsUnpaired={
+    switch(input$testType,
+      GroupsUnpaired = {
         if(!any(complete.cases(sequence[, 4]))) {
           sendSweetAlert(session, "Oops!", "Invalid test. Provide information on different groups/conditions.", type = "error")
           disable("selectTest")
         }
       },
-      GroupsMultipleTime={
+      GroupsMultipleTime = {
         if(any(complete.cases(sequence[, 5])) & any(complete.cases(sequence[, 6]))) {
-          sequence <- sequence[complete.cases(sequence[, 4]), ]
-
-          group_time <- getGroupTime(sequence)    
+          sequence <- sequence[sequence[, 1] %in% "Sample" & complete.cases(sequence[, 4]), ]
+          group_time <- getGroupTime(sequence)
           unique_values <- unique(group_time)
           combinations <- combn(unique_values, 2)
           valid_combinations <- combinations[, apply(combinations, 2, function(cols) is_valid_combination(cols[1], cols[2]))]
-          contrasts <- generate_contrasts(valid_combinations)
+          contrasts <- generate_contrasts(matrix(valid_combinations)) # matrix bc if it's only 1 combination, valid_combinations is not a matrix and generate_contrasts fails
 
           updateCheckboxGroupInput(session, "contrasts", choices = contrasts, selected = NULL)
         } else {
@@ -1225,7 +1224,7 @@ shinyServer(function(session, input, output) {
           disable("selectTest")
         }
       },
-      CompareToReference={
+      CompareToReference = {
         if(!any(complete.cases(sequence[, 4]))) {
           sendSweetAlert(session, "Oops!", "Invalid test. Provide information on different groups/conditions.", type = "error")
           disable("selectTest")
@@ -1237,7 +1236,7 @@ shinyServer(function(session, input, output) {
          print('default')
       }
     )
-  }, ignoreInit = T
+  }, ignoreInit = TRUE
   )
 
   observeEvent(input$selectTest, { #TODO move this to functions file?
