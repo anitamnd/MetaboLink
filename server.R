@@ -1225,7 +1225,7 @@ shinyServer(function(session, input, output) {
         }
       },
       CompareToReference = {
-        if(!any(complete.cases(sequence[, 4]))) {
+        if(!any(complete.cases(sequence[, 4]))) { # or if only one group
           sendSweetAlert(session, "Oops!", "Invalid test. Provide information on different groups/conditions.", type = "error")
           disable("selectTest")
         } else {
