@@ -1,15 +1,19 @@
 # Normalization
 
 probQuotientNormalization <- function(x, reference) {
-  x/median(as.numeric(x/reference), na.rm=TRUE)
+  x / median(as.numeric(x/reference), na.rm=TRUE)
 }
 
 medianNormalization <- function(x) {
-  x/median(x, na.rm=TRUE)
+  x / median(x, na.rm=TRUE)
 }
 
 sumNormalization <- function(x){
-  1000*x/sum(x, na.rm=TRUE)
+  1000 * x / sum(x, na.rm=TRUE)
+}
+
+amountNormalization <- function(x, amount) {
+  x / amount
 }
 
 normalization <- function(data, sequence, qualityControls, method) {
@@ -23,6 +27,11 @@ normalization <- function(data, sequence, qualityControls, method) {
     normalizedData <- apply(filteredData, 2, medianNormalization)
   } else if(method == "Sum") {
     normalizedData <- apply(filteredData, 2, sumNormalization)
+  } else if(method == "Amount") {
+    amount <- sequence[sequence[, 1] %in% c("QC", "Sample"), "amount"]
+    amount[is.na(amount)] <- median(amount, na.rm=TRUE)
+    normalizedData <- t(apply(filteredData, 1, amountNormalization, amount))
+    #TODO row wise?
   }
   rownames(normalizedData) <- rowNames
   colnames(normalizedData) <- colNames
@@ -55,53 +64,53 @@ selectScalingMethod <- function(data, method) {
 }
 
 cleanData <- function(data) {
-  if(sum(data==Inf, na.rm=TRUE)>0){
-    inx <- data == Inf;
-    data[inx] <- NA;
-    data[inx] <- max(data, na.rm=T)*2
+  if(sum(data==Inf, na.rm=TRUE)>0) {
+    inx <- data == Inf
+    data[inx] <- NA
+    data[inx] <- max(data, na.rm=TRUE)*2
   }
-  if(sum(data==-Inf, na.rm=TRUE)>0){
-    inx <- data == -Inf;
-    data[inx] <- NA;
+  if(sum(data==-Inf, na.rm=TRUE)>0) {
+    inx <- data == -Inf
+    data[inx] <- NA
     data[inx] <- min(data, na.rm=T)/2
   }
   return(data)
 }
 
-#TODO tooltip "Do not use log transformation for negative values"
-logTransform <- function(data, sequence, method) {
-  filtered <- data[, sequence[, 1] %in% c("QC", "Sample")]
-  filtered[is.na(filtered)] <- 0
+# logTransform <- function(data, sequence, method) {
+#   filtered <- data[, sequence[, 1] %in% c("QC", "Sample")]
+#   filtered[is.na(filtered)] <- 0
 
-  transformed <- selectLogMethod(filtered, method)
-  rownames(transformed) <- rownames(filtered)
-  colnames(transformed) <- colnames(filtered)
+#   transformed <- selectLogMethod(filtered, method)
+#   rownames(transformed) <- rownames(filtered)
+#   colnames(transformed) <- colnames(filtered)
   
-  clean <- cleanData(transformed)
-  return(clean)
-}
+#   clean <- cleanData(transformed)
+#   return(clean)
+# }
 
-scaleData <- function(data, sequence, method) {
-  filtered <- data[, sequence[, 1] %in% c("QC", "Sample")]
-  filtered[is.na(filtered)] <- 0
+# scaleData <- function(data, sequence, method) {
+#   filtered <- data[, sequence[, 1] %in% c("QC", "Sample")]
+#   filtered[is.na(filtered)] <- 0
 
-  scaled <- selectScalingMethod(filtered, method)
-  rownames(scaled) <- rownames(filtered)
-  colnames(scaled) <- colnames(filtered)
+#   scaled <- selectScalingMethod(filtered, method)
+#   rownames(scaled) <- rownames(filtered)
+#   colnames(scaled) <- colnames(filtered)
   
-  clean <- cleanData(scaled)
-  return(clean)
-}
+#   clean <- cleanData(scaled)
+#   return(clean)
+# }
 
 transformation <- function(data, sequence, logMethod, scaleMethod) {
   filtered <- data[, sequence[, 1] %in% c("QC", "Sample")]
   filtered[is.na(filtered)] <- 0
 
   transformed <- selectLogMethod(filtered, logMethod)
+  transformed <- cleanData(transformed)
   scaled <- selectScalingMethod(transformed, scaleMethod)
-  rownames(scaled) <- rownames(filtered)
-  colnames(scaled) <- colnames(filtered)
-  
   clean <- cleanData(scaled)
+  rownames(clean) <- rownames(filtered)
+  colnames(clean) <- colnames(filtered)
+  
   return(clean)
 }

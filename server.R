@@ -10,6 +10,8 @@ shinyServer(function(session, input, output) {
   st <- reactiveValues(stats = list(), sequence = list(), results = list(),
                   comparisons = list(), colcomp = list())
 
+  userConfirmation <- reactiveVal(FALSE)
+
   rankings <- read.csv("./csvfiles/rankings.csv", stringsAsFactors = FALSE)
 
   observeEvent(list(c(input$sequence, input$example, input$submit)), {
@@ -149,10 +151,10 @@ shinyServer(function(session, input, output) {
 
   # Duplicates not allowed
   observeEvent(input$seq_edit_confirm, {
-    sapply(seq(ncol(rv$data[[rv$activeFile]])), function(x) {
-      isolate(colnames(rv$data[[rv$activeFile]])[x] <- input[[paste0("seq_edit_name", x)]])
-      isolate(row.names(rv$sequence[[rv$activeFile]])[x] <- input[[paste0("seq_edit_name", x)]])
-    })
+    # sapply(seq(ncol(rv$data[[rv$activeFile]])), function(x) {
+    #   isolate(colnames(rv$data[[rv$activeFile]])[x] <- input[[paste0("seq_edit_name", x)]])
+    #   isolate(row.names(rv$sequence[[rv$activeFile]])[x] <- input[[paste0("seq_edit_name", x)]])
+    # })
     keep <- sapply(seq(ncol(rv$data[[rv$activeFile]])), function(x) input[[paste0("seq_edit_keep", x)]])
     rv$data[[rv$activeFile]] <- rv$data[[rv$activeFile]][, keep]
     rv$sequence[[rv$activeFile]] <- rv$sequence[[rv$activeFile]][keep, ]
@@ -231,8 +233,30 @@ shinyServer(function(session, input, output) {
       )
       ggplot(median_data, aes(x = Sample, y = Median)) +
         geom_col(fill = "skyblue", color = "black") +
-        labs(title = "Medians across samples", x = "Sample", y = "Median") +
+        labs(x = "Sample", y = "Median") +
         theme_minimal()
+    })
+
+    output$histogram_qc <- renderUI({
+      QCs <- data[, sequence[ , 'labels'] %in% "QC"]
+      if(ncol(QCs) > 0) {
+        QCs[is.na(QCs)] <- 0
+        medians <- apply(QCs, 2, median)
+        median_QC <- data.frame(
+          QC = names(medians),
+          Median = medians
+        )
+        plotlyOutput("qc_distribution")
+        output$qc_distribution <- renderPlotly({
+          ggplot(median_QC, aes(x = QC, y = Median)) +
+          geom_col(fill = "skyblue", color = "black") +
+          labs(x = "Sample", y = "Median") +
+          theme_minimal()
+        })
+      }
+      else {
+        textOutput("No columns labeled QC.")
+      } 
     })
 
     if (sum(rv$sequence[[rv$activeFile]][, 1] %in% "Name") == 1) {
@@ -249,9 +273,6 @@ shinyServer(function(session, input, output) {
     updateSelectInput(session, "group2", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'class']))
     updateSelectInput(session, "time1", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'time']))
     updateSelectInput(session, "time2", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'time']))
-    # output$results_table <- renderDT(st$results[[rv$activeFile]], rownames = TRUE, options = list(scrollX = TRUE,
-    #           scrollY = TRUE, pageLength = 20))
-
   })
 
   observeEvent(rv$choices, {
@@ -304,6 +325,17 @@ shinyServer(function(session, input, output) {
         },
         content = function(file) {
           write.csv(rv$data[[x]], file, row.names = FALSE)
+        }
+      )
+    })
+
+    lapply(1:length(rv$choices), function(x) {
+      output[[paste0("dwn_settings", x)]] <- downloadHandler(
+        filename = function() {
+          paste0(names(rv$data[x]), ".txt")
+        },
+        content = function(file) {
+          write.csv(rv$info[x], file, row.names = FALSE)
         }
       )
     })
@@ -366,41 +398,28 @@ shinyServer(function(session, input, output) {
     )
   })
 
-  observeEvent(input$updateSequence, {
-    if (!is.null(rv$activeFile)) {
-      labs <- sapply(1:ncol(rv$data[[rv$activeFile]]), function(x) {
-        isolate(input[[paste0("labels", rv$activeFile, x)]])
-      })
-
-      if (sum(labs == "Name") > 1) {
-        sendSweetAlert(title = "Error", text = "Only one name Label allowed", type = "error")
-      } else {
-        lapply(1:ncol(rv$data[[rv$activeFile]]), function(x) {
-          isolate(rv$sequence[[rv$activeFile]][x, 1] <- input[[paste0("labels", rv$activeFile, x)]])
-          isolate(rv$sequence[[rv$activeFile]][x, 2] <- input[[paste0("bat", rv$activeFile, x)]])
-          isolate(rv$sequence[[rv$activeFile]][x, 3] <- input[[paste0("ord", rv$activeFile, x)]])
-          isolate(rv$sequence[[rv$activeFile]][x, 4] <- input[[paste0("cla", rv$activeFile, x)]])
-        })
-      }
+  observeEvent(input$seq_table_cell_edit, {
+    sequence <- rv$sequence[[rv$activeFile]]
+    info <- input$seq_table_cell_edit
+    str(info)
+    i <- info$row
+    j <- info$col
+    v <- info$value
+    if(j == 1) {
+      sendSweetAlert(session, title = "Warning", text = "Column 'labels' cannot be edited", type = "warning")
+    } else {
+      sequence[i, j] <- v
+      rv$sequence[[rv$activeFile]] <- sequence
     }
   })
 
-  observeEvent(input$extractAdducts, {
-    sequence <- rv$sequence[[rv$activeFile]]
-    data <- rv$data[[rv$activeFile]]
-    adduct <- findAdduct(data, sequence)
-    data <- cbind(data, adduct)
-    ionMode <- switch(input$selectIonMode,
-      "Positive" = "Adduct_pos",
-      "Negative" = "Adduct_neg"
-    )
-    adduct <- c(ionMode, rep(NA, ncol(sequence)-1))
-    sequence <- rbind(sequence, "adduct" = adduct)
-    sequence[, 2] <- as.numeric(sequence[, 2])
-    sequence[, 3] <- as.numeric(sequence[, 3])
-    sequence[, 4] <- as.numeric(sequence[, 4])
-    rv$sequence[[rv$activeFile]] <- sequence
-    rv$data[[rv$activeFile]] <- data
+  observeEvent(input$updateSequence, {
+    if (!is.null(rv$activeFile) && !is.null(rv$tmpSequence)) {
+      rv$sequence[[rv$activeFile]] <- rv$tmpSequence
+      rv$tmpSequence <- NULL
+    } else {
+      showNotification("No changes to update", type = "message")
+    }
   })
 
   # Blank filtration
@@ -741,60 +760,75 @@ shinyServer(function(session, input, output) {
           showModal(
             modalDialog(
               title = "Do you want to merge a dataset with itself?", size = "m",
-              footer = list(actionButton("confirmMerging", "Yes"), modalButton("No"))
+              footer = list(actionButton("mergeSameFile", "Yes"), modalButton("Cancel"))
             )
           )
+        } else {
+          userConfirmation(TRUE)
         }
-        else {
-          if (sum(activeSequence[, 1] %in% c("Adduct_pos", "Adduct_neg")) != 1 || sum(sequenceToMerge[, 1] %in% c("Adduct_pos", "Adduct_neg")) != 1) {
-            sendSweetAlert(session = session, title = "Error", text = "Each dataset must contain exactly one adduct column labeled in the sequence file.", type = "error")
-          } else if (ncol(activeDataset) != ncol(datasetToMerge)) {
-            sendSweetAlert(session = session, title = "Error", text = "Datasets must have the same number of columns", type = "error")
-          } else {
-            mergedDatasets <<- mergeDatasets(activeDataset, activeSequence,
-                  datasetToMerge, sequenceToMerge, input$merge_ppm, input$merge_rt)
-            clustn <- data.frame(table(mergedDatasets$mergeID))
-            dub_clust <- clustn[clustn$Freq > 1, ]
-            dub_dat <- mergedDatasets[mergedDatasets$mergeID %in% dub_clust[, 1], ]
-            dub_qc <- dub_dat[, activeSequence[, 1] %in% "QC"]
-            cov <- cv(dub_qc)
-            nclust <- sapply(dub_dat$mergeID, function(x) {
-              table(dub_dat$mergeID)[names(table(dub_dat$mergeID)) == x]
-            })
+      }
+    }
+  })
+  
+  observeEvent(input$mergeSameFile, {
+    userConfirmation(TRUE)
+    removeModal()
+  })
 
-            out_dub <- data.frame(
-              "nClust" = nclust,
-              "Cluster_ID" = dub_dat$mergeID,
-              "Ion_mode" = dub_dat$ionmode,
-              "Adductor" = dub_dat$add,
-              "Name" = dub_dat[, which(activeSequence[, 1] %in% "Name")],
-              "RT" = dub_dat[, which(activeSequence[, 1] %in% "RT")],
-              "Mass" = dub_dat[, which(activeSequence[, 1] %in% "Mass")],
-              "CV" = cov
-            )
-            out_dub <- out_dub[order(out_dub[, 1], out_dub[, 2], decreasing = T), ]
-            md_dup <<- out_dub
-            cluster_ends <- which(!duplicated(out_dub[, 2]))
-            output$md_modal_dt <- renderDataTable({
-                datatable(out_dub,
-                  rownames = F,
-                  options = list(dom = "t", autowidth = T, paging = F),
-                  selection = list(selected = finddup(out_dub, rankings))
-                ) %>% formatStyle(1:8, `border-top` = styleRow(cluster_ends, "solid 2px"))
-              },
-              server = T
-            )
+  observeEvent(userConfirmation(), {
+    if(userConfirmation()) {
+      activeSequence <- rv$sequence[[rv$activeFile]]
+      activeDataset <- rv$data[[rv$activeFile]]
+      selected <- which(rv$choices %in% input$mergeFile)
+      sequenceToMerge <- rv$sequence[[selected]]
+      datasetToMerge <- rv$data[[selected]]
+      if (sum(activeSequence[, 1] %in% c("Adduct_pos", "Adduct_neg")) != 1 || sum(sequenceToMerge[, 1] %in% c("Adduct_pos", "Adduct_neg")) != 1) {
+        sendSweetAlert(session = session, title = "Error", text = "Each dataset must contain exactly one adduct column labeled in the sequence file.", type = "error")
+      } else if (ncol(activeDataset) != ncol(datasetToMerge)) {
+        sendSweetAlert(session = session, title = "Error", text = "Datasets must have the same number of columns", type = "error")
+      } else {
+        mergedDatasets <<- mergeDatasets(activeDataset, activeSequence,
+              datasetToMerge, sequenceToMerge, input$merge_ppm, input$merge_rt)
+        clustn <- data.frame(table(mergedDatasets$mergeID))
+        dub_clust <- clustn[clustn$Freq > 1, ]
+        dub_dat <- mergedDatasets[mergedDatasets$mergeID %in% dub_clust[, 1], ]
+        dub_qc <- dub_dat[, activeSequence[, 1] %in% "QC"]
+        cov <- cv(dub_qc)
+        nclust <- sapply(dub_dat$mergeID, function(x) {
+          table(dub_dat$mergeID)[names(table(dub_dat$mergeID)) == x]
+        })
 
-            showModal(
-              modalDialog(
-                title = "Select features to keep", size = "l",
-                p(paste0(length(unique(dub_dat$mergeID))), " duplicate clusters found, of those ", paste0(length(unique(out_dub[out_dub[, 1] > 2, ][, 2]))), " consists of more than 2 features."),
-                DTOutput("md_modal_dt"),
-                footer = list(actionButton("confirmMerging", "Remove duplicates"), modalButton("Dismiss"))
-              )
-            )
-          }
-        }
+        out_dub <- data.frame(
+          "nClust" = nclust,
+          "Cluster_ID" = dub_dat$mergeID,
+          "Ion_mode" = dub_dat$ionmode,
+          "Adductor" = dub_dat$add,
+          "Name" = dub_dat[, which(activeSequence[, 1] %in% "Name")],
+          "RT" = dub_dat[, which(activeSequence[, 1] %in% "RT")],
+          "Mass" = dub_dat[, which(activeSequence[, 1] %in% "Mass")],
+          "CV" = cov
+        )
+        out_dub <- out_dub[order(out_dub[, 1], out_dub[, 2], decreasing = T), ]
+        md_dup <<- out_dub
+        cluster_ends <- which(!duplicated(out_dub[, 2]))
+        output$md_modal_dt <- renderDataTable({
+            datatable(out_dub,
+              rownames = F,
+              options = list(dom = "t", autowidth = T, paging = F),
+              selection = list(selected = finddup(out_dub, rankings))
+            ) %>% formatStyle(1:8, `border-top` = styleRow(cluster_ends, "solid 2px"))
+          },
+          server = T
+        )
+        userConfirmation(FALSE)
+        showModal(
+          modalDialog(
+            title = "Select features to keep", size = "l",
+            p(paste0(length(unique(dub_dat$mergeID))), " duplicate clusters found, of those ", paste0(length(unique(out_dub[out_dub[, 1] > 2, ][, 2]))), " consists of more than 2 features."),
+            DTOutput("md_modal_dt"),
+            footer = list(actionButton("confirmMerging", "Remove duplicates"), modalButton("Dismiss"))
+          )
+        )
       }
     }
   })
@@ -847,7 +881,7 @@ shinyServer(function(session, input, output) {
         } else {
           qccv <- "No QC in dataset </br>"
         }
-
+        sclass <- sclass[sclass != "QC"]
         if (sum(!is.na(sclass)) > 0) {
           classcv <- sapply(sort(unique(sclass)), function(x) {
             round(cvmean(sdata[, sclass %in% x]), 2)
@@ -888,7 +922,7 @@ shinyServer(function(session, input, output) {
       } else {
         qccv <- "No QC in dataset </br>"
       }
-
+      sclass <- sclass[sclass != "QC"]
       if (sum(!is.na(sclass)) > 0) {
         classcv <- sapply(sort(unique(sclass)), function(x) {
           round(cvmean(sdata[sclass %in% x]), 2)
@@ -1091,7 +1125,7 @@ shinyServer(function(session, input, output) {
             choices = c("Unsaved data", rv$choices))
       output$dttable <- renderDataTable(rv$tmpData, rownames = FALSE, options = 
             list(scrollX = TRUE, scrollY = "700px", pageLength = 20))
-        
+      sendSweetAlert(title = "Success", text = paste0("Data normalized using ", input$normMethod), type = "success")
       # Plot variance in QC samples before and after normalization
       # output$beforeNormalization <- renderPlot({
       #   boxplot(log2(qualityControls), main = "Before Normalization", xlab = "Metabolite", ylab = "Intensity")
@@ -1146,6 +1180,7 @@ shinyServer(function(session, input, output) {
       data[, sequence[, 1] %in% c("QC", "Sample")] <- transformed
       rv$tmpData <- data
       output$dttable <- renderDataTable(rv$tmpData, rownames = FALSE, options = list(scrollX = TRUE, scrollY = "700px", pageLength = 20))
+      sendSweetAlert(session, title = "Success", text = "Data transformed.", type = "success")
     }
   })
 
@@ -1167,22 +1202,21 @@ shinyServer(function(session, input, output) {
   observeEvent(input$testType, { #TODO move this to functions file? 
     sequence <- rv$sequence[[rv$activeFile]]
     enable("selectTest")
-    switch(input$testType, 
-      GroupsUnpaired={
+    switch(input$testType,
+      GroupsUnpaired = {
         if(!any(complete.cases(sequence[, 4]))) {
           sendSweetAlert(session, "Oops!", "Invalid test. Provide information on different groups/conditions.", type = "error")
           disable("selectTest")
         }
       },
-      GroupsMultipleTime={
+      GroupsMultipleTime = {
         if(any(complete.cases(sequence[, 5])) & any(complete.cases(sequence[, 6]))) {
-          sequence <- sequence[complete.cases(sequence[, 4]), ]
-
-          group_time <- getGroupTime(sequence)    
+          sequence <- sequence[sequence[, 1] %in% "Sample" & complete.cases(sequence[, 4]), ]
+          group_time <- getGroupTime(sequence)
           unique_values <- unique(group_time)
           combinations <- combn(unique_values, 2)
           valid_combinations <- combinations[, apply(combinations, 2, function(cols) is_valid_combination(cols[1], cols[2]))]
-          contrasts <- generate_contrasts(valid_combinations)
+          contrasts <- generate_contrasts(matrix(valid_combinations)) # matrix bc if it's only 1 combination, valid_combinations is not a matrix and generate_contrasts fails
 
           updateCheckboxGroupInput(session, "contrasts", choices = contrasts, selected = NULL)
         } else {
@@ -1190,8 +1224,8 @@ shinyServer(function(session, input, output) {
           disable("selectTest")
         }
       },
-      CompareToReference={
-        if(!any(complete.cases(sequence[, 4]))) {
+      CompareToReference = {
+        if(!any(complete.cases(sequence[, 4]))) { # or if only one group
           sendSweetAlert(session, "Oops!", "Invalid test. Provide information on different groups/conditions.", type = "error")
           disable("selectTest")
         } else {
@@ -1202,7 +1236,7 @@ shinyServer(function(session, input, output) {
          print('default')
       }
     )
-  }, ignoreInit = T
+  }, ignoreInit = TRUE
   )
 
   observeEvent(input$selectTest, { #TODO move this to functions file?
@@ -1214,8 +1248,8 @@ shinyServer(function(session, input, output) {
           sendSweetAlert(session, "Oops!", "Choose different groups to compare.", type="error")
         } else {
           results <- groupComparison(data, sequence, c(input$group1, input$group2))
-
           st$results[[rv$activeFile]][[length(st$results[[rv$activeFile]])+1]] <- results
+          names(st$results[[rv$activeFile]])[length(st$results[[rv$activeFile]])] <- paste0(input$group1, "_vs_", input$group2)
         }
       },
       GroupsMultipleTime = { # multi-level in limma 
@@ -1239,11 +1273,11 @@ shinyServer(function(session, input, output) {
          print('default')
       }
     )
-    # Render one table for each contrast 
+    # Render one table for each contrast
         output$results_ui <- renderUI({
           lapply(seq_along(st$results[[rv$activeFile]]), function(i) {
             fluidRow(
-              column(12, strong(names(results)[i])),
+              column(12, strong(names(st$results[[rv$activeFile]])[i])),
               column(12, box(width = NULL, DTOutput(paste0("results", i))))
             )
           })

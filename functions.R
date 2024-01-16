@@ -1,10 +1,10 @@
 checkSequence <- function(sequence) {
-  columnsToCheck <- c("sample", "batch", "order", "class", "time", "paired")
+  columnsToCheck <- c("sample", "batch", "order", "class", "time", "paired", "amount")
   missingColumns <- setdiff(columnsToCheck, colnames(sequence))
   if (length(missingColumns) > 0) {
-    sequence[missingColumns] <- lapply(1:length(missingColumns), function(x) sequence[missingColumns[x]] <- NA )
+    sequence[missingColumns] <- lapply(seq_along(missingColumns), function(x) sequence[missingColumns[x]] <- NA)
   }
-  sequence <- sequence[, c("sample", "batch", "order", "class", "time", "paired")]
+  sequence <- sequence[, c("sample", "batch", "order", "class", "time", "paired", "amount")]
   return(sequence)
 }
 
@@ -102,6 +102,10 @@ identifyLabels <- function(data) {
     } else if (grepl("ADDUCT_POS", toupper(x), fixed = TRUE)) {
       "Adduct_pos"
     } else if (grepl("ADDUCT_NEG", toupper(x), fixed = TRUE)) {
+      "Adduct_neg"
+    } else if (grepl("ADDUCT", toupper(x)) && grepl("\\]\\+", data[, x])) {
+      "Adduct_pos"
+    } else if (grepl("ADDUCT", toupper(x)) && grepl("\\]\\-", data[, x])) {
       "Adduct_neg"
     } else if (grepl("[[:digit:]]", toupper(x)) && is.numeric(data[, x])) {
       "Sample"
