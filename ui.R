@@ -217,7 +217,7 @@ shinyUI(dashboardPage(
             style = "margin-right: 0px;",
             column(6, style = "padding-left:0px;",
               selectInput("logTransform", "Log transform", choices = c("None", "log2", "log10", "ln"), width = "100%") %>%
-                bsTooltip("Do not use log transformation for negative values.", placement = "bottom", trigger = "hover")
+                bsTooltip("Do not use log transformation for negative values.", placement = "top", trigger = "hover")
             ),
             column(6, selectInput("scaling", "Data scaling", choices = c("None", "Mean center", "Auto scale"), width = "100%"), style = "padding-left:0px;")
           ),

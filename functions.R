@@ -1,10 +1,10 @@
 checkSequence <- function(sequence) {
-  columnsToCheck <- c("sample", "batch", "order", "class", "time", "paired")
+  columnsToCheck <- c("sample", "batch", "order", "class", "time", "paired", "amount")
   missingColumns <- setdiff(columnsToCheck, colnames(sequence))
   if (length(missingColumns) > 0) {
-    sequence[missingColumns] <- lapply(seq_along(missingColumns), function(x) sequence[missingColumns[x]] <- NA )
+    sequence[missingColumns] <- lapply(seq_along(missingColumns), function(x) sequence[missingColumns[x]] <- NA)
   }
-  sequence <- sequence[, c("sample", "batch", "order", "class", "time", "paired")]
+  sequence <- sequence[, c("sample", "batch", "order", "class", "time", "paired", "amount")]
   return(sequence)
 }
 

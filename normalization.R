@@ -1,15 +1,19 @@
 # Normalization
 
 probQuotientNormalization <- function(x, reference) {
-  x/median(as.numeric(x/reference), na.rm=TRUE)
+  x / median(as.numeric(x/reference), na.rm=TRUE)
 }
 
 medianNormalization <- function(x) {
-  x/median(x, na.rm=TRUE)
+  x / median(x, na.rm=TRUE)
 }
 
 sumNormalization <- function(x){
-  1000*x/sum(x, na.rm=TRUE)
+  1000 * x / sum(x, na.rm=TRUE)
+}
+
+amountNormalization <- function(x, amount) {
+  x / amount
 }
 
 normalization <- function(data, sequence, qualityControls, method) {
@@ -23,6 +27,11 @@ normalization <- function(data, sequence, qualityControls, method) {
     normalizedData <- apply(filteredData, 2, medianNormalization)
   } else if(method == "Sum") {
     normalizedData <- apply(filteredData, 2, sumNormalization)
+  } else if(method == "Amount") {
+    amount <- sequence[sequence[, 1] %in% c("QC", "Sample"), "amount"]
+    amount[is.na(amount)] <- median(amount, na.rm=TRUE)
+    normalizedData <- t(apply(filteredData, 1, amountNormalization, amount))
+    #TODO row wise?
   }
   rownames(normalizedData) <- rowNames
   colnames(normalizedData) <- colNames
