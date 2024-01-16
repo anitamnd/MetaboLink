@@ -1112,6 +1112,8 @@ shinyServer(function(session, input, output) {
       showNotification("No data", type = "error")
     } else if(input$normMethod == "QC (PQN)" & sum(rv$sequence[[rv$activeFile]][, 1] %in% "QC") == 0) {
       sendSweetAlert(session = session, title = "Error", text = "No QC samples in dataset.", type = "error")
+    } else if(input$normMethod == "Sample amount" & sum(complete.cases(rv$sequence[[rv$activeFile]][, 'amount'])) == 0) {
+      sendSweetAlert(session = session, title = "Error", text = "No sample amount information in dataset.", type = "error")
     } else {
       data <- rv$data[[rv$activeFile]]
       sequence <- rv$sequence[[rv$activeFile]]

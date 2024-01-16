@@ -202,7 +202,7 @@ shinyUI(dashboardPage(
           style = "primary",
           fluidRow(
             style = "margin-right: 0px;",
-            column(12, selectInput("normMethod", "Function", choices = c("QC (PQN)", "Sum", "Median"), width = "100%"), style = "padding-left:0px;")
+            column(12, selectInput("normMethod", "Function", choices = c("QC (PQN)", "Sum", "Median", "Sample amount"), width = "100%"), style = "padding-left:0px;")
           ),
           fluidRow(
             style = "margin-right: 0px;",
@@ -381,7 +381,7 @@ shinyUI(dashboardPage(
                     ),
                   ),
                   uiOutput("drift_ui")
-                )         
+                )
               )
             ),
             tabPanel("Feature viewer",
