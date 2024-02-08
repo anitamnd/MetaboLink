@@ -17,10 +17,10 @@ Use the following code to install the required R packages:
 ```
 install.packages('BiocManager', repos='http://cran.us.r-project.org')
 library(BiocManager)
-BiocManager::install(c('dplyr','plotly','shiny','shinyBS','shinydashboard','limma','shinyjs','shinyalert','shinyWidgets','spsComps','ggplot2','ggrepel','gridExtra','impute','randomForest','writexl','stringi','igraph'), ask=F)
+BiocManager::install(c('dplyr','plotly','shiny','shinyBS','shinydashboard','shinycssloaders','limma','shinyjs','shinyalert','shinyWidgets','spsComps','ggplot2','ggrepel','gridExtra','impute','randomForest','writexl','stringi','igraph'), ask=F)
 ```
 
-You can then run the app from the server.R or ui.R files using RStudio or by writing "shiny::runApp()" in the R terminal of any IDE.
+You can then run the app from the server.R or ui.R files using RStudio or by writing "shiny::runApp()" in the R terminal.
 
 ---
 
