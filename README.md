@@ -2,6 +2,7 @@
 ---
 
 JLspec is a web-based application created with shiny R and it is available at http://computproteomics.bmb.sdu.dk/Metabolomics/.
+Documentation on how to use the app can be found in [Wiki JLspec](https://github.com/anitamnd/jlspec_2_0/wiki).
 
 
 ## Installation
