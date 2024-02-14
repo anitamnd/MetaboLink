@@ -2,7 +2,6 @@ library(shiny)
 library(shinydashboard)
 library(shinyBS)
 library(shinyjs)
-#library(shinyalert)
 library(shinyWidgets)
 library(spsComps)
 library(DT)
@@ -294,10 +293,14 @@ shinyUI(dashboardPage(
           id = "sequence_panel",
           column(12, box(width = NULL,
               strong("User guide"),
-              p("Make sure the columns are labeled correctly before proceeding."),
-              p("If you see a sample column labeled '-', this usually means there are invalid characters in the column."),
-              p("Labels cannot be edited in the app to avoid crashes. Please edit the file and re-upload."))
-          ),
+              tagList(
+                list(
+                  tags$li("Make sure the columns are labeled correctly before proceeding."),
+                  tags$li("If you see a sample column labeled '-', this usually means there are invalid characters in the column."),
+                  tags$li("Labels cannot be edited in the app to avoid crashes. Please edit the file and re-upload.")
+                )
+              )
+          )),
           column(
             width = 8,
             box(
@@ -351,16 +354,18 @@ shinyUI(dashboardPage(
             ),
             tabPanel("PCA", 
               fluidRow(
-                column(6, box(width = NULL, 
+                column(6, box(width = NULL,
                   selectInput("selectpca1", "", choices = NULL, width = "100%"),
-                  checkboxInput("pca1_islog", "Is data log-transformed?", value = F, width = "100%"),
-                  actionButton("run_pca1", "Run PCA", width = "50%"),
-                  plotlyOutput("plotpca1"), br(),
-                  htmlOutput("pca1Details")
+                  checkboxInput("pca1_islog", "Is data log-transformed?", value = FALSE, width = "100%"),
+                  actionButton("run_pca1", "Run PCA", width = "50%") %>%
+                    bsTooltip("Check box if the data is log-transformed!", placement = "bottom", trigger = "hover"),
+                  plotlyOutput("plotpca1", width = "100%"), br(),
+                  htmlOutput("pca1Details"), br(),
+                  plotOutput("boxplot1")
                 )),
-                column(6, box(width = NULL, 
+                column(6, box(width = NULL,
                   selectInput("selectpca2", "", choices = NULL, width = "100%"),
-                  checkboxInput("pca2_islog", "Is data log-transformed?", value = F, width = "100%"),
+                  checkboxInput("pca2_islog", "Is data log-transformed?", value = FALSE, width = "100%"),
                   actionButton("run_pca2", "Run PCA", width = "50%"),
                   plotlyOutput("plotpca2"), br(),
                   htmlOutput("pca2Details")
@@ -431,16 +436,15 @@ shinyUI(dashboardPage(
           id = "statistics_panel",
           fluidPage(
             fluidRow(
-              box(width=NULL, column(5,
-                id = "pr_c3",
-                h4("Analysis parameters"), 
+              box(width = NULL, column(6,
+                h4("Parameters"),
                 fluidRow(
-                  column(12, p("Remember to log-transform and scale data before running tests.")),
-                  column(12, selectInput("testType", "Select test", choices = c("2 group comparison (unpaired)" = "GroupsUnpaired",
-                                            "2 group comparison with multiple time points (paired)" = "GroupsMultipleTime",
-                                            "Compare to reference group" = "CompareToReference"), selected = NULL, 
-                                            width = "100%"))
-                                            # calculate fold change as the ratio between 2 group means?                                            
+                  column(12,
+                    selectInput("testType", "Select test", width = "100%",
+                      choices = c("2 group comparison (unpaired)" = "GroupsUnpaired",
+                                  "2 group comparison with multiple time points (paired)" = "GroupsMultipleTime",
+                                  "Compare to reference group" = "CompareToReference"), selected = NULL,
+                    ))
                 ),
                 conditionalPanel(
                   condition = "input.testType == 'GroupsUnpaired'",
@@ -466,18 +470,31 @@ shinyUI(dashboardPage(
                   )
                 ),
                 fluidRow(
-                  column(12, actionButton("selectTest", "Run test", width = "40%", style="float:right; margin-right: 0px;"))
-                )    
-              )),
+                  column(6, actionButton("selectTest", "Run test", width = "100%")),
+                  column(6, actionButton("exportPolySTest", "Send to PolySTest", width = "100%"))
+                )
+              ),
               column(6,
-                id = "pr_c2",
                 h4("User guide"),
-                p("")
-              )
+                tagList(
+                  list(
+                    tags$li("Start by selecting the test type and the groups you want to compare.")
+                  )
+                ), br(),
+                strong("PolySTest"),
+                tagList(
+                  list(
+                    tags$li("If your data has too many missing values, we recommend running the test on PolySTest without imputation."),
+                    tags$li("To Export to PolySTest, you should first choose the comparison you want to make and then click the button."),
+                    tags$li("If you want to Export the entire dataset to PolySTest, go to the Export panel.")
+                    #TODO if it's just group comparison there is no need to select here, they can select on PolySTest
+                  )
+                )
+              ))
             ),
-            br(),
-            h4("Results"),
-            uiOutput("results_ui")
+            fluidRow(
+              box(title = "Results", width = NULL, column(12, uiOutput("results_ui")))
+            )
           )
         )
       )
