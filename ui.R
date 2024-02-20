@@ -26,7 +26,7 @@ source("normalization.R")
 
 shinyUI(dashboardPage(
   dashboardHeader(
-    title = "JLspec",
+    title = "MetaboLink",
     titleWidth = 400,
     dropdownMenu(type = "notifications",
       icon = icon("question-circle"),
