@@ -2,7 +2,6 @@ library(shiny)
 library(shinydashboard)
 library(shinyBS)
 library(shinyjs)
-#library(shinyalert)
 library(shinyWidgets)
 library(spsComps)
 library(DT)
@@ -27,7 +26,7 @@ source("normalization.R")
 
 shinyUI(dashboardPage(
   dashboardHeader(
-    title = "JLspec",
+    title = "MetaboLink",
     titleWidth = 400,
     dropdownMenu(type = "notifications",
       icon = icon("question-circle"),
@@ -294,10 +293,14 @@ shinyUI(dashboardPage(
           id = "sequence_panel",
           column(12, box(width = NULL,
               strong("User guide"),
-              p("Make sure the columns are labeled correctly before proceeding."),
-              p("If you see a sample column labeled '-', this usually means there are invalid characters in the column."),
-              p("Labels cannot be edited in the app to avoid crashes. Please edit the file and re-upload."))
-          ),
+              tagList(
+                list(
+                  tags$li("Make sure the columns are labeled correctly before proceeding."),
+                  tags$li("If you see a sample column labeled '-', this usually means there are invalid characters in the column."),
+                  tags$li("Labels cannot be edited in the app to avoid crashes. Please edit the file and re-upload.")
+                )
+              )
+          )),
           column(
             width = 8,
             box(
@@ -339,28 +342,36 @@ shinyUI(dashboardPage(
                 column(12, box(width = NULL, DTOutput("dttable") %>% withSpinner(color="#0A4F8F")))
               )
             ),
-            tabPanel("Sample distribution", 
+            tabPanel("Sample distribution",
+            #TODO boxplots instead of histograms
+            #TODO add specific panel for comparison?
               fluidRow(
                 column(12,
-                  box(width = NULL, h4("Median across samples"), plotlyOutput("histogram")),
-                ),
+                  box(width = NULL, title = "Median across samples", 
+                    plotlyOutput("histogram")
+                )),
                 column(12,
                   box(width = NULL, h4("Median across QCs"), uiOutput("histogram_qc"))
+                ),
+                column(12,
+                  box(width = NULL, h4("Median across groups"), uiOutput("histogram_groups"))
                 )
               )
             ),
             tabPanel("PCA", 
+            #TODO small guide/tooltips
               fluidRow(
-                column(6, box(width = NULL, 
+                column(6, box(width = NULL,
                   selectInput("selectpca1", "", choices = NULL, width = "100%"),
-                  checkboxInput("pca1_islog", "Is data log-transformed?", value = F, width = "100%"),
-                  actionButton("run_pca1", "Run PCA", width = "50%"),
-                  plotlyOutput("plotpca1"), br(),
+                  checkboxInput("pca1_islog", "Is data log-transformed?", value = FALSE, width = "100%"),
+                  actionButton("run_pca1", "Run PCA", width = "50%") %>%
+                    bsTooltip("Check box if the data is log-transformed!", placement = "bottom", trigger = "hover"),
+                  plotlyOutput("plotpca1", width = "100%"), br(),
                   htmlOutput("pca1Details")
                 )),
-                column(6, box(width = NULL, 
+                column(6, box(width = NULL,
                   selectInput("selectpca2", "", choices = NULL, width = "100%"),
-                  checkboxInput("pca2_islog", "Is data log-transformed?", value = F, width = "100%"),
+                  checkboxInput("pca2_islog", "Is data log-transformed?", value = FALSE, width = "100%"),
                   actionButton("run_pca2", "Run PCA", width = "50%"),
                   plotlyOutput("plotpca2"), br(),
                   htmlOutput("pca2Details")
@@ -386,10 +397,15 @@ shinyUI(dashboardPage(
             ),
             tabPanel("Feature viewer",
               fluidRow(
-                column(3, box(width = NULL, DTOutput("dt_boxplot_panel"))),
-                column(9, box(width = NULL, 
+                column(3, box(
+                    width = NULL, 
+                    title = "Select feature", 
+                    DTOutput("dt_boxplot_panel")
+                )),
+                column(9, box(width = NULL, title = "Settings",
                   fluidRow(
                     column(6,
+                      textInput("boxplot_title", "Title", value = NULL),
                       radioButtons(
                         inputId = "bloxplot_log",
                         label = "Log",
@@ -431,16 +447,35 @@ shinyUI(dashboardPage(
           id = "statistics_panel",
           fluidPage(
             fluidRow(
-              box(width=NULL, column(5,
-                id = "pr_c3",
-                h4("Analysis parameters"), 
+                column(12, box(width = NULL, title = "Guide", status = "primary", solidHeader = TRUE,
+                  strong("Local test"),
+                  tagList(
+                    list(
+                      tags$li("Start by selecting the test type and the groups you want to compare.")
+                    )
+                  ), br(),
+                  strong("PolySTest"),
+                  tagList(
+                    list(
+                      tags$li("If your data has too many missing values, we recommend running the test on PolySTest App without imputation."),
+                      tags$li("To Export to PolySTest, you should first choose the comparison you want to do."),
+                      tags$li("If you want to Export the entire dataset to PolySTest, go to the Export panel.")
+                      #TODO if it's just group comparison there is no need to select here, they can select on PolySTest
+                    )
+                  )
+                )
+              )
+            ),
+            fluidRow(
+              column(6, box(width = NULL,
+                h4("Local test"),
                 fluidRow(
-                  column(12, p("Remember to log-transform and scale data before running tests.")),
-                  column(12, selectInput("testType", "Select test", choices = c("2 group comparison (unpaired)" = "GroupsUnpaired",
-                                            "2 group comparison with multiple time points (paired)" = "GroupsMultipleTime",
-                                            "Compare to reference group" = "CompareToReference"), selected = NULL, 
-                                            width = "100%"))
-                                            # calculate fold change as the ratio between 2 group means?                                            
+                  column(12,
+                    selectInput("testType", "Select test", width = "100%",
+                      choices = c("2 group comparison (unpaired)" = "GroupsUnpaired",
+                                  "2 group comparison with multiple time points (paired)" = "GroupsMultipleTime",
+                                  "Compare to reference group" = "CompareToReference"), selected = NULL,
+                    ))
                 ),
                 conditionalPanel(
                   condition = "input.testType == 'GroupsUnpaired'",
@@ -466,18 +501,29 @@ shinyUI(dashboardPage(
                   )
                 ),
                 fluidRow(
-                  column(12, actionButton("selectTest", "Run test", width = "40%", style="float:right; margin-right: 0px;"))
-                )    
+                  column(6, actionButton("selectTest", "Run test", width = "100%"))
+                )
               )),
-              column(6,
-                id = "pr_c2",
-                h4("User guide"),
-                p("")
-              )
+              column(6, box(width = NULL, 
+                h4("Export to PolySTest"),
+                fluidRow(
+                  column(6, selectInput("group1_polystest", "Group", choices = NULL, width = "100%")),
+                  column(6, selectInput("timepoints1_polystest", "Time", choices = NULL, width = "100%"))
+                ),
+                fluidRow(
+                  column(6, selectInput("group2_polystest", "Group", choices = NULL, width = "100%")),
+                  column(6, selectInput("timepoints2_polystest", "Time", choices = NULL, width = "100%"))
+                ),
+                fluidRow( 
+                  column(6, actionButton("export_polystest", "Send to PolySTest", width = "100%"))
+                )
+              ))
             ),
-            br(),
-            h4("Results"),
-            uiOutput("results_ui")
+            fluidRow(
+              column(12, box(title = "Results", width = NULL,
+                uiOutput("results_ui")
+              ))
+            )
           )
         )
       )
@@ -486,7 +532,7 @@ shinyUI(dashboardPage(
       hidden(
         div(
           id = "export_panel",
-          box(title = strong(".csv and .xlsx"), width = 6,
+          box(title = ".csv and .xlsx", status = "primary", solidHeader = TRUE, width = 6,
             column(12, 
               h4(".csv"),
               uiOutput("export_ui")
@@ -505,7 +551,7 @@ shinyUI(dashboardPage(
               uiOutput("export_settings")
             )
           ),
-          box(title = strong("Export to other apps"), width = 6,
+          box(title = "Export to other apps", status = "primary", solidHeader = TRUE, width = 6,
             column(12, 
               h4("Statistical testing"),
               actionButton("send_polystest", "Send to PolySTest"),
