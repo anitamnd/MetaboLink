@@ -15,6 +15,14 @@ checkColumns <- function(columns, labels) {
   }
 }
 
+checkDuplicates <- function(columns) {
+  has_duplicates <- any(duplicated(columns))
+  if(has_duplicates) {
+    sendSweetAlert(title = "Info", text = "Duplicate names are not allowed.", type = "info")
+  }
+  return(has_duplicates)
+}
+
 blankFiltration <- function(data, sequence, signalStrength, keepIs) {
   data[sequence[, 1] %in% "Blank"][is.na(data[sequence[, 1] %in% "Blank"])] <- 0
   bf <- apply(data[sequence[, 1] %in% "Blank"], 1, mean) * signalStrength < 

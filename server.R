@@ -103,11 +103,11 @@ shinyServer(function(session, input, output) {
     rv$sequence[[rv$activeFile]] <- sequence
   })
 
-  observeEvent(input$editSequence, {
+  observeEvent(input$editColumns, {
     showModal(
       modalDialog(
         title = "Edit columns", size = "s", easyClose = TRUE,
-        footer = list(actionButton("seq_edit_confirm", "Confirm"), modalButton("Dismiss")),
+        footer = list(actionButton("edit_cols_confirm", "Confirm"), modalButton("Dismiss")),
         fluidRow(
           column(width = 9, h4("Column name")),
           column(width = 3, style = "text-align: left;", h4("Keep"))
@@ -116,16 +116,33 @@ shinyServer(function(session, input, output) {
           fluidRow(
             column(
               width = 9,
-              textInput(paste0("seq_edit_name", x), NULL, value = colnames(rv$data[[rv$activeFile]])[x])
+              textInput(paste0("column_edit_name", x), NULL, value = colnames(rv$data[[rv$activeFile]])[x])
+              #p(colnames(rv$data[[rv$activeFile]])[x])
             ),
             column(
               width = 3, style = "text-align: center;",
-              prettyCheckbox(paste0("seq_edit_keep", x), NULL, status = "info", value = T)
+              prettyCheckbox(paste0("columns_to_keep", x), NULL, status = "info", value = T)
             ),
           )
         })
       )
     )
+  })
+
+  observeEvent(input$edit_cols_confirm, {
+    column_names <- character()
+    column_names <- sapply(seq(ncol(rv$data[[rv$activeFile]])), function(x) {
+      input[[paste0("column_edit_name", x)]]
+    })
+
+    if(!checkDuplicates(column_names)) {
+      isolate(colnames(rv$data[[rv$activeFile]]) <- column_names)
+      isolate(row.names(rv$sequence[[rv$activeFile]]) <- column_names)
+      keep <- sapply(seq(ncol(rv$data[[rv$activeFile]])), function(x) input[[paste0("columns_to_keep", x)]])
+      rv$data[[rv$activeFile]] <- rv$data[[rv$activeFile]][, keep]
+      rv$sequence[[rv$activeFile]] <- rv$sequence[[rv$activeFile]][keep, ]
+    }
+    removeModal()
   })
 
   observeEvent(input$editGroups, {
@@ -149,18 +166,6 @@ shinyServer(function(session, input, output) {
         }),
       )
     )
-  })
-
-  # Duplicates not allowed
-  observeEvent(input$seq_edit_confirm, {
-    # sapply(seq(ncol(rv$data[[rv$activeFile]])), function(x) {
-    #   isolate(colnames(rv$data[[rv$activeFile]])[x] <- input[[paste0("seq_edit_name", x)]])
-    #   isolate(row.names(rv$sequence[[rv$activeFile]])[x] <- input[[paste0("seq_edit_name", x)]])
-    # })
-    keep <- sapply(seq(ncol(rv$data[[rv$activeFile]])), function(x) input[[paste0("seq_edit_keep", x)]])
-    rv$data[[rv$activeFile]] <- rv$data[[rv$activeFile]][, keep]
-    rv$sequence[[rv$activeFile]] <- rv$sequence[[rv$activeFile]][keep, ]
-    removeModal()
   })
 
   observeEvent(input$group_edit_confirm, {
@@ -216,9 +221,9 @@ shinyServer(function(session, input, output) {
 
     output$seq_table <- renderDT(rv$sequence[[rv$activeFile]], extensions = 'Responsive', server = F, 
           editable = T, selection = 'none', options = list(pageLength = nrow(rv$sequence[[rv$activeFile]]), 
-          fixedHeader = TRUE, scrollX = TRUE))
+          scrollX = TRUE))
     output$diboxtitle <- renderText(names(rv$data[rv$activeFile]))
-    output$dttable <- renderDT(data, rownames = FALSE, options = list(scrollX = TRUE, 
+    output$dttable <- renderDT(rv$data[[rv$activeFile]], rownames = FALSE, options = list(scrollX = TRUE, 
               scrollY = "700px"))
     output$dt_drift_panel <- renderDT(rv$data[[rv$activeFile]][rv$sequence[[rv$activeFile]][, 1] %in% "Name"], rownames = FALSE, 
               options = list(autoWidth = TRUE, scrollY = "700px", pageLength = 20))

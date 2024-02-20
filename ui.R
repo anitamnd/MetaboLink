@@ -33,9 +33,9 @@ shinyUI(dashboardPage(
       badgeStatus = NULL,
       headerText = "Help",
       notificationItem("User manual", icon = icon("book"),
-                       href = "https://github.com/anitamnd/jlspec_2_0/wiki"),
+                       href = "https://github.com/anitamnd/MetaboLink/wiki"),
       notificationItem("Source code and installation", icon = icon("file"),
-                       href = "https://github.com/anitamnd/jlspec_2_0"),
+                       href = "https://github.com/anitamnd/MetaboLink"),
       notificationItem("Institution", icon = icon("university"),
                        href = "https://www.sdu.dk/en")
     )
@@ -291,10 +291,11 @@ shinyUI(dashboardPage(
       hidden(
         div(
           id = "sequence_panel",
-          column(12, box(width = NULL,
-              strong("User guide"),
+          column(12, box(width = NULL, title = "Instructions",
               tagList(
                 list(
+                  tags$li("Upload the sequence/metafile."),
+                  tags$li("The sample names in the metafile should match the sample names in the data file."),
                   tags$li("Make sure the columns are labeled correctly before proceeding."),
                   tags$li("If you see a sample column labeled '-', this usually means there are invalid characters in the column."),
                   tags$li("Labels cannot be edited in the app to avoid crashes. Please edit the file and re-upload.")
@@ -303,7 +304,7 @@ shinyUI(dashboardPage(
           )),
           column(
             width = 8,
-            box(
+            box( #TODO table looks weird
               title = textOutput("diboxtitle"), width = NULL,
               DTOutput("seq_table") %>% withSpinner(color="#0A4F8F")
             )
@@ -313,20 +314,20 @@ shinyUI(dashboardPage(
             box(
               width = NULL, title = "Upload sequence file", status = "danger",
               fileInput("inputSequence", "Select file", accept = c("txt/csv", "text/comma-seperated-values,text/plain", ".csv"), width = "100%"),
-              column(6, actionButton("updateSequence", label = "Update", width = "100%")), 
-              column(6, actionButton("reuseSequence", label = "Re-use sequence", width = "100%"))
+              column(6, style = "padding-left: 0px;", actionButton("updateSequence", label = "Update", width = "100%")), 
+              column(6, style = "padding-right: 0px;", actionButton("reuseSequence", label = "Re-use sequence", width = "100%"))
             ),
             box(
               width = NULL, title = "Edit data columns",
-              actionButton("editSequence", "Edit", width = 100)
+              actionButton("editColumns", "Edit", width = "50%")
             ),
             box(
               width = NULL, title = "Group nicknames",
-              actionButton("editGroups", "Edit", width = 100)
+              actionButton("editGroups", "Edit", width = "50%")
             ),
             box(
               width = NULL, title = "Download sequence file",
-              downloadButton("downloadSequence", "Download", width = 100)
+              downloadButton("downloadSequence", " Download")
             )
           )
         )
