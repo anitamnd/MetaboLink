@@ -27,9 +27,11 @@ shinyServer(function(session, input, output) {
   observeEvent(input$statistics_button, {
     windowselect("statistics")
     updateSelectInput(session, "group1", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'class']))
+    updateSelectInput(session, "group1_polystest", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'class']))
     updateSelectInput(session, "group2", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'class']))
+    updateSelectInput(session, "group2_polystest", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'class']))
     updateSelectInput(session, "time1", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'time']))
-    updateSelectInput(session, "time2", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'time']))
+    updateSelectInput(session, "time2", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'time']))  
   })
 
   # Functions
@@ -214,7 +216,7 @@ shinyServer(function(session, input, output) {
 
     output$seq_table <- renderDT(rv$sequence[[rv$activeFile]], extensions = 'Responsive', server = F, 
           editable = T, selection = 'none', options = list(pageLength = nrow(rv$sequence[[rv$activeFile]]), 
-          fixedHeader = TRUE))
+          fixedHeader = TRUE, scrollX = TRUE))
     output$diboxtitle <- renderText(names(rv$data[rv$activeFile]))
     output$dttable <- renderDT(data, rownames = FALSE, options = list(scrollX = TRUE, 
               scrollY = "700px"))
@@ -225,16 +227,17 @@ shinyServer(function(session, input, output) {
     
     output$histogram <- renderPlotly({
       samples <- data[, sequence[ , 'labels'] %in% "Sample"]
-      samples[is.na(samples)] <- 0
+      samples[is.na(samples)] <- 0 #TODO rm NA instead and add groups to plot + color by group?
       medians <- apply(samples, 2, median)
       median_data <- data.frame(
         Sample = names(medians),
         Median = medians
       )
       ggplot(median_data, aes(x = Sample, y = Median)) +
-        geom_col(fill = "skyblue", color = "black") +
-        labs(x = "Sample", y = "Median") +
-        theme_minimal()
+        geom_col(fill = "skyblue", color = "black", width = 0.7) +
+        labs(x = "Samples", y = "Median") +
+        theme_minimal() +
+        theme(axis.text.x = element_blank())
     })
 
     output$histogram_qc <- renderUI({
@@ -1201,7 +1204,7 @@ shinyServer(function(session, input, output) {
   })
 
   # Statistics
-  observeEvent(input$testType, { #TODO move this to functions file? 
+  observeEvent(input$testType, { #TODO move this to functions file
     sequence <- rv$sequence[[rv$activeFile]]
     enable("selectTest")
     switch(input$testType,
@@ -1285,11 +1288,41 @@ shinyServer(function(session, input, output) {
           })
         })
         lapply(seq_along(st$results[[rv$activeFile]]), function(i) {
-          output[[paste0("results", i)]] <- renderDT({
-            st$results[[rv$activeFile]][[i]]
-          })
+          output[[paste0("results", i)]] <- renderDT(
+            st$results[[rv$activeFile]][[i]], options = list(scrollX = TRUE)
+          )
         })
     #enable("runTest")
+  })
+
+  observeEvent(input$export_polystest, { #TODO functions
+    # Select Name and Samples (no QCs)
+    sequence <- rv$sequence[[rv$activeFile]]
+    tdata <- rv$data[[rv$activeFile]][, sequence[, 1] %in% c("Name",  "Sample")]
+    tseq <- sequence[sequence[, 1] %in% c("Name",  "Sample"), ]
+    if(input$timepoints) {
+      selected <- tdata[, (sequence[, 'time'] %in% c(input$timepoints1_polystest) & sequence[, 'class'] %in% c(input$group1_polystest))
+                        | (sequence[, 'time'] %in% c(input$timepoints2_polystest) & sequence[, 'class'] %in% c(input$group2_polystest))]
+      selected_sequence <- tseq[(sequence[, 'time'] %in% c(input$timepoints1_polystest) & sequence[, 'class'] %in% c(input$group1_polystest))
+                                | (sequence[, 'time'] %in% c(input$timepoints2_polystest) & sequence[, 'class'] %in% c(input$group2_polystest)), ]
+
+      # Create new column with group_time
+      selected_sequence$class <- paste0(selected_sequence$class, "_", selected_sequence$time)
+    } else {
+      selected <- tdata[, sequence[, 'class'] %in% c(input$group1_polystest, input$group2_polystest)]
+      selected_sequence <- tseq[sequence[, 'class'] %in% c(input$group1_polystest, input$group2_polystest), ]
+    }
+    groups <- factor(selected_sequence[, 4], exclude = NA)
+    NumReps <- max(table(groups))
+    NumCond <- length(levels(groups))
+    groups <- levels(groups)
+    selected_NA <- addEmptyCols(selected, selected_sequence, groups, NumReps)
+    PolySTestMessage <- toJSON(list(
+      numrep=NumReps, numcond=NumCond, grouped=F,
+      firstquantcol=2, expr_matrix=as.list(as.data.frame(selected_NA))
+    ))
+    js$send_message(url="http://computproteomics.bmb.sdu.dk:443/app_direct/PolySTest/", 
+                    dat=PolySTestMessage, tool="PolySTest")
   })
 
   observeEvent(input$send_polystest, {

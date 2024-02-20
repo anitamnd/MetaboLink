@@ -342,17 +342,24 @@ shinyUI(dashboardPage(
                 column(12, box(width = NULL, DTOutput("dttable") %>% withSpinner(color="#0A4F8F")))
               )
             ),
-            tabPanel("Sample distribution", 
+            tabPanel("Sample distribution",
+            #TODO boxplots instead of histograms
+            #TODO add specific panel for comparison?
               fluidRow(
                 column(12,
-                  box(width = NULL, h4("Median across samples"), plotlyOutput("histogram")),
-                ),
+                  box(width = NULL, title = "Median across samples", 
+                    plotlyOutput("histogram")
+                )),
                 column(12,
                   box(width = NULL, h4("Median across QCs"), uiOutput("histogram_qc"))
+                ),
+                column(12,
+                  box(width = NULL, h4("Median across groups"), uiOutput("histogram_groups"))
                 )
               )
             ),
             tabPanel("PCA", 
+            #TODO small guide/tooltips
               fluidRow(
                 column(6, box(width = NULL,
                   selectInput("selectpca1", "", choices = NULL, width = "100%"),
@@ -360,8 +367,7 @@ shinyUI(dashboardPage(
                   actionButton("run_pca1", "Run PCA", width = "50%") %>%
                     bsTooltip("Check box if the data is log-transformed!", placement = "bottom", trigger = "hover"),
                   plotlyOutput("plotpca1", width = "100%"), br(),
-                  htmlOutput("pca1Details"), br(),
-                  plotOutput("boxplot1")
+                  htmlOutput("pca1Details")
                 )),
                 column(6, box(width = NULL,
                   selectInput("selectpca2", "", choices = NULL, width = "100%"),
@@ -391,10 +397,15 @@ shinyUI(dashboardPage(
             ),
             tabPanel("Feature viewer",
               fluidRow(
-                column(3, box(width = NULL, DTOutput("dt_boxplot_panel"))),
-                column(9, box(width = NULL, 
+                column(3, box(
+                    width = NULL, 
+                    title = "Select feature", 
+                    DTOutput("dt_boxplot_panel")
+                )),
+                column(9, box(width = NULL, title = "Settings",
                   fluidRow(
                     column(6,
+                      textInput("boxplot_title", "Title", value = NULL),
                       radioButtons(
                         inputId = "bloxplot_log",
                         label = "Log",
@@ -436,8 +447,28 @@ shinyUI(dashboardPage(
           id = "statistics_panel",
           fluidPage(
             fluidRow(
-              box(width = NULL, column(6,
-                h4("Parameters"),
+                column(12, box(width = NULL, title = "Guide", status = "primary", solidHeader = TRUE,
+                  strong("Local test"),
+                  tagList(
+                    list(
+                      tags$li("Start by selecting the test type and the groups you want to compare.")
+                    )
+                  ), br(),
+                  strong("PolySTest"),
+                  tagList(
+                    list(
+                      tags$li("If your data has too many missing values, we recommend running the test on PolySTest App without imputation."),
+                      tags$li("To Export to PolySTest, you should first choose the comparison you want to do."),
+                      tags$li("If you want to Export the entire dataset to PolySTest, go to the Export panel.")
+                      #TODO if it's just group comparison there is no need to select here, they can select on PolySTest
+                    )
+                  )
+                )
+              )
+            ),
+            fluidRow(
+              column(6, box(width = NULL,
+                h4("Local test"),
                 fluidRow(
                   column(12,
                     selectInput("testType", "Select test", width = "100%",
@@ -470,30 +501,28 @@ shinyUI(dashboardPage(
                   )
                 ),
                 fluidRow(
-                  column(6, actionButton("selectTest", "Run test", width = "100%")),
-                  column(6, actionButton("exportPolySTest", "Send to PolySTest", width = "100%"))
+                  column(6, actionButton("selectTest", "Run test", width = "100%"))
                 )
-              ),
-              column(6,
-                h4("User guide"),
-                tagList(
-                  list(
-                    tags$li("Start by selecting the test type and the groups you want to compare.")
-                  )
-                ), br(),
-                strong("PolySTest"),
-                tagList(
-                  list(
-                    tags$li("If your data has too many missing values, we recommend running the test on PolySTest without imputation."),
-                    tags$li("To Export to PolySTest, you should first choose the comparison you want to make and then click the button."),
-                    tags$li("If you want to Export the entire dataset to PolySTest, go to the Export panel.")
-                    #TODO if it's just group comparison there is no need to select here, they can select on PolySTest
-                  )
+              )),
+              column(6, box(width = NULL, 
+                h4("Export to PolySTest"),
+                fluidRow(
+                  column(6, selectInput("group1_polystest", "Group", choices = NULL, width = "100%")),
+                  column(6, selectInput("timepoints1_polystest", "Time", choices = NULL, width = "100%"))
+                ),
+                fluidRow(
+                  column(6, selectInput("group2_polystest", "Group", choices = NULL, width = "100%")),
+                  column(6, selectInput("timepoints2_polystest", "Time", choices = NULL, width = "100%"))
+                ),
+                fluidRow( 
+                  column(6, actionButton("export_polystest", "Send to PolySTest", width = "100%"))
                 )
               ))
             ),
             fluidRow(
-              box(title = "Results", width = NULL, column(12, uiOutput("results_ui")))
+              column(12, box(title = "Results", width = NULL,
+                uiOutput("results_ui")
+              ))
             )
           )
         )
@@ -503,7 +532,7 @@ shinyUI(dashboardPage(
       hidden(
         div(
           id = "export_panel",
-          box(title = strong(".csv and .xlsx"), width = 6,
+          box(title = ".csv and .xlsx", status = "primary", solidHeader = TRUE, width = 6,
             column(12, 
               h4(".csv"),
               uiOutput("export_ui")
@@ -522,7 +551,7 @@ shinyUI(dashboardPage(
               uiOutput("export_settings")
             )
           ),
-          box(title = strong("Export to other apps"), width = 6,
+          box(title = "Export to other apps", status = "primary", solidHeader = TRUE, width = 6,
             column(12, 
               h4("Statistical testing"),
               actionButton("send_polystest", "Send to PolySTest"),
