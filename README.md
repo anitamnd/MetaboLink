@@ -1,8 +1,8 @@
-# JLspec
+# MetaboLink
 ---
 
-JLspec is a web-based application created with shiny R and it is available at http://computproteomics.bmb.sdu.dk/Metabolomics/.
-Documentation on how to use the app can be found in [Wiki JLspec](https://github.com/anitamnd/jlspec_2_0/wiki).
+MetaboLink is a web-based application created with shiny R and it is available at http://computproteomics.bmb.sdu.dk/Metabolomics/.
+Documentation on how to use the app can be found in [Wiki MetaboLink](https://github.com/anitamnd/MetaboLink/wiki).
 
 
 ## Installation
@@ -10,7 +10,7 @@ Documentation on how to use the app can be found in [Wiki JLspec](https://github
 ### Clone repository
 
 ```
-git clone https://github.com/anitamnd/jlspec-2.0
+git clone https://github.com/anitamnd/MetaboLink
 ```
 ### Install dependencies
 Use the following code to install the required R packages:
