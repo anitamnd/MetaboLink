@@ -1,10 +1,10 @@
 checkSequence <- function(sequence) {
-  columnsToCheck <- c("sample", "batch", "order", "class", "time", "paired", "amount")
+  columnsToCheck <- c("sample", "batch", "order", "group", "time", "paired", "amount")
   missingColumns <- setdiff(columnsToCheck, colnames(sequence))
   if (length(missingColumns) > 0) {
     sequence[missingColumns] <- lapply(seq_along(missingColumns), function(x) sequence[missingColumns[x]] <- NA)
   }
-  sequence <- sequence[, c("sample", "batch", "order", "class", "time", "paired", "amount")]
+  sequence <- sequence[, c("sample", "batch", "order", "group", "time", "paired", "amount")]
   return(sequence)
 }
 
@@ -21,6 +21,19 @@ checkDuplicates <- function(columns) {
     sendSweetAlert(title = "Info", text = "Duplicate names are not allowed.", type = "info")
   }
   return(has_duplicates)
+}
+
+isValidName <- function(s) {
+  if (grepl("^[A-Za-z0-9_]+$", s) && nchar(s) <= 10) {
+    return(TRUE)
+  } else {
+    return(FALSE)
+  }
+}
+
+selectGroups <- function(data, sequence, groups) {
+  selected <- data[, sequence[, 4] %in% groups]
+  return(selected)
 }
 
 blankFiltration <- function(data, sequence, signalStrength, keepIs) {
@@ -137,8 +150,8 @@ imputation <- function(data, seq, method, minx = 1, onlyqc, remaining) {
     qcSequence <- seq[seq[, 1] %in% c("Sample", "QC"), ]
   }
   qcData[qcData == 0] <- NA
-  qcSequence[qcSequence[, 1] %in% c("QC"), ]$class <- "QC"
-  qcSequence$class[is.na(qcSequence$class)] <- "Sample"
+  qcSequence[qcSequence[, 1] %in% c("QC"), ]$group <- "QC"
+  qcSequence$group[is.na(qcSequence$group)] <- "Sample"
 
   if (method == "KNN") {
     qcData <- as.matrix(qcData)
@@ -202,9 +215,9 @@ cutoffrm <- function(data, seq, cutoff, method) {
 }
 
 imp_median <- function(data, seq) {
-  datm <- data.frame(seq$class, t(data))
+  datm <- data.frame(seq$group, t(data))
   datm <- datm %>%
-    group_by(seq.class) %>%
+    group_by(seq.group) %>%
     mutate_if(
       is.numeric,
       function(x) {
@@ -218,9 +231,9 @@ imp_median <- function(data, seq) {
 }
 
 imp_minx <- function(data, seq, minx) {
-  datm <- data.frame(seq$class, t(data))
+  datm <- data.frame(seq$group, t(data))
   datm <- datm %>%
-    group_by(seq.class) %>%
+    group_by(seq.group) %>%
     mutate_if(
       is.numeric,
       function(x) {
@@ -245,20 +258,20 @@ cv <- function(data) {
   round(apply(data, 1, sd, na.rm = T) / apply(data, 1, mean, na.rm = T) * 100, 2)
 }
 
-pcaplot <- function(data, class, islog) {
+pcaplot <- function(data, group, islog) {
   data[data == 0] <- NA
   data <- data[complete.cases(data), ]
-  class[!is.na(class)] <- class[!is.na(class)]
-  class[is.na(class)] <- "No class"
+  group[!is.na(group)] <- group[!is.na(group)]
+  group[is.na(group)] <- "No class"
   ifelse(islog, data <- t(data), data <- log(t(data)))
   prin <- prcomp(data, rank. = 2, center = T, scale = F)
   pov <- summary(prin)[["importance"]]["Proportion of Variance", ]
   pov <- round(pov * 100, 2)
   components <- prin[["x"]]
   components <- data.frame(components)
-  label <- paste0(row.names(components), ": ", class)
-  col <- colorRampPalette(RColorBrewer::brewer.pal(8, "Set1"))(length(unique(class)))
-  pca <- plot_ly(components, x = ~PC1, y = ~PC2, type = "scatter", mode = "markers", text = label, hoverinfo = "text", color = class, colors = col)
+  label <- paste0(row.names(components), ": ", group)
+  col <- colorRampPalette(RColorBrewer::brewer.pal(8, "Set1"))(length(unique(group)))
+  pca <- plot_ly(components, x = ~PC1, y = ~PC2, type = "scatter", mode = "markers", text = label, hoverinfo = "text", color = group, colors = col)
   pca <- pca %>% layout(
     legend = list(title = list(text = "color")),
     plot_bgcolor = "#e5ecf6",

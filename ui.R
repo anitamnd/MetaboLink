@@ -304,7 +304,7 @@ shinyUI(dashboardPage(
           )),
           column(
             width = 8,
-            box( #TODO table looks weird
+            box(
               title = textOutput("diboxtitle"), width = NULL,
               DTOutput("seq_table") %>% withSpinner(color="#0A4F8F")
             )
@@ -323,6 +323,7 @@ shinyUI(dashboardPage(
             ),
             box(
               width = NULL, title = "Group nicknames",
+              p("Only use letters, numbers or underscore."),
               actionButton("editGroups", "Edit", width = "50%")
             ),
             box(
@@ -344,19 +345,22 @@ shinyUI(dashboardPage(
               )
             ),
             tabPanel("Sample distribution",
-            #TODO boxplots instead of histograms
             #TODO add specific panel for comparison?
               fluidRow(
                 column(12,
                   box(width = NULL, title = "Median across samples", 
-                    plotlyOutput("histogram")
+                    plotlyOutput("histogram") %>% withSpinner(color="#0A4F8F")
                 )),
                 column(12,
-                  box(width = NULL, h4("Median across QCs"), uiOutput("histogram_qc"))
-                ),
+                  box(width = NULL, title = "Median across QCs",
+                    uiOutput("histogram_qc") %>% withSpinner(color="#0A4F8F")
+                )),
                 column(12,
-                  box(width = NULL, h4("Median across groups"), uiOutput("histogram_groups"))
-                )
+                  box(width = NULL, title = "Median across groups",
+                    column(6, selectInput("select_group", "Select group", choices = NULL, width = "100%")),
+                    column(6),
+                    plotlyOutput("histogram_group") %>% withSpinner(color="#0A4F8F")
+                ))
               )
             ),
             tabPanel("PCA", 
@@ -376,6 +380,13 @@ shinyUI(dashboardPage(
                   actionButton("run_pca2", "Run PCA", width = "50%"),
                   plotlyOutput("plotpca2"), br(),
                   htmlOutput("pca2Details")
+                )),
+                #TODO boxplots (see normalization)
+                column(6, box(width = NULL,
+                  plotOutput("boxplot_1", width = "100%")
+                )),
+                column(6, box(width = NULL,
+                  plotOutput("boxplot_2", width = "100%")
                 ))
               ),
             ),
@@ -475,7 +486,7 @@ shinyUI(dashboardPage(
                     selectInput("testType", "Select test", width = "100%",
                       choices = c("2 group comparison (unpaired)" = "GroupsUnpaired",
                                   "2 group comparison with multiple time points (paired)" = "GroupsMultipleTime",
-                                  "Compare to reference group" = "CompareToReference"), selected = NULL,
+                                  "Compare to reference group" = "CompareToReference"), selected = NULL
                     ))
                 ),
                 conditionalPanel(

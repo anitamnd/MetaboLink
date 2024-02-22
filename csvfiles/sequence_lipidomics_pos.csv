@@ -1,4 +1,4 @@
-sample,labels,batch,order,class,time,paired,amount
+sample,labels,batch,order,group,time,paired,amount
 Compound.Name,Name,NA,NA,NA,NA,NA,
 Formula,-,NA,NA,NA,NA,NA,
 Mass,Mass,NA,NA,NA,NA,NA,
