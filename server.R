@@ -7,8 +7,7 @@ shinyServer(function(session, input, output) {
                   choices = NULL, drift_plot_select = 1, info = vector("character"))
 
   ## Statistics
-  st <- reactiveValues(stats = list(), sequence = list(), results = list(),
-                  comparisons = list(), colcomp = list())
+  st <- reactiveValues(results = list())
 
   userConfirmation <- reactiveVal(FALSE)
 
@@ -26,22 +25,37 @@ shinyServer(function(session, input, output) {
   })
   observeEvent(input$statistics_button, {
     windowselect("statistics")
-    updateSelectInput(session, "group1", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'class']))
-    updateSelectInput(session, "group1_polystest", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'class']))
-    updateSelectInput(session, "group2", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'class']))
-    updateSelectInput(session, "group2_polystest", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'class']))
+    updateSelectInput(session, "group1", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'group']))
+    updateSelectInput(session, "group1_polystest", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'group']))
+    updateSelectInput(session, "group2", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'group']))
+    updateSelectInput(session, "group2_polystest", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'group']))
     updateSelectInput(session, "time1", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'time']))
     updateSelectInput(session, "time2", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'time']))  
+  })
+
+  output$histogram_group <- renderPlotly({
+    isolate({
+      data <- rv$data[[rv$activeFile]]
+      sequence <- rv$sequence[[rv$activeFile]]
+    })
+    selected <- selectGroups(data, sequence, input$select_group)
+    if (nrow(selected) > 0) {
+      medians <- apply(selected, 2, median, na.rm = TRUE)
+      median_data <- data.frame(
+        Sample = names(medians),
+        Median = medians
+      )
+      ggplot(median_data, aes(x = Sample, y = Median)) +
+        geom_col(fill = "#4dc4f4", color = "black", width = 0.7) +
+        labs(x = "Samples", y = "Median") +
+        theme_minimal()
+    }
   })
 
   # Functions
 
   initializeVariables <- function() {
-    st$stats[[length(st$stats) + 1]] <- data.frame()
-    st$sequence[[length(st$stats) + 1]] <- data.frame()
     st$results[[length(st$results) + 1]] <- list()
-    st$comparisons[[length(st$comparisons) + 1]] <- vector("character")
-    st$colcomp[[length(st$colcomp) + 1]] <- vector("numeric")
   }
 
   observeEvent(input$submit, {
@@ -58,16 +72,11 @@ shinyServer(function(session, input, output) {
     } else {
       labels <- identifyLabels(inputFile)
       checkColumns(colnames(inputFile), labels)
-      batch <- NA
-      order <- NA
-      class <- NA
-      time <- NA
-      paired <- NA
       initializeVariables()
-      rv$sequence[[length(rv$sequence) + 1]] <- data.frame(labels, batch, order, class, time, paired)
+      rv$sequence[[length(rv$sequence) + 1]] <- data.frame(labels, rep(NA, 5))
       rv$data[[length(rv$data) + 1]] <- inputFile
       names(rv$data)[length(rv$data)] <- substr(input$inputFile$name, 1, nchar(input$inputFile$name) - 4)
-      rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
+      rv$choices <- paste(1:length(rv$data), ": ", names(rv$data)) #TODO 
       updateTabItems(session, "tabs", selected = "Datainput")
       show("buttons")
     }
@@ -88,6 +97,8 @@ shinyServer(function(session, input, output) {
     row.names(sequence) <- sequence[, 1]
     sequence <- sequence[, -1]
     rv$sequence[[rv$activeFile]] <- sequence
+
+    updateSelectInput(session, "select_group", choices = na.omit(sequence[, 'group']))
   })
 
   observeEvent(input$reuseSequence, {
@@ -117,7 +128,6 @@ shinyServer(function(session, input, output) {
             column(
               width = 9,
               textInput(paste0("column_edit_name", x), NULL, value = colnames(rv$data[[rv$activeFile]])[x])
-              #p(colnames(rv$data[[rv$activeFile]])[x])
             ),
             column(
               width = 3, style = "text-align: center;",
@@ -130,15 +140,15 @@ shinyServer(function(session, input, output) {
   })
 
   observeEvent(input$edit_cols_confirm, {
+    ncol <- ncol(rv$data[[rv$activeFile]])
     column_names <- character()
-    column_names <- sapply(seq(ncol(rv$data[[rv$activeFile]])), function(x) {
+    column_names <- sapply(seq(ncol), function(x) {
       input[[paste0("column_edit_name", x)]]
     })
-
     if(!checkDuplicates(column_names)) {
       isolate(colnames(rv$data[[rv$activeFile]]) <- column_names)
       isolate(row.names(rv$sequence[[rv$activeFile]]) <- column_names)
-      keep <- sapply(seq(ncol(rv$data[[rv$activeFile]])), function(x) input[[paste0("columns_to_keep", x)]])
+      keep <- sapply(seq(ncol), function(x) input[[paste0("columns_to_keep", x)]])
       rv$data[[rv$activeFile]] <- rv$data[[rv$activeFile]][, keep]
       rv$sequence[[rv$activeFile]] <- rv$sequence[[rv$activeFile]][keep, ]
     }
@@ -146,37 +156,44 @@ shinyServer(function(session, input, output) {
   })
 
   observeEvent(input$editGroups, {
+    sequence <- rv$sequence[[rv$activeFile]]
+    unique_groups <- unique(na.omit(sequence[, 4]))
+    # Generate UI elements for each group
+    group_ui_elements <- lapply(seq(unique_groups), function(x) {
+      group <- unique_groups[x]
+      fluidRow(
+        column(3, h5(group)),
+        column(9,
+          textInput(paste0("edit_nickname", group), NULL, value = NULL)
+        ),
+      )
+    })
     showModal(
       modalDialog(
         title = "Edit Group Nicknames", size = "s", easyClose = TRUE,
         footer = list(actionButton("group_edit_confirm", "Confirm"), modalButton("Dismiss")),
         fluidRow(
-          column(width = 3, h4("Group")),
-          column(width = 9, h4("Nickname"))
+          column(3, h4("Group")),
+          column(9, h4("Nickname"))
         ), 
-        lapply(seq(unique(rv$sequence[[rv$activeFile]][, 4][!is.na(rv$sequence[[rv$activeFile]][, 4])])), function(x) {
-          group <- sort(unique(rv$sequence[[rv$activeFile]][, 4][!is.na(rv$sequence[[rv$activeFile]][, 4])]))[x]
-          fluidRow(
-            column(width = 2, h5(stri_extract_first_regex(group, "[0-9]+"))),
-            column(
-              width = 10,
-              textInput(paste0("edit_nickname", x), NULL, value = NULL)
-            ),
-          )
-        }),
+        do.call(tagList, group_ui_elements)
       )
     )
   })
 
   observeEvent(input$group_edit_confirm, {
-    groups <- rv$sequence[[rv$activeFile]][, 4]
-    sapply(seq(ncol(rv$data[[rv$activeFile]])), function(x) {
-      if(!is.na(groups[x])) {
-        isolate(rv$sequence[[rv$activeFile]][, 4][x] <- paste(rv$sequence[[rv$activeFile]][, 4][x], input[[paste0("edit_nickname", groups[x])]], sep = ": "))
+    sequence <- rv$sequence[[rv$activeFile]]
+    groups <- sequence[, 4]
+    for (x in seq_along(groups)) {
+      if (!is.na(groups[x])) {
+        input_x <- input[[paste0("edit_nickname", groups[x])]]
+        if (nchar(input_x) != 0 & isValidName(input_x)) {
+          sequence[x, 4] <- input_x
+        }
       }
-    })
+    }
+    rv$sequence[[rv$activeFile]] <- sequence
     removeModal()
-    show("sequence_panel")
   })
 
   observeEvent(input$example, {
@@ -232,8 +249,7 @@ shinyServer(function(session, input, output) {
     
     output$histogram <- renderPlotly({
       samples <- data[, sequence[ , 'labels'] %in% "Sample"]
-      samples[is.na(samples)] <- 0 #TODO rm NA instead and add groups to plot + color by group?
-      medians <- apply(samples, 2, median)
+      medians <- apply(samples, 2, median, na.rm = TRUE)
       median_data <- data.frame(
         Sample = names(medians),
         Median = medians
@@ -248,8 +264,7 @@ shinyServer(function(session, input, output) {
     output$histogram_qc <- renderUI({
       QCs <- data[, sequence[ , 'labels'] %in% "QC"]
       if(ncol(QCs) > 0) {
-        QCs[is.na(QCs)] <- 0
-        medians <- apply(QCs, 2, median)
+        medians <- apply(QCs, 2, median, na.rm = TRUE)
         median_QC <- data.frame(
           QC = names(medians),
           Median = medians
@@ -276,11 +291,13 @@ shinyServer(function(session, input, output) {
       } 
     }
 
-    # Statistics
-    updateSelectInput(session, "group1", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'class']))
-    updateSelectInput(session, "group2", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'class']))
-    updateSelectInput(session, "time1", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'time']))
-    updateSelectInput(session, "time2", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'time']))
+    groups <- na.omit(rv$sequence[[rv$activeFile]][, 'group'])
+    time <- na.omit(rv$sequence[[rv$activeFile]][, 'time'])
+    updateSelectInput(session, "select_group", choices = groups)
+    updateSelectInput(session, "group1", label = NULL, choices = groups)
+    updateSelectInput(session, "group2", label = NULL, choices = groups)
+    updateSelectInput(session, "time1", label = NULL, choices = time)
+    updateSelectInput(session, "time2", label = NULL, choices = time)
   })
 
   observeEvent(rv$choices, {
@@ -352,9 +369,9 @@ shinyServer(function(session, input, output) {
       dat <- rv$data[[x]]
       seq <- rv$sequence[[x]]
       seq[seq[, 1] %in% "QC", 4] <- "QC"
-      class <- c("", seq[seq[, 1] %in% c("Sample", "QC"), 4])
+      group <- c("", seq[seq[, 1] %in% c("Sample", "QC"), 4])
       outdat <- data.frame(dat[seq[, 1] %in% "Name"], dat[seq[, 1] %in% c("Sample", "QC")])
-      outdat <- rbind(class, outdat)
+      outdat <- rbind(group, outdat)
       output[[paste0("dwn_metabo", x)]] <- downloadHandler(
         filename = function() {
           paste0(names(rv$data[x]), "_metabo.csv")
@@ -384,11 +401,8 @@ shinyServer(function(session, input, output) {
       rv$data <- rv$data[keep]
       rv$sequence <- rv$sequence[keep]
       rv$info <- rv$info[keep]
-      st$stats <- st$stats[keep]
       st$sequence <- st$sequence[keep]
       st$results <- st$results[keep]
-      st$comparisons <- st$comparisons[keep]
-      st$colcomp <- st$colcomp[keep]
       rv$activeFile <- names(rv$data)[length(rv$data)]
       rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
       showNotification("Files removed.", type = "message")
@@ -895,7 +909,7 @@ shinyServer(function(session, input, output) {
             round(cvmean(sdata[, sclass %in% x]), 2)
           })
           classcv <- sapply(seq_along(classcv), function(x) {
-            paste0("CV in class ", x, ": ", classcv[x], "</br>")
+            paste0("CV in group ", x, ": ", classcv[x], "</br>")
           })
         } else {
           classcv <- NULL
@@ -947,6 +961,16 @@ shinyServer(function(session, input, output) {
       })
     }
   })
+
+  observeEvent(input$select_boxplot_1, { #TODO which rv choices -> function
+    data <- rv$data[[which(rv$choices %in% input$select_boxplot_1)]]
+    sequence <- rv$sequence[[which(rv$choices %in% input$select_boxplot_1)]]
+    group <- input$select_boxplot_1_group
+    data <- data[sequence[, 1] %in% "Sample" & sequence[, 4] %in% group]
+    output$boxplot_1 <- renderPlot({
+      boxplot(log2(data), main = input$select_boxplot_1, xlab = "Analyte", ylab = "Intensity")
+    })
+  }, ignoreInit = TRUE)
 
   observeEvent(input$drift_1, {
     rv$drift_plot_select <- 1
@@ -1209,7 +1233,7 @@ shinyServer(function(session, input, output) {
   })
 
   # Statistics
-  observeEvent(input$testType, { #TODO move this to functions file
+  observeEvent(input$testType, { #TODO functions
     sequence <- rv$sequence[[rv$activeFile]]
     enable("selectTest")
     switch(input$testType,
@@ -1239,7 +1263,7 @@ shinyServer(function(session, input, output) {
           sendSweetAlert(session, "Oops!", "Invalid test. Provide information on different groups/conditions.", type = "error")
           disable("selectTest")
         } else {
-          updateSelectInput(session, "referenceGroup", label = NULL, choices = na.omit(sequence[, 'class']))
+          updateSelectInput(session, "referenceGroup", label = NULL, choices = na.omit(sequence[, 'group']))
         }
       },
       {
@@ -1249,7 +1273,7 @@ shinyServer(function(session, input, output) {
   }, ignoreInit = TRUE
   )
 
-  observeEvent(input$selectTest, { #TODO move this to functions file?
+  observeEvent(input$selectTest, { #TODO functions!
     data <- rv$data[[rv$activeFile]]
     sequence <- rv$sequence[[rv$activeFile]]
     switch(input$testType, 
@@ -1297,7 +1321,6 @@ shinyServer(function(session, input, output) {
             st$results[[rv$activeFile]][[i]], options = list(scrollX = TRUE)
           )
         })
-    #enable("runTest")
   })
 
   observeEvent(input$export_polystest, { #TODO functions
@@ -1305,17 +1328,14 @@ shinyServer(function(session, input, output) {
     sequence <- rv$sequence[[rv$activeFile]]
     tdata <- rv$data[[rv$activeFile]][, sequence[, 1] %in% c("Name",  "Sample")]
     tseq <- sequence[sequence[, 1] %in% c("Name",  "Sample"), ]
-    if(input$timepoints) {
-      selected <- tdata[, (sequence[, 'time'] %in% c(input$timepoints1_polystest) & sequence[, 'class'] %in% c(input$group1_polystest))
-                        | (sequence[, 'time'] %in% c(input$timepoints2_polystest) & sequence[, 'class'] %in% c(input$group2_polystest))]
-      selected_sequence <- tseq[(sequence[, 'time'] %in% c(input$timepoints1_polystest) & sequence[, 'class'] %in% c(input$group1_polystest))
-                                | (sequence[, 'time'] %in% c(input$timepoints2_polystest) & sequence[, 'class'] %in% c(input$group2_polystest)), ]
-
-      # Create new column with group_time
-      selected_sequence$class <- paste0(selected_sequence$class, "_", selected_sequence$time)
+    if(input$timepoints1_polystest != "" & input$timepoints2_polystest != "") {
+      selected <- tdata[, (sequence[, 'time'] %in% input$timepoints1_polystest & sequence[, 'group'] %in% c(input$group1_polystest))
+                        | (sequence[, 'time'] %in% input$timepoints2_polystest & sequence[, 'group'] %in% c(input$group2_polystest))]
+      selected_sequence <- tseq[(sequence[, 'time'] %in% c(input$timepoints1_polystest) & sequence[, 'group'] %in% c(input$group1_polystest))
+                                | (sequence[, 'time'] %in% c(input$timepoints2_polystest) & sequence[, 'group'] %in% c(input$group2_polystest)), ]
     } else {
-      selected <- tdata[, sequence[, 'class'] %in% c(input$group1_polystest, input$group2_polystest)]
-      selected_sequence <- tseq[sequence[, 'class'] %in% c(input$group1_polystest, input$group2_polystest), ]
+      selected <- tdata[, tseq[, 'group'] %in% c(input$group1_polystest, input$group2_polystest)]
+      selected_sequence <- tseq[tseq[, 'group'] %in% c(input$group1_polystest, input$group2_polystest), ]
     }
     groups <- factor(selected_sequence[, 4], exclude = NA)
     NumReps <- max(table(groups))
@@ -1331,7 +1351,6 @@ shinyServer(function(session, input, output) {
   })
 
   observeEvent(input$send_polystest, {
-    # Select Name and Samples (no QCs)
     sequence <- rv$sequence[[rv$activeFile]]
     tdata <- rv$data[[rv$activeFile]][, sequence[, 1] %in% c("Name",  "Sample")]
     tseq <- sequence[sequence[, 1] %in% c("Name",  "Sample"), ]
