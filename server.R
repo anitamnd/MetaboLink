@@ -32,8 +32,8 @@ shinyServer(function(session, input, output) {
     updateSelectInput(session, "group1_polystest", label = NULL, choices = groups)
     updateSelectInput(session, "group2", label = NULL, choices = groups)
     updateSelectInput(session, "group2_polystest", label = NULL, choices = groups)
-    updateSelectInput(session, "time1", label = NULL, choices = time)
-    updateSelectInput(session, "time2", label = NULL, choices = time)
+    updateSelectInput(session, "time1_polystest", label = NULL, choices = time, selected = "")
+    updateSelectInput(session, "time2_polystest", label = NULL, choices = time, selected = "")
   })
 
   output$histogram_group <- renderPlotly({

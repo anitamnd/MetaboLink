@@ -292,13 +292,13 @@ shinyUI(dashboardPage(
       hidden(
         div(
           id = "sequence_panel",
-          column(12, box(width = NULL, title = "Instructions",
+          column(12, box(width = NULL, title = "Instructions", status = "primary", solidHeader = TRUE,
               tagList(
                 list(
                   tags$li("Upload the sequence/metafile."),
                   tags$li("The sample names in the metafile should match the sample names in the data file."),
                   tags$li("Make sure the columns are labeled correctly before proceeding."),
-                  tags$li("If you see a sample column labeled '-', this usually means there are invalid characters in the column."),
+                  tags$li("If a sample (numeric) column is labeled '-', this usually means there are invalid characters in the column."),
                   tags$li("Labels cannot be edited in the app to avoid crashes. Please edit the file and re-upload.")
                 )
               )
@@ -464,16 +464,15 @@ shinyUI(dashboardPage(
                   strong("Local test"),
                   tagList(
                     list(
-                      tags$li("Start by selecting the test type and the groups you want to compare.")
+                      tags$li("Start by selecting the test type.")
                     )
                   ), br(),
                   strong("PolySTest"),
                   tagList(
                     list(
-                      tags$li("If your data has too many missing values, we recommend running the test on PolySTest App without imputation."),
-                      tags$li("To Export to PolySTest, you should first choose the comparison you want to do."),
-                      tags$li("If you want to Export the entire dataset to PolySTest, go to the Export panel.")
-                      #TODO if it's just group comparison there is no need to select here, they can select on PolySTest
+                      tags$li("Select groups (required) and time (optional)."),
+                      tags$li("Options such as 'paired' analysis are available in PolySTest."),
+                      tags$li("To export the entire dataset to PolySTest, go to the Export panel.")
                     )
                   )
                 )
@@ -493,13 +492,13 @@ shinyUI(dashboardPage(
                 conditionalPanel(
                   condition = "input.testType == 'GroupsUnpaired'",
                   fluidRow(
-                    column(6, selectInput("group1", "Group", choices = NULL, width = "100%")),
-                    column(6, selectInput("time1", "Time", choices = NULL, width = "100%"))
-                  ),
-                  fluidRow(
-                    column(6, selectInput("group2", "Group", choices = NULL, width = "100%")),
-                    column(6, selectInput("time2", "Time", choices = NULL, width = "100%"))
+                    column(6, selectInput("group1", "Group 1", choices = NULL, width = "100%")),
+                    column(6, selectInput("group2", "Group 2", choices = NULL, width = "100%"))
                   )
+                  # fluidRow(
+                  #   column(6, selectInput("group2", "Group", choices = NULL, width = "100%")),
+                  #   column(6, selectInput("time2", "Time", choices = NULL, width = "100%"))
+                  # )
                 ),
                 conditionalPanel(
                   condition = "input.testType == 'CompareToReference'",
@@ -521,11 +520,11 @@ shinyUI(dashboardPage(
                 h4("Export to PolySTest"),
                 fluidRow(
                   column(6, selectInput("group1_polystest", "Group", choices = NULL, width = "100%")),
-                  column(6, selectInput("timepoints1_polystest", "Time", choices = NULL, width = "100%"))
+                  column(6, selectInput("time1_polystest", "Time", choices = NULL, width = "100%"))
                 ),
                 fluidRow(
                   column(6, selectInput("group2_polystest", "Group", choices = NULL, width = "100%")),
-                  column(6, selectInput("timepoints2_polystest", "Time", choices = NULL, width = "100%"))
+                  column(6, selectInput("time2_polystest", "Time", choices = NULL, width = "100%"))
                 ),
                 fluidRow( 
                   column(6, actionButton("export_polystest", "Send to PolySTest", width = "100%"))

@@ -1,7 +1,7 @@
 selectPolySTest <- function(data, sequence, groups, time) {
-  tseq <- sequence[sequence[, 1] %in% c("Name", "Sample"), ]  
+  tseq <- sequence[sequence[, 1] %in% c("Name", "Sample"), ]
   baseCondition <- tseq[, 1] %in% "Name"
-  if (!is.null(time)) {
+  if(!any(time == "")) {
     timeGroupCondition <- (tseq[, 5] %in% time[1] & tseq[, 4] %in% groups[1]) |
                           (tseq[, 5] %in% time[2] & tseq[, 4] %in% groups[2])
     condition <- baseCondition | timeGroupCondition
