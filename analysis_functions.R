@@ -1,5 +1,5 @@
 getGroupTime <- function(sequence) {
-    sequence <- sequence[complete.cases(sequence[, 4]), ]
+    sequence <- sequence[complete.cases(sequence[, 4]) & complete.cases(sequence[, 5]), ]
     group <- paste("G", sequence[, 4], sep="")
     time <- paste("T", sequence[, 5], sep="")
     group_time <- paste(group, time, sep="_")
@@ -55,7 +55,7 @@ is_valid_combination <- function(group1, group2) {
     t1 <- strsplit(group1, "_")[[1]][2]
     g2 <- strsplit(group2, "_")[[1]][1]
     t2 <- strsplit(group2, "_")[[1]][2]
-    (g1 == g2 && t1 != t2) || (g1 != g2 && t1 == t2)
+    return((g1 == g2 && t1 != t2) || (g1 != g2 && t1 == t2))
 }
 
 generate_contrasts <- function(combinations) {

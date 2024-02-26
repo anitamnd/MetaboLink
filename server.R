@@ -25,12 +25,15 @@ shinyServer(function(session, input, output) {
   })
   observeEvent(input$statistics_button, {
     windowselect("statistics")
-    updateSelectInput(session, "group1", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'group']))
-    updateSelectInput(session, "group1_polystest", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'group']))
-    updateSelectInput(session, "group2", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'group']))
-    updateSelectInput(session, "group2_polystest", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'group']))
-    updateSelectInput(session, "time1", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'time']))
-    updateSelectInput(session, "time2", label = NULL, choices = na.omit(rv$sequence[[rv$activeFile]][, 'time']))  
+    groups <- na.omit(rv$sequence[[rv$activeFile]][, 'group'])
+    time <- na.omit(rv$sequence[[rv$activeFile]][, 'time'])
+    
+    updateSelectInput(session, "group1", label = NULL, choices = groups)
+    updateSelectInput(session, "group1_polystest", label = NULL, choices = groups)
+    updateSelectInput(session, "group2", label = NULL, choices = groups)
+    updateSelectInput(session, "group2_polystest", label = NULL, choices = groups)
+    updateSelectInput(session, "time1", label = NULL, choices = time)
+    updateSelectInput(session, "time2", label = NULL, choices = time)
   })
 
   output$histogram_group <- renderPlotly({
@@ -71,9 +74,12 @@ shinyServer(function(session, input, output) {
       sendSweetAlert(session, title = "Error", text = paste("Duplicate columns found."), type = "error")
     } else {
       labels <- identifyLabels(inputFile)
-      checkColumns(colnames(inputFile), labels)
+      #checkColumns(colnames(inputFile), labels)
       initializeVariables()
-      rv$sequence[[length(rv$sequence) + 1]] <- data.frame(labels, rep(NA, 5))
+      rv$sequence[[length(rv$sequence) + 1]] <- data.frame(labels, batch = NA,
+                                                        order = NA, group = NA,
+                                                        time = NA, paired = NA,
+                                                        amount = NA)
       rv$data[[length(rv$data) + 1]] <- inputFile
       names(rv$data)[length(rv$data)] <- substr(input$inputFile$name, 1, nchar(input$inputFile$name) - 4)
       rv$choices <- paste(1:length(rv$data), ": ", names(rv$data)) #TODO 
@@ -98,6 +104,7 @@ shinyServer(function(session, input, output) {
     sequence <- sequence[, -1]
     rv$sequence[[rv$activeFile]] <- sequence
 
+    #TODO update group and time (create function or reactive({})?)
     updateSelectInput(session, "select_group", choices = na.omit(sequence[, 'group']))
   })
 
@@ -112,6 +119,7 @@ shinyServer(function(session, input, output) {
     row.names(sequence) <- sequence[, 1]
     sequence <- sequence[, -1]
     rv$sequence[[rv$activeFile]] <- sequence
+    #TODO update group and time
   })
 
   observeEvent(input$editColumns, {
@@ -224,7 +232,7 @@ shinyServer(function(session, input, output) {
   })
 
   # Update selected data
-  observeEvent(input$selectDataset, ignoreInit = TRUE, { 
+  observeEvent(input$selectDataset, ignoreInit = TRUE, {
     rv$activeFile <- which(rv$choices %in% input$selectDataset)
     rows <- nrow(rv$data[[rv$activeFile]])
     cols <- ncol(rv$data[[rv$activeFile]])
@@ -290,14 +298,14 @@ shinyServer(function(session, input, output) {
         disable("normalizeIS"); disable("optimizeIS"); disable("removeIS"); disable("saveIS")
       } 
     }
-
-    groups <- na.omit(rv$sequence[[rv$activeFile]][, 'group'])
-    time <- na.omit(rv$sequence[[rv$activeFile]][, 'time'])
-    updateSelectInput(session, "select_group", choices = groups)
-    updateSelectInput(session, "group1", label = NULL, choices = groups)
-    updateSelectInput(session, "group2", label = NULL, choices = groups)
-    updateSelectInput(session, "time1", label = NULL, choices = time)
-    updateSelectInput(session, "time2", label = NULL, choices = time)
+    #TODO if sequence has group and time
+    # groups <- na.omit(rv$sequence[[rv$activeFile]][, 'group'])
+    # time <- na.omit(rv$sequence[[rv$activeFile]][, 'time'])
+    # updateSelectInput(session, "select_group", choices = groups)
+    # updateSelectInput(session, "group1", label = NULL, choices = groups)
+    # updateSelectInput(session, "group2", label = NULL, choices = groups)
+    # updateSelectInput(session, "time1", label = NULL, choices = time)
+    # updateSelectInput(session, "time2", label = NULL, choices = time)
   })
 
   observeEvent(rv$choices, {
@@ -1250,8 +1258,7 @@ shinyServer(function(session, input, output) {
           unique_values <- unique(group_time)
           combinations <- combn(unique_values, 2)
           valid_combinations <- combinations[, apply(combinations, 2, function(cols) is_valid_combination(cols[1], cols[2]))]
-          contrasts <- generate_contrasts(matrix(valid_combinations)) # matrix bc if it's only 1 combination, valid_combinations is not a matrix and generate_contrasts fails
-
+          contrasts <- generate_contrasts(as.matrix(valid_combinations)) # matrix bc if it's only 1 combination, valid_combinations is not a matrix and generate_contrasts fails
           updateCheckboxGroupInput(session, "contrasts", choices = contrasts, selected = NULL)
         } else {
           sendSweetAlert(session, "Oops!", "Invalid test. No paired samples or time points in dataset.", type = "error")
@@ -1323,29 +1330,13 @@ shinyServer(function(session, input, output) {
         })
   })
 
-  observeEvent(input$export_polystest, { #TODO functions
-    # Select Name and Samples (no QCs)
+  observeEvent(input$export_polystest, {
     sequence <- rv$sequence[[rv$activeFile]]
     tdata <- rv$data[[rv$activeFile]][, sequence[, 1] %in% c("Name",  "Sample")]
-    tseq <- sequence[sequence[, 1] %in% c("Name",  "Sample"), ]
-    if(input$timepoints1_polystest != "" & input$timepoints2_polystest != "") {
-      selected <- tdata[, (sequence[, 'time'] %in% input$timepoints1_polystest & sequence[, 'group'] %in% c(input$group1_polystest))
-                        | (sequence[, 'time'] %in% input$timepoints2_polystest & sequence[, 'group'] %in% c(input$group2_polystest))]
-      selected_sequence <- tseq[(sequence[, 'time'] %in% c(input$timepoints1_polystest) & sequence[, 'group'] %in% c(input$group1_polystest))
-                                | (sequence[, 'time'] %in% c(input$timepoints2_polystest) & sequence[, 'group'] %in% c(input$group2_polystest)), ]
-    } else {
-      selected <- tdata[, tseq[, 'group'] %in% c(input$group1_polystest, input$group2_polystest)]
-      selected_sequence <- tseq[tseq[, 'group'] %in% c(input$group1_polystest, input$group2_polystest), ]
-    }
-    groups <- factor(selected_sequence[, 4], exclude = NA)
-    NumReps <- max(table(groups))
-    NumCond <- length(levels(groups))
-    groups <- levels(groups)
-    selected_NA <- addEmptyCols(selected, selected_sequence, groups, NumReps)
-    PolySTestMessage <- toJSON(list(
-      numrep=NumReps, numcond=NumCond, grouped=F,
-      firstquantcol=2, expr_matrix=as.list(as.data.frame(selected_NA))
-    ))
+    groups <- c(input$group1_polystest, input$group2_polystest)
+    time <- c(input$time1_polystest, input$time2_polystest)
+    selected <- selectPolySTest(tdata, sequence, groups, time)
+    PolySTestMessage <- prepareMessage(selected$selected, selected$selected_sequence)
     js$send_message(url="http://computproteomics.bmb.sdu.dk:443/app_direct/PolySTest/", 
                     dat=PolySTestMessage, tool="PolySTest")
   })
@@ -1354,16 +1345,7 @@ shinyServer(function(session, input, output) {
     sequence <- rv$sequence[[rv$activeFile]]
     tdata <- rv$data[[rv$activeFile]][, sequence[, 1] %in% c("Name",  "Sample")]
     tseq <- sequence[sequence[, 1] %in% c("Name",  "Sample"), ]
-    groups <- factor(tseq[, 4], exclude = NA)
-    NumReps <- max(table(groups))
-    NumCond <- length(levels(groups))
-    groups <- levels(groups)
-
-    tdata <- addEmptyCols(tdata, tseq, groups, NumReps)
-    PolySTestMessage <- toJSON(list(
-      numrep=NumReps, numcond=NumCond, grouped=F,
-      firstquantcol=2, expr_matrix=as.list(as.data.frame(tdata))
-    ))
+    PolySTestMessage <- prepareMessage(tdata, tseq)
     js$send_message(url="http://computproteomics.bmb.sdu.dk:443/app_direct/PolySTest/", 
                     dat=PolySTestMessage, tool="PolySTest")
   })
@@ -1372,17 +1354,7 @@ shinyServer(function(session, input, output) {
     sequence <- rv$sequence[[rv$activeFile]]
     tdata <- rv$data[[rv$activeFile]][, sequence[, 1] %in% c("Name",  "Sample")]
     tseq <- sequence[sequence[, 1] %in% c("Name",  "Sample"), ]
-    groups <- factor(tseq[, 4], exclude = NA)
-    NumReps <- max(table(groups))
-    NumCond <- length(levels(groups))
-    groups <- levels(groups)
-
-    tdata <- addEmptyCols(tdata, tseq, groups, NumReps)
-
-    VSClustMessage <- toJSON(list(
-      numrep=NumReps, numcond=NumCond, grouped=F, 
-      modsandprots=F, expr_matrix=as.list(as.data.frame(tdata))
-    ))
+    VSClustMessage <- prepareMessage(tdata, tseq)
     js$send_message(url="http://computproteomics.bmb.sdu.dk/app_direct/VSClust/",
                     dat=VSClustMessage, tool="VSClust")
   })

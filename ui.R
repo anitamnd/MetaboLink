@@ -23,6 +23,7 @@ source("functions.R")
 source("plotfunctions.R")
 source("analysis_functions.R")
 source("normalization.R")
+source("export.R")
 
 shinyUI(dashboardPage(
   dashboardHeader(
@@ -323,7 +324,7 @@ shinyUI(dashboardPage(
             ),
             box(
               width = NULL, title = "Group nicknames",
-              p("Only use letters, numbers or underscore."),
+              p("Only use letters and numbers."),
               actionButton("editGroups", "Edit", width = "50%")
             ),
             box(
@@ -484,8 +485,8 @@ shinyUI(dashboardPage(
                 fluidRow(
                   column(12,
                     selectInput("testType", "Select test", width = "100%",
-                      choices = c("2 group comparison (unpaired)" = "GroupsUnpaired",
-                                  "2 group comparison with multiple time points (paired)" = "GroupsMultipleTime",
+                      choices = c("2 groups (unpaired)" = "GroupsUnpaired",
+                                  "2 groups with time (paired)" = "GroupsMultipleTime",
                                   "Compare to reference group" = "CompareToReference"), selected = NULL
                     ))
                 ),
