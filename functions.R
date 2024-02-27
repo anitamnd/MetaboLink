@@ -1,5 +1,6 @@
 checkSequence <- function(sequence) {
   columnsToCheck <- c("sample", "batch", "order", "group", "time", "paired", "amount")
+  colnames(sequence)[colnames(sequence) == "class"] <- "group"
   missingColumns <- setdiff(columnsToCheck, colnames(sequence))
   if (length(missingColumns) > 0) {
     sequence[missingColumns] <- lapply(seq_along(missingColumns), function(x) sequence[missingColumns[x]] <- NA)
@@ -124,9 +125,9 @@ identifyLabels <- function(data) {
       "Adduct_pos"
     } else if (grepl("ADDUCT_NEG", toupper(x), fixed = TRUE)) {
       "Adduct_neg"
-    } else if (grepl("ADDUCT", toupper(x)) && grepl("\\]\\+", data[, x])) {
+    } else if (grepl("ADDUCT|ION|IONS", toupper(x)) && any(grepl("\\]\\+", data[, x]))) {
       "Adduct_pos"
-    } else if (grepl("ADDUCT", toupper(x)) && grepl("\\]\\-", data[, x])) {
+    } else if (grepl("ADDUCT|ION|IONS", toupper(x)) && any(grepl("\\]\\-", data[, x]))) {
       "Adduct_neg"
     } else if (grepl("[[:digit:]]", toupper(x)) && is.numeric(data[, x])) {
       "Sample"
@@ -436,31 +437,6 @@ duplicaterank <- function(duplicate, rankings) {
   } else {
     return(10)
   }
-}
-
-# PolySTest
-addEmptyCols <- function(data, sequence, groups, replicates) {
-  processed <- data[, 1] # feature names
-  rgroup <- c("") # group vector
-  rtime <- c("") # time vector
-
-  for(group in 1:length(groups)) {
-    groupCols <- data[, sequence[, 4] %in% groups[group]]
-    time <- sequence[sequence[, 4] %in% groups[group], 5]
-    processed <- cbind(processed, groupCols)
-    if(length(groupCols) < replicates) {
-      missing <- t(rep(NA, replicates - length(groupCols)))
-      processed <- cbind(processed, missing)
-    }
-    rgroup <- append(rgroup, rep(paste("g", groups[group], sep = ""), replicates))
-    if(any(complete.cases(sequence[, 5])))
-      rtime <- append(rtime, t(time))
-  }
-  if(any(complete.cases(sequence[, 5])))
-    colnames(processed) <- paste(colnames(processed), rgroup, paste("t", rtime, sep=""), sep = "_")
-  else
-    colnames(processed) <- paste(colnames(processed), rgroup, sep = "_")
-  return(processed)
 }
 
 windowselect <- function(input) {
