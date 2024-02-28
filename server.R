@@ -807,7 +807,6 @@ shinyServer(function(session, input, output) {
 
   observeEvent(userConfirmation(), {
     if(userConfirmation()) {
-      browser()
       activeSequence <- rv$sequence[[rv$activeFile]]
       activeDataset <- rv$data[[rv$activeFile]]
       selected <- which(rv$choices %in% input$mergeFile)
