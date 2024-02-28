@@ -3,7 +3,7 @@ selectPolySTest <- function(data, sequence, groups, time) {
   baseCondition <- tseq[, 1] %in% "Name"
   if(!any(time == "")) {
     timeGroupCondition <- (tseq[, 5] %in% time[1] & tseq[, 4] %in% groups[1]) |
-                          (tseq[, 5] %in% time[2] & tseq[, 4] %in% groups[2])
+                          (tseq[, 5] %in% time[2] & tseq[, 4] %in% groups[2])                      
     condition <- baseCondition | timeGroupCondition
   } else {
     condition <- baseCondition | (tseq[, 4] %in% groups)
@@ -39,7 +39,12 @@ addEmptyCols <- function(data, sequence, groups, replicates) {
 }
 
 prepareMessage <- function(data, sequence) {
-  groups <- factor(sequence[, 4], exclude = NA)
+  if(any(complete.cases(sequence[, 5]))) {
+    group_time <- paste(na.omit(sequence[, 4]), na.omit(sequence[, 5]), sep = "_")
+    groups <- factor(group_time, exclude = NA)
+  } else {
+    groups <- factor(sequence[, 4], exclude = NA)
+  }
   numrep <- max(table(groups))
   groups <- levels(groups)
   numcond <- length(groups)

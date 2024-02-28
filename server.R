@@ -807,6 +807,7 @@ shinyServer(function(session, input, output) {
 
   observeEvent(userConfirmation(), {
     if(userConfirmation()) {
+      browser()
       activeSequence <- rv$sequence[[rv$activeFile]]
       activeDataset <- rv$data[[rv$activeFile]]
       selected <- which(rv$choices %in% input$mergeFile)
@@ -827,12 +828,12 @@ shinyServer(function(session, input, output) {
         nclust <- sapply(dub_dat$mergeID, function(x) {
           table(dub_dat$mergeID)[names(table(dub_dat$mergeID)) == x]
         })
-
+        colnames(dub_dat)[activeSequence[, 1] %in% c("Adduct_pos", "Adduct_neg")] <- "adduct"
         out_dub <- data.frame(
           "nClust" = nclust,
           "Cluster_ID" = dub_dat$mergeID,
           "Ion_mode" = dub_dat$ionmode,
-          "Adductor" = dub_dat$add,
+          "Adductor" = dub_dat$adduct,
           "Name" = dub_dat[, which(activeSequence[, 1] %in% "Name")],
           "RT" = dub_dat[, which(activeSequence[, 1] %in% "RT")],
           "Mass" = dub_dat[, which(activeSequence[, 1] %in% "Mass")],
