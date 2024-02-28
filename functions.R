@@ -9,13 +9,6 @@ checkSequence <- function(sequence) {
   return(sequence)
 }
 
-checkColumns <- function(columns, labels) {
-  if(any(labels == "-")) {
-    sendSweetAlert(title = "Info", text = paste("Columns ", paste(columns[labels == "-"], collapse = ", "), " labeled '-'.\n
-        If this is wrong, check file for invalid characters in these columns."), type = "info")
-  }
-}
-
 checkDuplicates <- function(columns) {
   has_duplicates <- any(duplicated(columns))
   if(has_duplicates) {
@@ -125,9 +118,9 @@ identifyLabels <- function(data) {
       "Adduct_pos"
     } else if (grepl("ADDUCT_NEG", toupper(x), fixed = TRUE)) {
       "Adduct_neg"
-    } else if (grepl("ADDUCT|ION|IONS", toupper(x)) && any(grepl("\\]\\+", data[, x]))) {
+    } else if (grepl("\\b(ADDUCT|ION|IONS)\\b", toupper(x)) && any(grepl("\\]\\+", data[, x]))) {
       "Adduct_pos"
-    } else if (grepl("ADDUCT|ION|IONS", toupper(x)) && any(grepl("\\]\\-", data[, x]))) {
+    } else if (grepl("\\b(ADDUCT|ION|IONS)\\b", toupper(x)) && any(grepl("\\]\\-", data[, x]))) {
       "Adduct_neg"
     } else if (grepl("[[:digit:]]", toupper(x)) && is.numeric(data[, x])) {
       "Sample"
@@ -135,8 +128,11 @@ identifyLabels <- function(data) {
       "-"
     }
   })
-  if (sum(labels == "Name") > 1) {
+  if(sum(labels == "Name") > 1) {
     labels[labels == "Name" & duplicated(labels)] <- "-"
+  }
+  if((sum(labels == "Adduct_pos") + sum(labels == "Adduct_neg")) > 1) {
+    sendSweetAlert(title = "Info", text = "Multiple adduct columns found. Only one is allowed. Please check the data.", type = "info")
   }
   labels <- factor(labels, levels = c("Name", "Blank", "QC", "Sample", "RT", "Mass", "Adduct_pos", "Adduct_neg", "-"))
   return(labels)
