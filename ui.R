@@ -20,10 +20,14 @@ library(shinycssloaders)
 library(jsonlite)
 options(repos = BiocManager::repositories())
 source("functions.R")
-source("plotfunctions.R")
-source("analysis_functions.R")
-source("normalization.R")
-source("export.R")
+source("utils.R")
+
+# Source files in R folder
+rFiles <- list.files("./R", pattern = "\\.R$", full.names = TRUE)
+
+for (file in rFiles) {
+  source(file)
+}
 
 shinyUI(dashboardPage(
   dashboardHeader(
@@ -221,6 +225,10 @@ shinyUI(dashboardPage(
             ),
             column(6, selectInput("scaling", "Data scaling", choices = c("None", "Mean center", "Auto scale"), width = "100%"), style = "padding-left:0px;")
           ),
+          fluidRow(
+            column(6,
+            checkboxInput("newFileTransform", "Save as new file", value = T, width = "100%")
+          )),
           fluidRow(
             style = "margin-right: 0px;",
             column(6, bsButton("transform", "Run", width = "100%"), style = "padding-left:0px;"),
