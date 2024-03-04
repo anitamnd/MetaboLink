@@ -9,6 +9,7 @@ shinyServer(function(session, input, output) {
 
   rankings <- read.csv("./csvfiles/rankings.csv", stringsAsFactors = FALSE)
   massCorrection <- read.csv("./csvfiles/adducts.csv")
+  availableZipFiles <- list.files("example_files", pattern = "\\.zip$", full.names = TRUE)
 
   observeEvent(list(c(input$sequence, input$example, input$submit)), {
       windowselect("sequence")
@@ -52,7 +53,7 @@ shinyServer(function(session, input, output) {
     }
   })
 
-  # Functions
+  ### Functions ###
 
   initializeVariables <- function() {
     rv$results[[length(rv$results) + 1]] <- list()
@@ -113,8 +114,35 @@ shinyServer(function(session, input, output) {
       rv$tmpSequence <- NULL
     }
   }
+  
+  observeEvent(input$show_download, {
+    showModal(modalDialog(
+      title = "Download ZIP Files",
+      uiOutput("download_links"),
+      easyClose = TRUE,
+      size = "m"
+    ))
 
-  observeEvent(input$submit, {
+    lapply(seq_along(zipFiles), function(i) {
+      output[[paste0("download_zip", i)]] <- downloadHandler(
+        filename = function() { basename(zipFiles[i]) },
+        content = function(file) {
+          file.copy(zipFiles[i], file)
+        }
+      )
+    })
+
+    output$download_links <- renderUI({ 
+      lapply(seq_along(zipFiles), function(i) {
+      fname <- basename(zipFiles[i])
+      fluidRow(
+        column(12, downloadLink(outputId = paste0("download_zip", i), label = fname))
+      )
+      })
+    })
+  })
+
+  observeEvent(input$upload, {
     shinyCatch({
       inputFile <- read.csv(input$inputFile$datapath, header = 1, stringsAsFactors = F, check.names = FALSE)
       if(input$fileType == "Samples in rows") {
