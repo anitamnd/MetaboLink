@@ -204,6 +204,7 @@ shinyUI(dashboardPage(
               )
             ),
             bsCollapsePanel("Drift correction",
+              style = "color: black;",
               fluidRow(
                 selectInput("driftMethod", "Signal correction method", choices = c("QC-RFSC (random forrest)", "QC-RLSC (robust LOESS)"), width = "100%")
               ),
