@@ -33,19 +33,6 @@ normalizationIS <- function(data, sequence, is, method, qc) {
   return(data)
 }
 
-optimizeIS <- function(data, sequence, is, method, qc) {
-  iscomb <- Map(combn, list(is), seq_along(is), simplify = FALSE)
-  iscomb <- lapply(rapply(iscomb, enquote, how = "unlist"), eval)
-  progressSweetAlert(id = "pbis", title = "Finding best IS combination", value = 0, total = length(iscomb), striped = T, display_pct = T)
-  islow <- lapply(iscomb, function(x) {
-    isdat <- normalizationIS(data, sequence, x, method, qc)
-    mean(apply(isdat[, sequence[, 1] %in% "QC"], 1, sd, na.rm = T) / apply(isdat[, sequence[, 1] %in% "QC"], 1, mean, na.rm = T) * 100)
-    # updateProgressBar(id = "pbis", value = which(iscomb %in% iscomb[x]), total = length(iscomb))
-  })
-  closeSweetAlert()
-  return(unlist(iscomb[which.min(unlist(islow))]))
-}
-
 findInternalStandards <- function(data) {
   isIndex <- grepl("\\(IS\\)", toupper(data[, 1]))
   if (sum(isIndex) > 0) {

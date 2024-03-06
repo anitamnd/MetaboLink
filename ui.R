@@ -1,26 +1,3 @@
-library(shiny)
-library(shinydashboard)
-library(shinyBS)
-library(shinyjs)
-library(shinyWidgets)
-library(spsComps)
-library(DT)
-library(dplyr)
-library(plotly)
-library(ggplot2)
-library(ggrepel)
-library(gridExtra)
-library(impute)
-library(randomForest)
-library(writexl)
-library(igraph)
-library(stringi)
-library(BiocManager)
-library(shinycssloaders)
-library(jsonlite)
-options(repos = BiocManager::repositories())
-source("functions.R")
-
 # Source files in R folder
 rFiles <- list.files("./R", pattern = "\\.R$", full.names = TRUE)
 
@@ -51,6 +28,10 @@ shinyUI(dashboardPage(
     width = "400",
     useShinyjs(),
     tags$style(HTML(".panel-primary {color: #000000;}")),
+    tags$style(HTML("#removeIS {
+        color: black;
+        text-decoration: underline;
+      }")),
     tags$head(tags$script(src="CallShiny.js")),
     extendShinyjs(script="CallShiny.js", functions=c("retrieve_results","send_message","run_button")),
     fluidPage(
@@ -171,16 +152,22 @@ shinyUI(dashboardPage(
         ),
         bsCollapsePanel("Normalization",
           style = "primary",
+          p("Expand options below to see all the normalization methods."),
           bsCollapse(
             id =  "norm2", multiple = FALSE, open = "Normalization", 
             bsCollapsePanel("Internal standards",
               style = "color: black;",
               fluidRow(
-                selectInput("isMethod", "Method", choices = c("Nearest retention time", "Same lipid structure"), selected = "Nearest RT", width = "100%")
+                selectInput("isMethod", "Method", choices = c("Nearest RT", "Same lipid structure"), selected = "Nearest RT", width = "100%")
               ),
               fluidRow(
                 checkboxGroupInput("isChoose", NULL, choices = NULL, selected = NULL, inline = FALSE)
               ),
+              fluidRow(
+                style = "margin-right: 0px;",
+                column(12, actionLink("removeIS", "Remove IS", width = "50%") %>% 
+                  bsTooltip("Remove internal standards.", placement = "bottom", trigger = "hover")
+              )),
               fluidRow(
                 style = "margin-right: 0px;",
                 column(6, checkboxInput("normalizeQC", "Normalize QC", value = T, width = "100%"), style = "padding: 0px; margin-top: 0px; margin-left: 10px; margin-right: -10px;"),
@@ -189,17 +176,6 @@ shinyUI(dashboardPage(
               fluidRow(
                 style = "margin-right: 0px;",
                 column(6, bsButton("normalizeIS", "Normalize", width = "100%"), style = "padding-left:0px;"),
-                column(6, style = "padding-left:0px;",
-                  bsButton("optimizeIS", "Optimize", width = "100%") %>% 
-                  bsTooltip("Find best combination (lowest mean variance of the QCs) of internal standards.", placement = "bottom", trigger = "hover")
-                )
-              ),
-              fluidRow(
-                style = "margin-right: 0px;",
-                column(6,  style = "padding-left:0px;",
-                  bsButton("removeIS", "Remove IS", width = "100%") %>% 
-                  bsTooltip("Remove internal standards.", placement = "bottom", trigger = "hover")
-                ),
                 column(6, bsButton("saveIS", "Save", width = "100%"), style = "padding-left:0px;")
               )
             ),
@@ -269,7 +245,7 @@ shinyUI(dashboardPage(
           ),
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, bsButton("mergeRankings", "Edit priorities", width = "100%"), style = "padding-left:0px;"),
+            column(6, bsButton("editRankings", "Edit priorities", width = "100%"), style = "padding-left:0px;"),
             column(6, bsButton("mergeDatasets", "Run", width = "100%"), style = "padding-left:0px;")
           )
         ) %>% bsTooltip("Merge datasets with same samples and different ion mode. The datasets must have the same number of samples.", placement = "bottom", trigger = "hover"),
@@ -282,9 +258,13 @@ shinyUI(dashboardPage(
           )
         )
       ),
-      div(
-        actionLink("show_download", "Examples", icon = icon("download")),
-        style = "float: right;"
+      fluidRow(
+        column(12, div(style = "float: right;",
+          actionLink("show_download", "Examples", icon = icon("download"))
+        )),
+        column(12, div(style = "float: right;",
+          a(icon("book"), "User manual",  href = "https://github.com/anitamnd/MetaboLink/wiki")
+        ))
       )
     ),
     sidebarMenu()

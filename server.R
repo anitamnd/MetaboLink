@@ -7,9 +7,13 @@ shinyServer(function(session, input, output) {
 
   userConfirmation <- reactiveVal(FALSE)
 
+  rankings_merge <- data.frame(
+    name = c("high", "medium", "low"),
+    priority = c(1, 2, 3)
+  )
   rankings <- read.csv("./csvfiles/rankings.csv", stringsAsFactors = FALSE)
   massCorrection <- read.csv("./csvfiles/adducts.csv")
-  availableZipFiles <- list.files("example_files", pattern = "\\.zip$", full.names = TRUE)
+  zipFiles <- list.files("example_files", pattern = "\\.zip$", full.names = TRUE)
 
   observeEvent(list(c(input$sequence, input$example, input$submit)), {
       windowselect("sequence")
@@ -679,7 +683,7 @@ shinyServer(function(session, input, output) {
   })
 
   # Merge datasets
-  observeEvent(input$mergeRankings, {
+  observeEvent(input$editRankings, {
     showModal(
       modalDialog(
         title = "Change the priority of annotations", size = "s", easyClose = TRUE,
@@ -688,11 +692,11 @@ shinyServer(function(session, input, output) {
           fluidRow(
             column(
               width = 8,
-              textInput(paste0("md_rankings_text", x), NULL, value = rankings[x, 1], placeholder = "Empty")
+              textInput(paste0("md_rankings_text", x), NULL, value = rankings_merge[x, 1], placeholder = "Empty")
             ),
             column(
               width = 4,
-              numericInput(paste0("md_rankings_prio", x), NULL, value = rankings[x, 2], min = 0, max = 10)
+              numericInput(paste0("md_rankings_prio", x), NULL, value = rankings_merge[x, 2], min = 0, max = 10)
             ),
           )
         })
@@ -702,8 +706,8 @@ shinyServer(function(session, input, output) {
 
   observeEvent(input$md_edit_rankings, {
     sapply(1:10, function(x) {
-      rankings[x, 1] <<- toupper(input[[paste0("md_rankings_text", x)]])
-      rankings[x, 2] <<- input[[paste0("md_rankings_prio", x)]]
+      rankings_merge[x, 1] <<- toupper(input[[paste0("md_rankings_text", x)]])
+      rankings_merge[x, 2] <<- input[[paste0("md_rankings_prio", x)]]
     })
     removeModal()
   })

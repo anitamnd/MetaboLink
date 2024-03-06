@@ -49,7 +49,7 @@ checkSequence <- function(sequence) {
 checkDuplicates <- function(columns) {
   has_duplicates <- any(duplicated(columns))
   if(has_duplicates) {
-    sendSweetAlert(title = "Info", text = "Duplicate names are not allowed.", type = "info")
+    sendSweetAlert(title = "Info", text = "Duplicate names are not allowed.", type = "warning")
   }
   return(has_duplicates)
 }
