@@ -20,3 +20,9 @@ library(shinycssloaders)
 library(jsonlite)
 options(repos = BiocManager::repositories())
 source("functions.R")
+
+# Source files in R folder
+rFiles <- list.files("./R", pattern = "\\.R$", full.names = TRUE)
+for (file in rFiles) {
+  source(file)
+}

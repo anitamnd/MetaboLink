@@ -1,10 +1,3 @@
-# Source files in R folder
-rFiles <- list.files("./R", pattern = "\\.R$", full.names = TRUE)
-
-for (file in rFiles) {
-  source(file)
-}
-
 shinyUI(dashboardPage(
   dashboardHeader(
     title = "MetaboLink",
