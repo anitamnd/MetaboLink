@@ -1,4 +1,4 @@
-# Functions to filter dataset columns
+# Functions to select data
 
 select_feature_names <- function(dataset, labels) {
   return(dataset[, labels == "Name"])

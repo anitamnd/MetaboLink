@@ -2,20 +2,20 @@ shinyServer(function(session, input, output) {
   options(shiny.maxRequestSize = 30 * 1024^2)
 
   rv <- reactiveValues(data = list(), sequence = list(), activeFile = NULL, results = list(),
-                  tmpData = NULL, tmpSequence = NULL, 
-                  choices = NULL, drift_plot_select = 1, info = vector("character"))
+                  tmpData = NULL, tmpSequence = NULL, choices = NULL, drift_plot_select = 1, info = vector("character"))
 
   userConfirmation <- reactiveVal(FALSE)
+  disable("upload")
 
   rankings_merge <- data.frame(
     name = c("high", "medium", "low"),
     priority = c(1, 2, 3)
   )
-  
-  massCorrection <- read.csv("./csvfiles/adducts.csv")
-  zipFiles <- list.files("example_files", pattern = "\\.zip$", full.names = TRUE)
 
-  observeEvent(list(c(input$sequence, input$example, input$submit)), {
+  massCorrection <- read.csv("./csvfiles/adducts.csv")
+
+  # Window/panel selection
+  observeEvent(list(c(input$sequence, input$example, input$upload)), {
       windowselect("sequence")
     }, ignoreInit = T
   )
@@ -27,35 +27,8 @@ shinyServer(function(session, input, output) {
   })
   observeEvent(input$statistics_button, {
     windowselect("statistics")
-    groups <- na.omit(rv$sequence[[rv$activeFile]][, 'group'])
-    time <- na.omit(rv$sequence[[rv$activeFile]][, 'time'])
-    
-    updateSelectInput(session, "group1", label = NULL, choices = groups)
-    updateSelectInput(session, "group1_polystest", label = NULL, choices = groups)
-    updateSelectInput(session, "group2", label = NULL, choices = groups)
-    updateSelectInput(session, "group2_polystest", label = NULL, choices = groups)
-    updateSelectInput(session, "time1_polystest", label = NULL, choices = time, selected = "")
-    updateSelectInput(session, "time2_polystest", label = NULL, choices = time, selected = "")
   })
 
-  output$histogram_group <- renderPlotly({
-    isolate({
-      data <- rv$data[[rv$activeFile]]
-      sequence <- rv$sequence[[rv$activeFile]]
-    })
-    selected <- selectGroups(data, sequence, input$select_group)
-    if (nrow(selected) > 0) {
-      medians <- apply(selected, 2, median, na.rm = TRUE)
-      median_data <- data.frame(
-        Sample = names(medians),
-        Median = medians
-      )
-      ggplot(median_data, aes(x = Sample, y = Median)) +
-        geom_col(fill = "#4dc4f4", color = "black", width = 0.7) +
-        labs(x = "Samples", y = "Median") +
-        theme_minimal()
-    }
-  })
 
   ### Functions ###
 
@@ -119,36 +92,15 @@ shinyServer(function(session, input, output) {
     }
   }
   
-  observeEvent(input$show_download, {
-    showModal(modalDialog(
-      title = "Download ZIP Files",
-      uiOutput("download_links"),
-      easyClose = TRUE,
-      size = "m"
-    ))
 
-    lapply(seq_along(zipFiles), function(i) {
-      output[[paste0("download_zip", i)]] <- downloadHandler(
-        filename = function() { basename(zipFiles[i]) },
-        content = function(file) {
-          file.copy(zipFiles[i], file)
-        }
-      )
-    })
-
-    output$download_links <- renderUI({ 
-      lapply(seq_along(zipFiles), function(i) {
-      fname <- basename(zipFiles[i])
-      fluidRow(
-        column(12, downloadLink(outputId = paste0("download_zip", i), label = fname))
-      )
-      })
-    })
+  observeEvent(input$inputFile, { # Ensure file is uploaded before pressing Upload button
+    inputFile <<- read.csv(input$inputFile$datapath, header = 1, stringsAsFactors = F, check.names = FALSE)
+    enable("upload")
   })
 
   observeEvent(input$upload, {
     shinyCatch({
-      inputFile <- read.csv(input$inputFile$datapath, header = 1, stringsAsFactors = F, check.names = FALSE)
+      #inputFile <- read.csv(input$inputFile$datapath, header = 1, stringsAsFactors = F, check.names = FALSE)
       if(input$fileType == "Samples in rows") {
         inputFile <- t(inputFile)
       }
@@ -159,7 +111,6 @@ shinyServer(function(session, input, output) {
       sendSweetAlert(session, title = "Error", text = paste("Duplicate columns found."), type = "error")
     } else {
       labels <- identifyLabels(inputFile)
-      #checkColumns(colnames(inputFile), labels)
       initializeVariables()
       rv$sequence[[length(rv$sequence) + 1]] <- data.frame(labels, batch = NA,
                                                         order = NA, group = NA,
@@ -167,9 +118,8 @@ shinyServer(function(session, input, output) {
                                                         amount = NA)
       rv$data[[length(rv$data) + 1]] <- inputFile
       names(rv$data)[length(rv$data)] <- substr(input$inputFile$name, 1, nchar(input$inputFile$name) - 4)
-      rv$choices <- paste(seq_along(rv$data), ": ", names(rv$data)) #TODO 
+      rv$choices <- paste(seq_along(rv$data), ": ", names(rv$data)) 
       updateTabItems(session, "tabs", selected = "Datainput")
-      windowselect("sequence")
       show("buttons")
     }
   })
@@ -189,9 +139,6 @@ shinyServer(function(session, input, output) {
     row.names(sequence) <- sequence[, 1]
     sequence <- sequence[, -1]
     rv$sequence[[rv$activeFile]] <- sequence
-
-    #TODO update group and time (create function or reactive({})?)
-    updateSelectInput(session, "select_group", choices = na.omit(sequence[, 'group']))
   })
 
   observeEvent(input$reuseSequence, {
@@ -205,7 +152,6 @@ shinyServer(function(session, input, output) {
     row.names(sequence) <- sequence[, 1]
     sequence <- sequence[, -1]
     rv$sequence[[rv$activeFile]] <- sequence
-    #TODO update group and time
   })
 
   observeEvent(input$editColumns, {
@@ -320,24 +266,18 @@ shinyServer(function(session, input, output) {
   # Update selected data
   observeEvent(input$selectDataset, ignoreInit = TRUE, {
     rv$activeFile <- which(rv$choices %in% input$selectDataset)
-    rows <- nrow(rv$data[[rv$activeFile]])
-    cols <- ncol(rv$data[[rv$activeFile]])
-    if(rows > 50)
-      rows <- 50
-    if(cols > 30)
-      cols <- 30
-    forVisuals <- rv$data[[rv$activeFile]][1:rows, 1:cols]
-    sequence <- rv$sequence[[rv$activeFile]]
-    data <- rv$data[[rv$activeFile]]
 
     output$seq_table <- renderDT(rv$sequence[[rv$activeFile]], extensions = 'Responsive', server = F, 
           editable = T, selection = 'none', options = list(pageLength = nrow(rv$sequence[[rv$activeFile]]), 
           scrollX = TRUE))
+
     output$diboxtitle <- renderText(names(rv$data[rv$activeFile]))
-    output$dttable <- renderDT(rv$data[[rv$activeFile]], rownames = FALSE, options = list(scrollX = TRUE, 
-              scrollY = "700px"))
+
+    output$dttable <- renderDT(rv$data[[rv$activeFile]], rownames = FALSE, options = list(scrollX = TRUE, scrollY = "700px"))
+
     output$dt_drift_panel <- renderDT(rv$data[[rv$activeFile]][rv$sequence[[rv$activeFile]][, 1] %in% "Name"], rownames = FALSE, 
               options = list(autoWidth = TRUE, scrollY = "700px", pageLength = 20))
+
     output$dt_boxplot_panel <- renderDT(rv$data[[rv$activeFile]][rv$sequence[[rv$activeFile]][, 1] %in% "Name"], rownames = FALSE, 
               options = list(autoWidth = TRUE, scrollY = "700px", pageLength = 20))
     
@@ -376,25 +316,21 @@ shinyServer(function(session, input, output) {
       } 
     })
 
-    if (sum(rv$sequence[[rv$activeFile]][, 1] %in% "Name") == 1) {
+    if (sum(rv$sequence[[rv$activeFile]][, 1] %in% "Name") == 1) { #TODO check if this check is needed
       internalStandards <- findInternalStandards(rv$data[[rv$activeFile]][rv$sequence[[rv$activeFile]][, 1] %in% "Name"])
       updateCheckboxGroupInput(session, "isChoose", choices = internalStandards, selected = internalStandards)
-      enable("normalizeIS"); enable("optimizeIS"); enable("removeIS"); enable("saveIS")
+      enable("normalizeIS"); enable("removeIS"); enable("saveIS")
       if(length(internalStandards) == 0) {
-        disable("normalizeIS"); disable("optimizeIS"); disable("removeIS"); disable("saveIS")
+        disable("normalizeIS"); disable("removeIS"); disable("saveIS")
       } 
     }
-    #TODO if sequence has group and time
-    # groups <- na.omit(rv$sequence[[rv$activeFile]][, 'group'])
-    # time <- na.omit(rv$sequence[[rv$activeFile]][, 'time'])
-    # updateSelectInput(session, "select_group", choices = groups)
-    # updateSelectInput(session, "group1", label = NULL, choices = groups)
-    # updateSelectInput(session, "group2", label = NULL, choices = groups)
-    # updateSelectInput(session, "time1", label = NULL, choices = time)
-    # updateSelectInput(session, "time2", label = NULL, choices = time)
   })
 
+  # Observer for list of all the datasets 
   observeEvent(rv$choices, {
+    choices <- rv$choices
+    num_datasets <- length(choices)
+
     output$downloadSequence <- downloadHandler(
       filename <- function() {
         paste0(names(rv$data[rv$activeFile]), "_seq.csv")
@@ -410,19 +346,20 @@ shinyServer(function(session, input, output) {
     output$export_stats <- renderDownloadUI("dwn_stats", "_results.xlsx")
     output$export_settings <- renderDownloadUI("dwn_settings", ".txt")
 
-    lapply(seq_len(length(rv$choices)), createDownloadHandler("general", ".csv", getDataForDownload))
-    lapply(seq_len(length(rv$choices)), createDownloadHandler("stats", ".xlsx", getStatsData))
-    lapply(seq_len(length(rv$choices)), createDownloadHandler("settings", ".txt", getSettingsData))
-    lapply(seq_len(length(rv$choices)), createDownloadHandler("metabo", ".csv", getMetaboData))
+    lapply(seq_len(num_datasets), createDownloadHandler("general", ".csv", getDataForDownload))
+    lapply(seq_len(num_datasets), createDownloadHandler("stats", ".xlsx", getStatsData))
+    lapply(seq_len(num_datasets), createDownloadHandler("settings", ".txt", getSettingsData))
+    lapply(seq_len(num_datasets), createDownloadHandler("metabo", ".csv", getMetaboData))
 
 
-    updateCheckboxGroupInput(session, "export_xml_list", choices = rv$choices, selected = NULL)
-    updateSelectInput(session, "mergeFile", choices = rv$choices, selected = rv$choices[length(rv$choices)])
-    updateSelectInput(session, "drift_select", choices = c("None", rv$choices))
-    updateSelectInput(session, "selectDataset", choices = rv$choices, selected = rv$choices[length(rv$choices)])
-    updateSelectInput(session, "selectpca1", choices = rv$choices, selected = rv$choices[length(rv$choices)])
-    updateSelectInput(session, "selectpca2", choices = rv$choices, selected = rv$choices[length(rv$choices)])
+    updateCheckboxGroupInput(session, "export_xml_list", choices = choices, selected = NULL)
     updateCheckboxGroupInput(session, "filesToRemove", choices = names(rv$data), selected = NULL)
+    updateSelectInput(session, "drift_select", choices = c("None", choices))
+
+    inputs <- c("selectDataset", "mergeFile", "selectpca1", "selectpca2")
+    for(input in inputs) {
+      updateSelectInput(session, input, choices = choices, selected = choices[num_datasets])
+    }
   })
 
   observeEvent(input$removeFiles, {
@@ -478,7 +415,9 @@ shinyServer(function(session, input, output) {
     }
   })
 
-  # Blank filtration
+
+  ## Blank filtration ##
+
   observeEvent(input$blankFiltrate, {
     if(is.null(rv$activeFile)) {
       showNotification("No data", type = "error")
@@ -506,7 +445,9 @@ shinyServer(function(session, input, output) {
     updateDataAndSequence("Blank filtrate first", input$newFileBF, paste("_", input$signalStrength, "xb"), additionalInfo)
   })
 
-  # IS normalization
+
+  ## IS normalization ##
+
   observeEvent(input$normalizeIS, {
     if (is.null(rv$activeFile)) {
       showNotification("No data", type = "error")
@@ -528,17 +469,6 @@ shinyServer(function(session, input, output) {
     }
   })
 
-  observeEvent(input$optimizeIS, {
-    if (is.null(rv$activeFile)) {
-      showNotification("No data", type = "error")
-    } else {
-      sequence <- rv$sequence[[rv$activeFile]]
-      data <- rv$data[[rv$activeFile]]
-      optimized <- optimizeIS(data, sequence, input$isChoose, input$isMethod, input$normalizeQC)
-      updateCheckboxGroupInput(session, "isChoose", selected = optimized)
-    }
-  })
-
   observeEvent(input$saveIS, {
     additionalInfo <- paste("Internal standards normalized with", input$isMethod, "method")
     updateDataAndSequence("IS normalize first", input$newFileIS, "_is", additionalInfo)
@@ -557,7 +487,9 @@ shinyServer(function(session, input, output) {
     }
   })
 
-  # Missing value filtration
+
+  ## Missing value filtration ##
+
   observeEvent(input$runFilterNA, {
     if(is.null(rv$activeFile)) {
       showNotification("No data", type = "error")
@@ -595,7 +527,9 @@ shinyServer(function(session, input, output) {
     updateDataAndSequence("Filtrate first", input$mvf_newsave, "_mvr", additionalInfo)
   })
 
-  # Imputation
+
+  ## Imputation ##
+
   observeEvent(input$runImputation, {
     if (is.null(rv$activeFile)) {
       showNotification("No data", type = "error")
@@ -639,7 +573,9 @@ shinyServer(function(session, input, output) {
     updateDataAndSequence("Impute first", input$newFileImp, "_imp", additionalInfo)
   })
 
-  # Drift correction
+
+  ## Drift correction ##
+
   observeEvent(input$driftMethod, {
     if (input$driftMethod == "QC-RFSC (random forrest)") {
       hide("dc_qcspan_hide")
@@ -683,7 +619,9 @@ shinyServer(function(session, input, output) {
     updateDataAndSequence("Drift correct first", input$newFileDrift, "_dc", additionalInfo)
   })
 
-  # Merge datasets
+
+  ## Merge datasets ##
+
   observeEvent(input$editRankings, {
     showModal(
       modalDialog(
@@ -815,6 +753,8 @@ shinyServer(function(session, input, output) {
     rv$choices <- paste(seq_along(rv$data), ": ", names(rv$data))
   })
 
+
+  ## Principal Component Analysis ##
   #TODO
   observeEvent(input$run_pca1, {
     if (!is.null(rv$activeFile)) {
@@ -1074,8 +1014,26 @@ shinyServer(function(session, input, output) {
       output$cvinfo_ui <- renderUI({
         HTML(text)
       })
+
+      
+      # Update statistics select input options
+      groups <- na.omit(seq[, 'group'])
+      time <- na.omit(seq[, 'time'])
+
+      group_inputs <- c("group1", "group2", "group1_polystest", "group2_polystest")
+      for (x in group_inputs) {
+        updateSelectInput(session, x, label = NULL, choices = groups)
+      }
+
+      time_inputs <- c("time1_polystest", "time2_polystest")
+      for (x in time_inputs) {
+        updateSelectInput(session, x, label = NULL, choices = time, selected = "")
+      }
     }
   })
+
+
+  ## Normalization ##
 
   observeEvent(input$normalize, {
      if (is.null(rv$activeFile)) {
@@ -1109,6 +1067,9 @@ shinyServer(function(session, input, output) {
     updateDataAndSequence("Normalize first", input$newFileNorm, "_normalized", additionalInfo)
   })
 
+
+  ## Transformation ##
+
   observeEvent(input$transform, {
     if (is.null(rv$activeFile)) {
       showNotification("No data", type = "error")
@@ -1137,7 +1098,9 @@ shinyServer(function(session, input, output) {
     updateDataAndSequence("Transform first", input$newFileTransform, "_transformed", additionalInfo)
   })
 
-  # Statistics
+
+  ## Statistical analysis ##
+
   observeEvent(input$testType, {
     sequence <- rv$sequence[[rv$activeFile]]
     enable("selectTest")
@@ -1163,7 +1126,7 @@ shinyServer(function(session, input, output) {
         }
       },
       CompareToReference = {
-        if(!any(complete.cases(sequence[, 4]))) { # or if only one group
+        if(!any(complete.cases(sequence[, 4]))) { #TODO or only one group
           sendSweetAlert(session, "Oops!", "Invalid test. Provide information on different groups/conditions.", type = "error")
           disable("selectTest")
         } else {
@@ -1212,20 +1175,23 @@ shinyServer(function(session, input, output) {
       }
     )
     # Render one table for each contrast
-        output$results_ui <- renderUI({
-          lapply(seq_along(rv$results[[rv$activeFile]]), function(i) {
-            fluidRow(
-              column(12, strong(names(rv$results[[rv$activeFile]])[i])),
-              column(12, box(width = NULL, DTOutput(paste0("results", i))))
-            )
-          })
-        })
-        lapply(seq_along(rv$results[[rv$activeFile]]), function(i) {
-          output[[paste0("results", i)]] <- renderDT(
-            rv$results[[rv$activeFile]][[i]], options = list(scrollX = TRUE)
-          )
-        })
+    output$results_ui <- renderUI({
+      lapply(seq_along(rv$results[[rv$activeFile]]), function(i) {
+        fluidRow(
+          column(12, strong(names(rv$results[[rv$activeFile]])[i])),
+          column(12, box(width = NULL, DTOutput(paste0("results", i))))
+        )
+      })
+    })
+    lapply(seq_along(rv$results[[rv$activeFile]]), function(i) {
+      output[[paste0("results", i)]] <- renderDT(
+        rv$results[[rv$activeFile]][[i]], options = list(scrollX = TRUE)
+      )
+    })
   })
+
+
+  ## Send data to PolySTest and VSClust ##
 
   observeEvent(input$export_polystest, {
     sequence <- rv$sequence[[rv$activeFile]]

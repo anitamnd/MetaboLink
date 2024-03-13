@@ -253,9 +253,6 @@ shinyUI(dashboardPage(
       ),
       fluidRow(
         column(12, div(style = "float: right;",
-          actionLink("show_download", "Examples", icon = icon("download"))
-        )),
-        column(12, div(style = "float: right;",
           a(icon("book"), "User manual",  href = "https://github.com/anitamnd/MetaboLink/wiki")
         ))
       )
