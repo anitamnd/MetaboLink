@@ -1,5 +1,17 @@
+### Merge different ion mode datasets
 
-# Calculate monoisotopic mass from m/z values
+#' Calculate Monoisotopic Mass Function
+#'
+#' This function calculates the monoisotopic mass of each observation in the data. 
+#' It corrects the masses based on the adducts and corresponding mass correction values. 
+#' If there is no match in adduct and massCorrection data, it adjusts the masses based on the ion mode.
+#'
+#' @param adducts A character vector representing the adducts associated with each observation.
+#' @param masses A numeric vector representing the masses to be corrected.
+#' @param ionMode A character string representing the ion mode. Can be 'pos' or 'neg'.
+#' @param massCorrection A data frame containing the correction values.
+#'
+#' @return A numeric vector representing the corrected monoisotopic masses.
 calculateMonoisotopicMass <- function(adducts, masses, ionMode, massCorrection) {
   indices <- match(adducts, massCorrection[, 1])
   
@@ -9,33 +21,50 @@ calculateMonoisotopicMass <- function(adducts, masses, ionMode, massCorrection) 
   return(correctedMasses)
 }
 
-# Data extraction
-determineIonMode <- function(labels) {
-  return(ifelse("Adduct_pos" %in% labels, "pos", "neg"))
-}
 
-extractMassAndAdduct <- function(dataset, labels, ionMode) {
-  mass <- dataset[, labels == "Mass"]
-  adduct <- dataset[, labels == paste("Adduct", ionMode, sep = "_")]
-  return(list(mass = mass, adduct = adduct))
-}
-
-extractRetentionTime <- function(dataset, labels) {
-  return(dataset[, labels == "RT"])
-}
-
-# Merging 
+#' Calculate Distances Function
+#'
+#' This function calculates the distances in mass and retention time (rt) between all pairs of observations in the combined data.
+#'
+#' @param combined A data frame containing the combined data.
+#'
+#' @return A list containing the ppm distance and rt distance matrices.
 calculateDistances <- function(combined) {
   distMz <- as.matrix(dist(combined$mass))
   ppmDist <- (distMz / rep(combined$mass, each = nrow(distMz))) * 1e6
   distRt <- as.matrix(dist(combined$rt))
+
   return(list(ppmDist = ppmDist, distRt = distRt))
 }
 
+
+#' Create Adjacency Matrix Function
+#'
+#' This function creates an adjacency matrix based on ppm and rt tolerances.
+#'
+#' @param ppmDist A numeric matrix representing the ppm distances.
+#' @param distRt A numeric matrix representing the rt distances.
+#' @param ppmTolerance A numeric value representing the ppm tolerance.
+#' @param rtTolerance A numeric value representing the rt tolerance.
+#'
+#' @return A logical matrix representing the adjacency matrix.
 createAdjacencyMatrix <- function(ppmDist, distRt, ppmTolerance, rtTolerance) {
+
   return((ppmDist <= ppmTolerance) & (distRt <= rtTolerance))
 }
 
+
+#' Merge and Label Datasets Function
+#'
+#' This function merges two datasets and labels them with a merge ID and ion mode.
+#'
+#' @param dataset1 A data frame representing the first dataset.
+#' @param dataset2 A data frame representing the second dataset.
+#' @param mergeID A numeric value representing the merge ID.
+#' @param ionMode1 A character string representing the ion mode of the first dataset.
+#' @param ionMode2 A character string representing the ion mode of the second dataset.
+#'
+#' @return A data frame representing the merged and labeled dataset.
 mergeAndLabelDatasets <- function(dataset1, dataset2, mergeID, ionMode1, ionMode2) {
   combinedData <- rbind(dataset1, dataset2)
   combinedData$mergeID <- mergeID
@@ -43,25 +72,45 @@ mergeAndLabelDatasets <- function(dataset1, dataset2, mergeID, ionMode1, ionMode
   return(combinedData)
 }
 
+
+#' Analyze Graph Components Function
+#'
+#' This function analyzes the components of a graph represented by an adjacency matrix.
+#'
+#' @param adjacencyMatrix A logical matrix representing the adjacency matrix of the graph.
+#'
+#' @return A numeric vector representing the membership of each vertex in the graph.
 analyzeGraphComponents <- function(adjacencyMatrix) {
   graph <- igraph::graph.adjacency(adjacencyMatrix, mode = "undirected")
   return(igraph::clusters(graph)$membership)
 }
 
 
+#' Merge Datasets Function
+#'
+#' This function merges two datasets based on ppm and rt tolerances. It calculates monoisotopic masses, combines mass and retention time data, calculates distances, creates an adjacency matrix, analyzes graph components, and finally merges and labels the datasets.
+#'
+#' @param dataset1 A data frame representing the first dataset.
+#' @param sequence1 A data frame representing the sequence of the first dataset.
+#' @param dataset2 A data frame representing the second dataset.
+#' @param sequence2 A data frame representing the sequence of the second dataset.
+#' @param ppmTolerance A numeric value representing the ppm tolerance.
+#' @param rtTolerance A numeric value representing the rt tolerance.
+#'
+#' @return A data frame representing the merged and labeled dataset.
 mergeDatasets_new <- function(dataset1, sequence1, dataset2, sequence2, ppmTolerance, rtTolerance) {
   massCorrection <- read.csv("./csvfiles/adducts.csv")
   # Extract data from datasets
-  data1 <- extractMassAndAdduct(dataset1, sequence1[, 1], determineIonMode(sequence1[, 1]))
-  data2 <- extractMassAndAdduct(dataset2, sequence2[, 1], determineIonMode(sequence2[, 1]))
+  data1 <- select_mass_and_adduct(dataset1, sequence1[, 1], determineIonMode(sequence1[, 1]))
+  data2 <- select_mass_and_adduct(dataset2, sequence2[, 1], determineIonMode(sequence2[, 1]))
 
   # Calculate monoisotopic masses
   mass1 <- calculateMonoisotopicMass(data1$adduct, data1$mass, determineIonMode(sequence1[, 1]), massCorrection)
   mass2 <- calculateMonoisotopicMass(data2$adduct, data2$mass, determineIonMode(sequence2[, 1]), massCorrection)
 
   # Combine mass and retention time data
-  combined <- rbind(data.frame(mass = mass1, rt = extractRetentionTime(dataset1, sequence1[, 1])),
-                    data.frame(mass = mass2, rt = extractRetentionTime(dataset2, sequence2[, 1])))
+  combined <- rbind(data.frame(mass = mass1, rt = select_retention_time(dataset1, sequence1[, 1])),
+                    data.frame(mass = mass2, rt = select_retention_time(dataset2, sequence2[, 1])))
 
   # Calculate distances and create adjacency matrix
   distances <- calculateDistances(combined)
@@ -73,7 +122,6 @@ mergeDatasets_new <- function(dataset1, sequence1, dataset2, sequence2, ppmToler
   return(mergedDatasets)
 }
 
-# Function to identify and extract data for duplicate clusters
 extractDuplicateClusters <- function(mergedDatasets) {
   clustCounts <- table(mergedDatasets$mergeID)
   duplicateClusters <- subset(as.data.frame(clustCounts), Freq > 1)
@@ -102,8 +150,6 @@ prepareOutputDataFrame <- function(data, activeSequence, cv) {
 findClusterEndpoints <- function(data) {
   return(which(!duplicated(data$Cluster_ID)))
 }
-
-
 
 duplicateRank <- function(duplicate, rankings) {
   ranks <- sapply(1:nrow(rankings), function(x) {

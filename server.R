@@ -11,7 +11,7 @@ shinyServer(function(session, input, output) {
     name = c("high", "medium", "low"),
     priority = c(1, 2, 3)
   )
-  rankings <- read.csv("./csvfiles/rankings.csv", stringsAsFactors = FALSE)
+  
   massCorrection <- read.csv("./csvfiles/adducts.csv")
   zipFiles <- list.files("example_files", pattern = "\\.zip$", full.names = TRUE)
 
@@ -169,6 +169,7 @@ shinyServer(function(session, input, output) {
       names(rv$data)[length(rv$data)] <- substr(input$inputFile$name, 1, nchar(input$inputFile$name) - 4)
       rv$choices <- paste(seq_along(rv$data), ": ", names(rv$data)) #TODO 
       updateTabItems(session, "tabs", selected = "Datainput")
+      windowselect("sequence")
       show("buttons")
     }
   })
@@ -291,7 +292,7 @@ shinyServer(function(session, input, output) {
 
   observeEvent(input$example, {
     # Lipidomics
-    data <- read.csv("./csvfiles/Eva pos export from profinder.csv", stringsAsFactors = FALSE)
+    data <- read.csv("./csvfiles/lipidomics_pos.csv", stringsAsFactors = FALSE)
     sequence <- read.csv("./csvfiles/sequence_lipidomics_pos.csv", stringsAsFactors = FALSE)
     row.names(sequence) <- sequence[, 1]
     sequence <- sequence[, -1]
@@ -301,7 +302,7 @@ shinyServer(function(session, input, output) {
     initializeVariables()
 
     # Metabolomics
-    data <- read.csv("./csvfiles/Woz export from mzmine pos.csv", stringsAsFactors = FALSE)
+    data <- read.csv("./csvfiles/metabolomics_pos.csv", stringsAsFactors = FALSE)
     sequence <- read.csv("./csvfiles/sequence_metabolomics_pos.csv", stringsAsFactors = FALSE)
     row.names(sequence) <- sequence[, 1]
     sequence <- sequence[, -1]
@@ -663,7 +664,7 @@ shinyServer(function(session, input, output) {
         sendSweetAlert(session = session, title = "Error", text = "QCs cannot have missing values.", type = "error")
       }
       else {
-        corrected <- driftcorrection(data, sequence, input$driftMethod, input$driftTrees, input$driftQCspan)
+        corrected <- driftCorrection(data, sequence, input$driftMethod, input$driftTrees, input$driftQCspan)
 
         rv$tmpData <- corrected
         rv$tmpSequence <- sequence

@@ -1,8 +1,7 @@
-# Refactored drift correction methods into separate functions
 performRFCorrection <- function(data, qcOrder, ntree, frame, totalRows) {
   dcdata <- data
   for (i in seq_len(dcdata)) {
-    forest <- randomForest(data.frame(qcOrder), as.numeric(dcdata[i, qcOrder]), ntree = ntree)
+    forest <- randomForest(data.frame(qcOrder), as.numeric(dcdata[i, qcOrder]), ntree = ntree, na.action = na.roughfix)
     predicted <- predict(forest, frame)
     dcdata[i, ] <- as.numeric(dcdata[i, ]) / predicted
     updateProgressBar(id = "pbdc", value = i, total = totalRows)
@@ -12,7 +11,7 @@ performRFCorrection <- function(data, qcOrder, ntree, frame, totalRows) {
 
 performLOESSCorrection <- function(dcdat, qcid, degree, QCspan, frame, totalRows) {
   for (i in seq_len(dcdat)) {
-    loessFit <- loess(dcdat[i, qcid] ~ qcid, span = QCspan, degree = degree)
+    loessFit <- loess(dcdat[i, qcid] ~ qcid, span = QCspan, degree = degree, na.action = na.roughfix)
     pv <- predict(loessFit, frame)
     dcdat[i, ] <- as.numeric(dcdat[i, ]) / pv
     updateProgressBar(id = "pbdc", value = i, total = totalRows)
@@ -20,12 +19,14 @@ performLOESSCorrection <- function(dcdat, qcid, degree, QCspan, frame, totalRows
   return(dcdat)
 }
 
-# Main drift correction function
-driftcorrection <- function(data, sequence, method, ntree = 500, degree = 2, QCspan) {
+driftCorrection <- function(data, sequence, method, ntree = 500, degree = 2, QCspan) {
   seqsq <- sequence[sequence[, 1] %in% c("Sample", "QC"), ]
   datsq <- data[, sequence[, 1] %in% c("Sample", "QC")]
-  datsqsorted <- datsq[order(seqsq$order)]
+  
+  datsqsorted <- datsq[order(seqsq$order)] #TODO ordered samples (check that it doesnt skip numbers)
+
   qcid <- sort(as.numeric(seqsq[seqsq[, 1] == "QC", "order"]))
+
   frame <- data.frame("qcid" = 1:ncol(datsqsorted)) 
   dcdat <- as.matrix(datsqsorted)
 
