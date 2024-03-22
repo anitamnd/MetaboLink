@@ -1,30 +1,3 @@
-library(shiny)
-library(shinydashboard)
-library(shinyBS)
-library(shinyjs)
-library(shinyWidgets)
-library(spsComps)
-library(DT)
-library(dplyr)
-library(plotly)
-library(ggplot2)
-library(ggrepel)
-library(gridExtra)
-library(impute)
-library(randomForest)
-library(writexl)
-library(igraph)
-library(stringi)
-library(BiocManager)
-library(shinycssloaders)
-library(jsonlite)
-options(repos = BiocManager::repositories())
-source("functions.R")
-source("plotfunctions.R")
-source("analysis_functions.R")
-source("normalization.R")
-source("export.R")
-
 shinyUI(dashboardPage(
   dashboardHeader(
     title = "MetaboLink",
@@ -48,6 +21,10 @@ shinyUI(dashboardPage(
     width = "400",
     useShinyjs(),
     tags$style(HTML(".panel-primary {color: #000000;}")),
+    tags$style(HTML("#removeIS {
+        color: black;
+        text-decoration: underline;
+      }")),
     tags$head(tags$script(src="CallShiny.js")),
     extendShinyjs(script="CallShiny.js", functions=c("retrieve_results","send_message","run_button")),
     fluidPage(
@@ -55,7 +32,8 @@ shinyUI(dashboardPage(
         selectizeInput("selectDataset", "Active dataset",
           choices = NULL, width = "100%",
           options = list(placeholder = "Please upload a file to start")
-        )
+        ) %>% 
+          bsTooltip("Switch between the different uploaded/saved datsets.", placement = "bottom", trigger = "hover")
       ),
       bsCollapse(
         id = "menu", multiple = FALSE, open = "Data input",
@@ -77,9 +55,12 @@ shinyUI(dashboardPage(
           fluidRow(
             style = "margin-right: 0px;",
             column(6, style = "padding-left:0px;",
-              bsButton("submit", "Submit", width = "100%")),
+              bsButton("upload", "Upload", width = "100%")
+            ),
             column(6, style = "padding-left:0px;",
-              bsButton("example", "Load example", width = "100%"))
+              bsButton("example", "Load example", width = "100%")  %>% 
+                bsTooltip("Load example metabolomics and lipidomics datasets and metafiles.", placement = "bottom", trigger = "hover")
+            )
           )
         ),
         bsCollapsePanel("Blank filtration",
@@ -115,7 +96,8 @@ shinyUI(dashboardPage(
               style = "padding-left:0px; margin-top: 10px;"
             )
           )
-        ),
+        )  %>% 
+            bsTooltip("Requires columns labeled 'Blank' and 'QC'.", placement = "bottom", trigger = "hover"),
         bsCollapsePanel("Missing value filtration",
           style = "primary",
           fluidRow(
@@ -161,54 +143,69 @@ shinyUI(dashboardPage(
             column(6, bsButton("saveImputation", "Save", width = "100%"), style = "padding-left:0px;")
           )
         ),
-        bsCollapsePanel("IS normalization",
-          style = "primary",
-          fluidRow(
-            selectInput("isMethod", "Method", choices = c("Nearest RT", "Same lipid structure"), selected = "Nearest RT", width = "100%")
-          ),
-          fluidRow(
-            checkboxGroupInput("isChoose", NULL, choices = NULL, selected = NULL, inline = FALSE)
-          ),
-          fluidRow(
-            style = "margin-right: 0px;",
-            column(6, checkboxInput("normalizeQC", "Normalize QC", value = T, width = "100%"), style = "padding: 0px; margin-top: 0px; margin-left: 10px; margin-right: -10px;"),
-            column(6, checkboxInput("newFileIS", "Save as new file", value = T, width = "100%"), style = "padding: 0px; margin-top: 0px; margin-left: 10px; margin-right: -10px;")
-          ),
-          fluidRow(
-            style = "margin-right: 0px;",
-            column(6, bsButton("normalizeIS", "Normalize", width = "100%"), style = "padding-left:0px;"),
-            column(6, bsButton("optimizeIS", "Optimize", width = "100%"), style = "padding-left:0px;")
-          ),
-          fluidRow(
-            style = "margin-right: 0px;",
-            column(6, bsButton("removeIS", "Remove IS", width = "100%"), style = "padding-left:0px;"),
-            column(6, bsButton("saveIS", "Save", width = "100%"), style = "padding-left:0px;")
-          )
-        ),
-        bsCollapsePanel("Drift correction",
-          style = "primary",
-          fluidRow(selectInput("driftMethod", "Signal correction method", choices = c("QC-RFSC (random forrest)", "QC-RLSC (robust LOESS)"), width = "100%")),
-          fluidRow(div(id = "dc_ntree_hide", sliderInput("driftTrees", "ntree", min = 100, max = 1000, value = 500, step = 100, width = "100%"))),
-          fluidRow(hidden(div(id = "dc_qcspan_hide", sliderInput("driftQCspan", "QCspan", min = 0.2, max = 0.75, value = 0.7, step = 0.05, width = "100%")))),
-          fluidRow(hidden(div(id = "dc_degree_hide", sliderInput("driftDegree", "degree", min = 0, max = 2, value = 2, step = 1, width = "100%")))),
-          fluidRow(
-            style = "margin-right: 0px;",
-            column(12, checkboxInput("newFileDrift", "Save as new file", value = T, width = "100%"), style = "padding: 0px; margin-top: -10px; margin-left: 10px; margin-right: -10px;"),
-            column(6, bsButton("runDrift", "Run", width = "100%"), style = "padding-left:0px;"),
-            column(6, bsButton("saveDrift", "Save", width = "100%"), style = "padding-left:0px;")
-          )
-        ) %>% bsTooltip("For correct usage, please refer to the user manual.", placement = "bottom", trigger = "hover"),
         bsCollapsePanel("Normalization",
           style = "primary",
-          fluidRow(
-            style = "margin-right: 0px;",
-            column(12, selectInput("normMethod", "Function", choices = c("QC (PQN)", "Sum", "Median", "Sample amount"), width = "100%"), style = "padding-left:0px;")
-          ),
-          fluidRow(
-            style = "margin-right: 0px;",
-            column(12, checkboxInput("newFileNorm", "Save as new file", value = F, width = "100%"), style = "padding: 0px; margin-top: -10px; margin-left: 10px; margin-right: -10px;"),
-            column(6, bsButton("normalize", "Run", width = "100%"), style = "padding-left:0px;"),
-            column(6, bsButton("saveNormalization", "Save", width = "100%"), style = "padding-left:0px;")
+          p("Expand options below to see all the normalization methods."),
+          bsCollapse(
+            id =  "norm2", multiple = FALSE, open = "Normalization", 
+            bsCollapsePanel("Internal standards",
+              style = "color: black;",
+              fluidRow(
+                selectInput("isMethod", "Method", choices = c("Nearest RT", "Same lipid structure"), selected = "Nearest RT", width = "100%")
+              ),
+              fluidRow(
+                checkboxGroupInput("isChoose", NULL, choices = NULL, selected = NULL, inline = FALSE)
+              ),
+              fluidRow(
+                style = "margin-right: 0px;",
+                column(12, actionLink("removeIS", "Remove IS", width = "50%") %>% 
+                  bsTooltip("Remove internal standards.", placement = "bottom", trigger = "hover")
+              )),
+              fluidRow(
+                style = "margin-right: 0px;",
+                column(6, checkboxInput("normalizeQC", "Normalize QC", value = T, width = "100%"), style = "padding: 0px; margin-top: 0px; margin-left: 10px; margin-right: -10px;"),
+                column(6, checkboxInput("newFileIS", "Save as new file", value = T, width = "100%"), style = "padding: 0px; margin-top: 0px; margin-left: 10px; margin-right: -10px;")
+              ),
+              fluidRow(
+                style = "margin-right: 0px;",
+                column(6, bsButton("normalizeIS", "Normalize", width = "100%"), style = "padding-left:0px;"),
+                column(6, bsButton("saveIS", "Save", width = "100%"), style = "padding-left:0px;")
+              )
+            ),
+            bsCollapsePanel("Drift correction",
+              style = "color: black;",
+              fluidRow(
+                selectInput("driftMethod", "Signal correction method", choices = c("QC-RFSC (random forrest)", "QC-RLSC (robust LOESS)"), width = "100%")
+              ),
+              fluidRow(div(id = "dc_ntree_hide", 
+                  sliderInput("driftTrees", "ntree", min = 100, max = 1000, value = 500, step = 100, width = "100%")
+              )),
+              fluidRow(hidden(div(id = "dc_qcspan_hide", 
+                  sliderInput("driftQCspan", "QCspan", min = 0.2, max = 0.75, value = 0.7, step = 0.05, width = "100%"))
+              )),
+              fluidRow(hidden(div(id = "dc_degree_hide", 
+                  sliderInput("driftDegree", "degree", min = 0, max = 2, value = 2, step = 1, width = "100%"))
+              )),
+              fluidRow(style = "margin-right: 0px;",
+                column(12, checkboxInput("newFileDrift", "Save as new file", value = T, width = "100%"), style = "padding: 0px; margin-top: -10px; margin-left: 10px; margin-right: -10px;"),
+                column(6, bsButton("runDrift", "Run", width = "100%"), style = "padding-left:0px;"),
+                column(6, bsButton("saveDrift", "Save", width = "100%"), style = "padding-left:0px;")
+              )
+            ) %>% bsTooltip("For correct usage, please refer to the user manual.", placement = "bottom", trigger = "hover"),
+            bsCollapsePanel("More",
+              style = "color: #000000;",
+              fluidRow(
+                style = "margin-right: 0px;",
+                column(12, selectInput("normMethod", "Select normalization method", choices = c("QC (PQN)", "Sum", "Median", "Sample amount"), width = "100%"), style = "padding-left:0px;")
+              ),
+              fluidRow(
+                style = "margin-right: 0px;",
+                column(12, checkboxInput("newFileNorm", "Save as new file", value = F, width = "100%"), style = "padding: 0px; margin-top: -10px; margin-left: 10px; margin-right: -10px;"),
+                column(6, bsButton("normalize", "Run", width = "100%"), style = "padding-left:0px;"),
+                column(6, bsButton("saveNormalization", "Save", width = "100%"), style = "padding-left:0px;")
+              )
+            ) %>% 
+            bsTooltip("Press for more normalization options.", placement = "bottom", trigger = "hover")
           )
         ),
         bsCollapsePanel("Log transform and scaling",
@@ -221,6 +218,10 @@ shinyUI(dashboardPage(
             ),
             column(6, selectInput("scaling", "Data scaling", choices = c("None", "Mean center", "Auto scale"), width = "100%"), style = "padding-left:0px;")
           ),
+          fluidRow(
+            column(6,
+            checkboxInput("newFileTransform", "Save as new file", value = T, width = "100%")
+          )),
           fluidRow(
             style = "margin-right: 0px;",
             column(6, bsButton("transform", "Run", width = "100%"), style = "padding-left:0px;"),
@@ -237,7 +238,7 @@ shinyUI(dashboardPage(
           ),
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, bsButton("mergeRankings", "Edit priorities", width = "100%"), style = "padding-left:0px;"),
+            column(6, bsButton("editRankings", "Edit priorities", width = "100%"), style = "padding-left:0px;"),
             column(6, bsButton("mergeDatasets", "Run", width = "100%"), style = "padding-left:0px;")
           )
         ) %>% bsTooltip("Merge datasets with same samples and different ion mode. The datasets must have the same number of samples.", placement = "bottom", trigger = "hover"),
@@ -249,6 +250,11 @@ shinyUI(dashboardPage(
             column(12, bsButton("removeFiles", "Remove", width = "50%"), style = "padding-left:0px;")
           )
         )
+      ),
+      fluidRow(
+        column(12, div(style = "float: right;",
+          a(icon("book"), "User manual",  href = "https://github.com/anitamnd/MetaboLink/wiki")
+        ))
       )
     ),
     sidebarMenu()
@@ -495,10 +501,6 @@ shinyUI(dashboardPage(
                     column(6, selectInput("group1", "Group 1", choices = NULL, width = "100%")),
                     column(6, selectInput("group2", "Group 2", choices = NULL, width = "100%"))
                   )
-                  # fluidRow(
-                  #   column(6, selectInput("group2", "Group", choices = NULL, width = "100%")),
-                  #   column(6, selectInput("time2", "Time", choices = NULL, width = "100%"))
-                  # )
                 ),
                 conditionalPanel(
                   condition = "input.testType == 'CompareToReference'",

@@ -1,0 +1,28 @@
+library(shiny)
+library(shinydashboard)
+library(shinyBS)
+library(shinyjs)
+library(shinyWidgets)
+library(spsComps)
+library(DT)
+library(dplyr)
+library(plotly)
+library(ggplot2)
+library(ggrepel)
+library(gridExtra)
+library(impute)
+library(randomForest)
+library(writexl)
+library(igraph)
+library(stringi)
+library(BiocManager)
+library(shinycssloaders)
+library(jsonlite)
+#options(repos = BiocManager::repositories())
+source("functions.R")
+
+# Source files in R folder
+rFiles <- list.files("./R", pattern = "\\.R$", full.names = TRUE)
+for (file in rFiles) {
+  source(file)
+}

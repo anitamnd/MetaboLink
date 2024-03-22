@@ -1,23 +1,18 @@
-FROM rocker/shiny:latest
+FROM rocker/shiny
 LABEL maintainer = "Ana Mendes <anamendesml@outlook.com>"
-LABEL description = "Docker image of JLspec"
+LABEL description = "Docker image of MetaboLink"
 
-RUN apt-get -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true update && apt-get install -y libssl-dev libcurl4-gnutls-dev libxml2-dev libudunits2-dev libgdal-dev liblzma-dev libbz2-dev libicu-dev && apt-get clean 
+RUN rm -rf /srv/shiny-server/*
+COPY . /srv/shiny-server/
+WORKDIR /srv/shiny-server/
+RUN apt update; apt install -y libglpk-dev
 
 
 RUN R -e "install.packages('BiocManager', repos='http://cran.us.r-project.org'); \
-        update.packages(ask=F); \
-        BiocManager::install(c('dplyr','plotly'),ask=F)"
+        update.packages(ask=F)"
 
-RUN R -e "library(BiocManager); BiocManager::install(c('matrixStats','DT','gplots', \
-        'shiny','shinyBS','shinydashboard','limma','shinyjs','shinyalert', \
+RUN R -e "library(BiocManager);BiocManager::install(c('dplyr','plotly','matrixStats','DT','gplots', \
+        'shiny','shinyBS','shinydashboard','shinycssloaders','limma','shinyjs','shinyalert', \
         'shinyWidgets','spsComps','ggplot2','ggrepel','gridExtra','impute', \
         'randomForest','writexl','stringi','igraph'), ask=F)"
-
-RUN rm -rf /srv/shiny-server
-RUN mkdir /srv/shiny-server
-COPY *R  /srv/shiny-server/
-COPY *html  /srv/shiny-server/
-COPY csvfiles/*  /srv/shiny-server/csvfiles/
-
-EXPOSE 3838
+        
