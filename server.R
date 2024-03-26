@@ -706,16 +706,16 @@ shinyServer(function(session, input, output) {
               datasetToMerge, sequenceToMerge, input$merge_ppm, input$merge_rt)
 
         duplicates <<- extractDuplicateClusters(mergedDatasets)
-        coefVariation <- cv(extractQCs(duplicates, activeSequence[, 1])) 
+        coefVariation <- cv(select_quality_controls(duplicates, activeSequence[, 1])) 
         outputData <- prepareOutputDataFrame(duplicates, activeSequence, coefVariation)
         cluster_ends <- findClusterEndpoints(outputData)
   
         # Render the data table with appropriate formatting
         output$md_modal_dt <- renderDataTable({
-            datatable(out_dub,
+            datatable(outputData,
               rownames = FALSE,
               options = list(dom = "t", autowidth = T, paging = FALSE),
-              selection = list(selected = finddup(outputData, rankings))
+              selection = list(selected = findDuplicate(outputData, rankings_merge))
             ) %>% formatStyle(1:8, `border-top` = styleRow(cluster_ends, "solid 2px"))
           },
           server = TRUE
@@ -724,7 +724,7 @@ shinyServer(function(session, input, output) {
         showModal(
           modalDialog(
             title = "Select features to keep", size = "l",
-            p(paste0(length(unique(dub_dat$mergeID))), " duplicate clusters found, of those ", paste0(length(unique(out_dub[out_dub[, 1] > 2, ][, 2]))), " consists of more than 2 features."),
+            p(paste0(length(unique(duplicates$mergeID))), " duplicate clusters found, of those ", paste0(length(unique(outputData[outputData[, 1] > 2, ][, 2]))), " consists of more than 2 features."),
             p("Select the features to keep by clicking on the rows in the table below (blue = keep)."),
             DTOutput("md_modal_dt"),
             footer = list(actionButton("confirmMerging", "Remove duplicates"), modalButton("Dismiss"))
