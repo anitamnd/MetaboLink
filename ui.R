@@ -59,7 +59,7 @@ shinyUI(dashboardPage(
             ),
             column(6, style = "padding-left:0px;",
               bsButton("example", "Load example", width = "100%")  %>% 
-                bsTooltip("Load example metabolomics and lipidomics datasets and metafiles.", placement = "bottom", trigger = "hover")
+                bsTooltip("Load example metabolomics datasets in positive and negative ion mode and respective metadata files.", placement = "bottom", trigger = "hover")
             )
           )
         ),
@@ -301,7 +301,7 @@ shinyUI(dashboardPage(
           column(12, box(width = NULL, title = "Instructions", status = "primary", solidHeader = TRUE,
               tagList(
                 list(
-                  tags$li("Upload the sequence/metafile."),
+                  tags$li("Upload the sequence/metadata file."),
                   tags$li("The sample names in the metafile should match the sample names in the data file."),
                   tags$li("Make sure the columns are labeled correctly before proceeding."),
                   tags$li("If a sample (numeric) column is labeled '-', this usually means there are invalid characters in the column."),

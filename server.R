@@ -237,30 +237,30 @@ shinyServer(function(session, input, output) {
   })
 
   observeEvent(input$example, {
-    # Lipidomics
-    data <- read.csv("./csvfiles/lipidomics_pos.csv", stringsAsFactors = FALSE)
-    sequence <- read.csv("./csvfiles/sequence_lipidomics_pos.csv", stringsAsFactors = FALSE)
+    # Load example files
+    # Negative ion mode
+    data <- read.csv("./example_files/metabolomics_pos_neg/metabolomics_negative.csv", stringsAsFactors = FALSE)
+    sequence <- read.csv("./example_files/metabolomics_pos_neg/metabolomics_sequence.csv", stringsAsFactors = FALSE)
     row.names(sequence) <- sequence[, 1]
     sequence <- sequence[, -1]
     rv$sequence[[length(rv$sequence) + 1]] <- sequence
     rv$data[[length(rv$data) + 1]] <- data
-    names(rv$data)[length(rv$data)] <- "Lipidomics_pos"
+    names(rv$data)[length(rv$data)] <- "Metabolomics_negative"
     initializeVariables()
 
-    # Metabolomics
-    data <- read.csv("./csvfiles/metabolomics_pos.csv", stringsAsFactors = FALSE)
-    sequence <- read.csv("./csvfiles/sequence_metabolomics_pos.csv", stringsAsFactors = FALSE)
-    row.names(sequence) <- sequence[, 1]
-    sequence <- sequence[, -1]
+    # Positive ion mode
+    data <- read.csv("./example_files/metabolomics_pos_neg/metabolomics_positive.csv", stringsAsFactors = FALSE)
     rv$sequence[[length(rv$sequence) + 1]] <- sequence
     rv$data[[length(rv$data) + 1]] <- data
-    names(rv$data)[length(rv$data)] <- "Metabolomics_pos"
+    names(rv$data)[length(rv$data)] <- "Metabolomics_positive"
     initializeVariables()
     rv$choices <- paste(seq_along(rv$data), ": ", names(rv$data))
+
     updateTabItems(session, "tabs", selected = "Datainput")
     show("buttons")
     updateCollapse(session, "menu", close = "Data input")
     disable("example")
+    sendSweetAlert(session, title = "Info", text = "You can go to our user manual to find a workflow example for the test datasets.", type = "info")
   })
 
   # Update selected data
