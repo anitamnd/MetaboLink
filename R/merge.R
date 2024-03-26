@@ -100,13 +100,18 @@ analyzeGraphComponents <- function(adjacencyMatrix) {
 #' @return A data frame representing the merged and labeled dataset.
 mergeDatasets <- function(dataset1, sequence1, dataset2, sequence2, ppmTolerance, rtTolerance) {
   massCorrection <- read.csv("./csvfiles/adducts.csv")
+
+  # Determine positive and negative ion mode datasets
+  ion_mode_1 <- determine_ion_mode(sequence1[, 1])
+  ion_mode_2 <- determine_ion_mode(sequence2[, 1])
+
   # Extract data from datasets
-  data1 <- select_mass_and_adduct(dataset1, sequence1[, 1], determine_ion_mode(sequence1[, 1]))
-  data2 <- select_mass_and_adduct(dataset2, sequence2[, 1], determine_ion_mode(sequence2[, 1]))
+  data1 <- select_mass_and_adduct(dataset1, sequence1[, 1], ion_mode_1)
+  data2 <- select_mass_and_adduct(dataset2, sequence2[, 1], ion_mode_2)
 
   # Calculate monoisotopic masses
-  mass1 <- calculateMonoisotopicMass(data1$adduct, data1$mass, determine_ion_mode(sequence1[, 1]), massCorrection)
-  mass2 <- calculateMonoisotopicMass(data2$adduct, data2$mass, determine_ion_mode(sequence2[, 1]), massCorrection)
+  mass1 <- calculateMonoisotopicMass(data1$adduct, data1$mass, ion_mode_1, massCorrection)
+  mass2 <- calculateMonoisotopicMass(data2$adduct, data2$mass, ion_mode_2, massCorrection)
 
   # Combine mass and retention time data
   combined <- rbind(data.frame(mass = mass1, rt = select_retention_time(dataset1, sequence1[, 1])),
@@ -118,7 +123,7 @@ mergeDatasets <- function(dataset1, sequence1, dataset2, sequence2, ppmTolerance
 
   # Analyze graph components and merge datasets
   mergeID <- analyzeGraphComponents(adjMatrix)
-  mergedDatasets <- mergeAndLabelDatasets(dataset1, dataset2, mergeID, determine_ion_mode(sequence1[, 1]), determine_ion_mode(sequence2[, 1]))
+  mergedDatasets <- mergeAndLabelDatasets(dataset1, dataset2, mergeID, ion_mode_1, ion_mode_2)
   return(mergedDatasets)
 }
 
