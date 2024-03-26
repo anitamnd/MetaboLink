@@ -240,7 +240,7 @@ shinyServer(function(session, input, output) {
     # Load example files
     # Negative ion mode
     data <- read.csv("./example_files/metabolomics_pos_neg/metabolomics_negative.csv", stringsAsFactors = FALSE)
-    sequence <- read.csv("./example_files/metabolomics_pos_neg/metabolomics_sequence.csv", stringsAsFactors = FALSE)
+    sequence <- read.csv("./example_files/metabolomics_pos_neg/metabolomics_sequence_neg.csv", stringsAsFactors = FALSE)
     row.names(sequence) <- sequence[, 1]
     sequence <- sequence[, -1]
     rv$sequence[[length(rv$sequence) + 1]] <- sequence
@@ -250,6 +250,9 @@ shinyServer(function(session, input, output) {
 
     # Positive ion mode
     data <- read.csv("./example_files/metabolomics_pos_neg/metabolomics_positive.csv", stringsAsFactors = FALSE)
+    sequence <- read.csv("./example_files/metabolomics_pos_neg/metabolomics_sequence_pos.csv", stringsAsFactors = FALSE)
+    row.names(sequence) <- sequence[, 1]
+    sequence <- sequence[, -1]
     rv$sequence[[length(rv$sequence) + 1]] <- sequence
     rv$data[[length(rv$data) + 1]] <- data
     names(rv$data)[length(rv$data)] <- "Metabolomics_positive"
