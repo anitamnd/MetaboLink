@@ -78,6 +78,7 @@ shinyServer(function(session, input, output) {
           rv$info[newIndex] <- paste(ifelse(is.na(rv$info[rv$activeFile]), "", rv$info[rv$activeFile]), additionalInfo, "\n")
         }
         initializeVariables()
+        rv$activeFile <- newIndex
       } else {
         rv$data[[rv$activeFile]] <- rv$tmpData
         rv$sequence[[rv$activeFile]] <- rv$tmpSequence
@@ -360,8 +361,9 @@ shinyServer(function(session, input, output) {
     updateSelectInput(session, "drift_select", choices = c("None", choices))
 
     inputs <- c("selectDataset", "mergeFile", "selectpca1", "selectpca2")
+    selected <- ifelse(is.null(rv$activeFile), length(choices), rv$activeFile)
     for(input in inputs) {
-      updateSelectInput(session, input, choices = choices, selected = choices[num_datasets])
+      updateSelectInput(session, input, choices = choices, selected = choices[selected])
     }
   })
 
