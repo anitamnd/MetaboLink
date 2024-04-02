@@ -350,11 +350,57 @@ shinyServer(function(session, input, output) {
     output$export_stats <- renderDownloadUI("dwn_stats", "_results.xlsx")
     output$export_settings <- renderDownloadUI("dwn_settings", ".txt")
 
-    lapply(seq_len(num_datasets), createDownloadHandler("general", ".csv", getDataForDownload))
-    lapply(seq_len(num_datasets), createDownloadHandler("stats", ".xlsx", getStatsData))
-    lapply(seq_len(num_datasets), createDownloadHandler("settings", ".txt", getSettingsData))
-    lapply(seq_len(num_datasets), createDownloadHandler("metabo", ".csv", getMetaboData))
+#    lapply(seq_len(num_datasets), createDownloadHandler("general", ".csv", rv$data[[rv$activeFile]]))
+#    lapply(seq_len(num_datasets), createDownloadHandler("stats", ".xlsx", rv$results[[rv$activeFile]]))
+#    lapply(seq_len(num_datasets), createDownloadHandler("settings", ".txt", rv$info[[rv$activeFile]]))
+#    lapply(seq_len(num_datasets), createDownloadHandler("metabo", ".csv", getMetaboData))
 
+    lapply(1:length(rv$choices), function(x) {
+      output[[paste0("dwn_stats", x)]] <- downloadHandler(
+        filename = function() {
+          paste0(names(rv$data[x]), "_results.xlsx")
+        },
+        content = function(file) {
+          write_xlsx(rv$results[[x]], file)
+        }
+      )
+    })
+    lapply(1:length(rv$choices), function(x) {
+      output[[paste0("dwn_general", x)]] <- downloadHandler(
+        filename = function() {
+          paste0(names(rv$data[x]), ".csv")
+        },
+        content = function(file) {
+          write.csv(rv$data[[x]], file, row.names = FALSE)
+        }
+      )
+    })
+    lapply(1:length(rv$choices), function(x) {
+      output[[paste0("dwn_settings", x)]] <- downloadHandler(
+        filename = function() {
+          paste0(names(rv$data[x]), ".txt")
+        },
+        content = function(file) {
+          write.csv(rv$info[x], file, row.names = FALSE)
+        }
+      )
+    })
+    lapply(1:length(rv$choices), function(x) {
+      dat <- rv$data[[x]]
+      seq <- rv$sequence[[x]]
+      seq[seq[, 1] %in% "QC", 4] <- "QC"
+      group <- c("", seq[seq[, 1] %in% c("Sample", "QC"), 4])
+      outdat <- data.frame(dat[seq[, 1] %in% "Name"], dat[seq[, 1] %in% c("Sample", "QC")])
+      outdat <- rbind(group, outdat)
+      output[[paste0("dwn_metabo", x)]] <- downloadHandler(
+        filename = function() {
+          paste0(names(rv$data[x]), "_metabo.csv")
+        },
+        content = function(file) {
+          write.csv(outdat, file, row.names = FALSE)
+        }
+      )
+    })
 
     updateCheckboxGroupInput(session, "export_xml_list", choices = choices, selected = NULL)
     updateCheckboxGroupInput(session, "filesToRemove", choices = names(rv$data), selected = NULL)
