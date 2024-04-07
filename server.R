@@ -285,6 +285,8 @@ shinyServer(function(session, input, output) {
     output$dt_boxplot_panel <- renderDT(rv$data[[rv$activeFile]][rv$sequence[[rv$activeFile]][, 1] %in% "Name"], rownames = FALSE, 
               options = list(autoWidth = TRUE, scrollY = "700px", pageLength = 20))
     
+    data <- rv$data[[rv$activeFile]]
+    sequence <- rv$sequence[[rv$activeFile]]
     output$histogram <- renderPlotly({
       samples <- data[, sequence[ , 'labels'] %in% "Sample"]
       medians <- apply(samples, 2, median, na.rm = TRUE)
@@ -651,7 +653,7 @@ shinyServer(function(session, input, output) {
         sendSweetAlert(session = session, title = "Error", text = "QCs cannot have missing values.", type = "error")
       }
       else {
-        corrected <- driftCorrection(data, sequence, input$driftMethod, input$driftTrees, input$driftQCspan)
+        corrected <- driftCorrection(data, sequence, input$driftMethod, input$driftTrees, input$driftDegree, input$driftQCspan)
 
         rv$tmpData <- corrected
         rv$tmpSequence <- sequence
