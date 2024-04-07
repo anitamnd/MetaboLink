@@ -653,7 +653,7 @@ shinyServer(function(session, input, output) {
         sendSweetAlert(session = session, title = "Error", text = "QCs cannot have missing values.", type = "error")
       }
       else {
-        corrected <- driftCorrection(data, sequence, input$driftMethod, input$driftTrees, input$driftQCspan)
+        corrected <- driftCorrection(data, sequence, input$driftMethod, input$driftTrees, input$driftDegree, input$driftQCspan)
 
         rv$tmpData <- corrected
         rv$tmpSequence <- sequence

@@ -175,7 +175,7 @@ shinyUI(dashboardPage(
             bsCollapsePanel("Drift correction",
               style = "color: black;",
               fluidRow(
-                selectInput("driftMethod", "Signal correction method", choices = c("QC-RFSC (random forrest)", "QC-RLSC (robust LOESS)"), width = "100%")
+                selectInput("driftMethod", "Signal correction method", choices = c("QC-RFSC (random forest)", "QC-RLSC (robust LOESS)"), width = "100%")
               ),
               fluidRow(div(id = "dc_ntree_hide", 
                   sliderInput("driftTrees", "ntree", min = 100, max = 1000, value = 500, step = 100, width = "100%")

@@ -13,8 +13,8 @@
 #' @return A numeric matrix representing the corrected data.
 performRFCorrection <- function(data, qcOrder, ntree, frame, totalRows) {
   dcdata <- data
-  for (i in seq_len(dcdata)) {
-    forest <- randomForest(data.frame(qcOrder), as.numeric(dcdata[i, qcOrder]), ntree = ntree, na.action = na.roughfix)
+  for (i in seq_len(totalRows)) {
+    forest <- randomForest(data.frame(qcOrder), as.numeric(dcdata[i, qcOrder]), ntree = ntree)
     predicted <- predict(forest, frame)
     dcdata[i, ] <- as.numeric(dcdata[i, ]) / predicted
     updateProgressBar(id = "pbdc", value = i, total = totalRows)
@@ -36,7 +36,7 @@ performRFCorrection <- function(data, qcOrder, ntree, frame, totalRows) {
 #'
 #' @return A numeric matrix representing the corrected data.
 performLOESSCorrection <- function(dcdat, qcid, degree, QCspan, frame, totalRows) {
-  for (i in seq_len(dcdat)) {
+  for (i in seq_len(totalRows)) {
     loessFit <- loess(dcdat[i, qcid] ~ qcid, span = QCspan, degree = degree, na.action = na.roughfix)
     pv <- predict(loessFit, frame)
     dcdat[i, ] <- as.numeric(dcdat[i, ]) / pv
@@ -58,7 +58,7 @@ performLOESSCorrection <- function(dcdat, qcid, degree, QCspan, frame, totalRows
 #' @param QCspan A numeric value representing the span of the LOESS model. Only used if method is 'QC-RLSC (robust LOESS)'.
 #'
 #' @return A numeric matrix representing the corrected data.
-driftCorrection <- function(data, sequence, method, ntree = 500, degree = 2, QCspan) {
+driftCorrection <- function(data, sequence, method, ntree, degree, QCspan) {
   seqsq <- sequence[sequence[, 1] %in% c("Sample", "QC"), ]
   datsq <- data[, sequence[, 1] %in% c("Sample", "QC")]
   
@@ -66,17 +66,18 @@ driftCorrection <- function(data, sequence, method, ntree = 500, degree = 2, QCs
 
   qcid <- sort(as.numeric(seqsq[seqsq[, 1] == "QC", "order"]))
 
-  frame <- data.frame("qcid" = 1:ncol(datsqsorted)) 
+  frame <- data.frame("qcOrder" = 1:ncol(datsqsorted)) 
   dcdat <- as.matrix(datsqsorted)
-
-  progressSweetAlert(id = "pbdc", title = "Correcting drift", value = 0, total = nrow(dcdat), striped = TRUE, display_pct = TRUE)
+  nrows <- nrow(dcdat)
+  progressSweetAlert(id = "pbdc", title = "Correcting drift", value = 0, total = nrows, striped = TRUE, display_pct = TRUE)
 
   if (method == "QC-RFSC (random forest)") {
-    dcdat <- performRFCorrection(dcdat, qcid, ntree, frame, nrow(dcdat))
+    dcdat <- performRFCorrection(dcdat, qcid, ntree, frame, nrows)
   } else if (method == "QC-RLSC (robust LOESS)") {
-    dcdat <- performLOESSCorrection(dcdat, qcid, degree, QCspan, frame, nrow(dcdat))
+    dcdat <- performLOESSCorrection(dcdat, qcid, degree, QCspan, frame, nrows)
   }
 
+  #TODO 
   data[, sequence[, 1] %in% c("Sample", "QC")] <- dcdat[, seqsq$order]
   closeSweetAlert()
   return(data)
