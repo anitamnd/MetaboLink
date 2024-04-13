@@ -181,7 +181,7 @@ shinyUI(dashboardPage(
                   sliderInput("driftTrees", "ntree", min = 100, max = 1000, value = 500, step = 100, width = "100%")
               )),
               fluidRow(hidden(div(id = "dc_qcspan_hide", 
-                  sliderInput("driftQCspan", "QCspan", min = 0.2, max = 0.75, value = 0.7, step = 0.05, width = "100%"))
+                  sliderInput("driftQCspan", "QCspan", min = 0.2, max = 0.75, value = 0.5, step = 0.05, width = "100%"))
               )),
               fluidRow(hidden(div(id = "dc_degree_hide", 
                   sliderInput("driftDegree", "degree", min = 0, max = 2, value = 2, step = 1, width = "100%"))
