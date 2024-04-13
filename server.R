@@ -119,7 +119,8 @@ shinyServer(function(session, input, output) {
                                                         amount = NA)
       rv$data[[length(rv$data) + 1]] <- inputFile
       names(rv$data)[length(rv$data)] <- substr(input$inputFile$name, 1, nchar(input$inputFile$name) - 4)
-      rv$choices <- paste(seq_along(rv$data), ": ", names(rv$data)) 
+      rv$choices <- paste(seq_along(rv$data), ": ", names(rv$data))
+      rv$activeFile <- length(rv$data)
       updateTabItems(session, "tabs", selected = "Datainput")
       show("buttons")
     }
@@ -644,6 +645,10 @@ shinyServer(function(session, input, output) {
   observeEvent(input$runDrift, {
     if (is.null(rv$activeFile)) {
       showNotification("No data", type = "error")
+    } else if (is.null(rv$sequence[[rv$activeFile]])) { #TODO remove? sequence is never NULL
+      showNotification("No sequence file", type = "error")
+    } else if (all(is.na(rv$sequence[[rv$activeFile]][, 'order']))) {
+      showNotification("No order information, upload sequence", type = "error")
     } else {
       data <- rv$data[[rv$activeFile]]
       sequence <- rv$sequence[[rv$activeFile]]  
