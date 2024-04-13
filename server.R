@@ -745,7 +745,6 @@ observeEvent(input$mergeDatasets, {
       activeSequence <- rv$sequence[[rv$activeFile]]
       activeDataset <- rv$data[[rv$activeFile]]
       selected <- which(rv$choices %in% input$mergeFile)
-      print(selected)
       sequenceToMerge <- rv$sequence[[selected]]
       datasetToMerge <- rv$data[[selected]]
       if (sum(activeSequence[, 1] %in% c("Adduct_pos", "Adduct_neg")) != 1 || sum(sequenceToMerge[, 1] %in% c("Adduct_pos", "Adduct_neg")) != 1) {
@@ -1043,8 +1042,6 @@ observeEvent(input$mergeDatasets, {
 
   observe({ 
     if (!is.null(rv$activeFile)) {
-      print(length(rv$sequence))
-      print(rv$activeFile)
       seq <- rv$sequence[[rv$activeFile]]
       dat <- rv$data[[rv$activeFile]]
       blank_mv <- sum(is.na(dat[seq[, 1] %in% "Blank"])) +
