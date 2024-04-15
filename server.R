@@ -1178,6 +1178,16 @@ observeEvent(input$mergeDatasets, {
           disable("selectTest")
         }
       },
+      GroupsPaired = {
+        if(!any(complete.cases(sequence[, 4]))) {
+          sendSweetAlert(session, "Oops!", "Invalid test. Provide information on different groups/conditions.", type = "error")
+          disable("selectTest")
+        }
+        if(!any(complete.cases(sequence[, 6]))) {
+          sendSweetAlert(session, "Oops!", "Invalid test. Indicate paired samples.", type = "error")
+          disable("selectTest")
+        }
+      },
       GroupsMultipleTime = {
         if(any(complete.cases(sequence[, 5])) & any(complete.cases(sequence[, 6]))) {
           sequence <- sequence[sequence[, 1] %in% "Sample" & complete.cases(sequence[, 4]), ]
@@ -1216,6 +1226,15 @@ observeEvent(input$mergeDatasets, {
           sendSweetAlert(session, "Oops!", "Choose different groups to compare.", type="error")
         } else {
           results <- groupComparison(data, sequence, c(input$group1, input$group2))
+          rv$results[[rv$activeFile]][[length(rv$results[[rv$activeFile]])+1]] <- results
+          names(rv$results[[rv$activeFile]])[length(rv$results[[rv$activeFile]])] <- paste0(input$group1, "_vs_", input$group2)
+        }
+      },
+      GroupsPaired = {
+        if(input$group1 == input$group2) {
+          sendSweetAlert(session, "Oops!", "Choose different groups to compare.", type="error")
+        } else {
+          results <- groupComparisonPaired(data, sequence, c(input$group1, input$group2))
           rv$results[[rv$activeFile]][[length(rv$results[[rv$activeFile]])+1]] <- results
           names(rv$results[[rv$activeFile]])[length(rv$results[[rv$activeFile]])] <- paste0(input$group1, "_vs_", input$group2)
         }

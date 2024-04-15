@@ -491,12 +491,13 @@ shinyUI(dashboardPage(
                   column(12,
                     selectInput("testType", "Select test", width = "100%",
                       choices = c("2 groups (unpaired)" = "GroupsUnpaired",
+                                  "2 groups (paired)" = "GroupsPaired",
                                   "2 groups with time (paired)" = "GroupsMultipleTime",
                                   "Compare to reference group" = "CompareToReference"), selected = NULL
                     ))
                 ),
                 conditionalPanel(
-                  condition = "input.testType == 'GroupsUnpaired'",
+                  condition = "input.testType == 'GroupsUnpaired' || input.testType == 'GroupsPaired'",
                   fluidRow(
                     column(6, selectInput("group1", "Group 1", choices = NULL, width = "100%")),
                     column(6, selectInput("group2", "Group 2", choices = NULL, width = "100%"))

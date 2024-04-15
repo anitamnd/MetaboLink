@@ -2,7 +2,7 @@ getGroupTime <- function(sequence) {
     sequence <- sequence[complete.cases(sequence[, 4]) & complete.cases(sequence[, 5]), ]
     group <- paste("G", sequence[, 4], sep="")
     time <- paste("T", sequence[, 5], sep="")
-    group_time <- paste(group, time, sep="_")
+    group_time <- paste(group, time, sep="_")   
 }
 
 groupComparison <- function(data, sequence, groups) {
@@ -22,6 +22,38 @@ groupComparison <- function(data, sequence, groups) {
     contrast.matrix <- makeContrasts(contrasts = paste(colnames(design)[1], "-", colnames(design)[2]), levels = design)
 
     lm.fit <- lmFit(selected, design)
+    lm.contr <- contrasts.fit(lm.fit, contrast.matrix)
+    lm.ebayes <- eBayes(lm.contr)
+    results <- topTable(lm.ebayes, adjust = "BH", number = Inf)
+    detach(package:limma, unload = TRUE)
+    return(results)
+}
+
+groupComparisonPaired <- function(data, sequence, groups) {
+    library(limma)
+    # Select samples corresponding to groups
+    keep <- sequence[, 1] %in% "Name" | sequence[, 4] %in% groups
+    print(keep)
+    selected <- data[, keep]
+    samples <- selected[, 2:ncol(selected)]
+    sequence <- sequence[sequence[, 4] %in% groups, ]
+    groups <- paste("G", sequence[, 4], sep="")
+    group <- factor(groups)
+    print(group)
+    paired <- sequence[, 6]
+    print(paired)
+
+    # Change column names to group names 
+    colnames(selected)[2:ncol(selected)] <- paste(group, colnames(selected)[2:ncol(selected)], sep=".")
+
+    design <- model.matrix(~ 0 + group)
+    colnames(design) <- levels(group)
+    corfit <- duplicateCorrelation(samples, design, block=paired)
+    print(corfit$consensus)
+    contrast.matrix <- makeContrasts(contrasts = paste(colnames(design)[1], "-", colnames(design)[2]), levels = design)
+    print(contrast.matrix)
+    
+    lm.fit <- lmFit(selected, design, block = paired, correlation=corfit$consensus)
     lm.contr <- contrasts.fit(lm.fit, contrast.matrix)
     lm.ebayes <- eBayes(lm.contr)
     results <- topTable(lm.ebayes, adjust = "BH", number = Inf)
