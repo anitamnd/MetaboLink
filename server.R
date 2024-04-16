@@ -141,6 +141,25 @@ shinyServer(function(session, input, output) {
     row.names(sequence) <- sequence[, 1]
     sequence <- sequence[, -1]
     rv$sequence[[rv$activeFile]] <- sequence
+
+    if(any(grepl("[^[:alnum:]]", sequence$group))) {
+      showModal(
+        modalDialog(
+          title = "Invalid group names", size = "m", easyClose = TRUE,
+          footer = list(actionButton("group_name_format", "Format names"), modalButton("Dismiss")),
+          fluidRow(
+            column(12, p("Invalid group names found. Group names must be alphanumeric."))
+          )
+        )
+      )
+    }
+  })
+
+  observeEvent(input$group_name_format, {
+    sequence <- rv$sequence[[rv$activeFile]]
+    sequence$group <- gsub("[^[:alnum:]]", "", sequence$group)
+    rv$sequence[[rv$activeFile]] <- sequence
+    removeModal()
   })
 
   observeEvent(input$reuseSequence, {

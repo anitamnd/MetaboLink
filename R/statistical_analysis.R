@@ -33,23 +33,22 @@ groupComparisonPaired <- function(data, sequence, groups) {
     library(limma)
     # Select samples corresponding to groups
     keep <- sequence[, 1] %in% "Name" | sequence[, 4] %in% groups
-    print(keep)
     selected <- data[, keep]
     samples <- selected[, 2:ncol(selected)]
     sequence <- sequence[sequence[, 4] %in% groups, ]
-    groups <- paste("G", sequence[, 4], sep="")
+    groups <- paste("G", sequence[, 4], sep="") #TODO ?
     group <- factor(groups)
     print(group)
     paired <- sequence[, 6]
     print(paired)
 
-    # Change column names to group names 
+    # Change column names to group names
     colnames(selected)[2:ncol(selected)] <- paste(group, colnames(selected)[2:ncol(selected)], sep=".")
 
     design <- model.matrix(~ 0 + group)
     colnames(design) <- levels(group)
     corfit <- duplicateCorrelation(samples, design, block=paired)
-    print(corfit$consensus)
+    print(corfit$consensus) #TODO show this somewhere?
     contrast.matrix <- makeContrasts(contrasts = paste(colnames(design)[1], "-", colnames(design)[2]), levels = design)
     print(contrast.matrix)
     
