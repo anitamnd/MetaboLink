@@ -445,6 +445,71 @@ shinyUI(dashboardPage(
                 )
               )
             ),
+            tabPanel("LipidomeR",
+              tabsetPanel(
+                tabPanel("Group selection",
+                  fluidRow(
+                    column(6, box(
+                      width = NULL,
+                      title = "User guide",
+                      tags$ul(
+                        tags$li("Select the data frame to use."),
+                        tags$li("Select the numerator and denominator groups."),
+                        tags$li("Click 'Run LipidomeR' to start the analysis.")
+                      )
+                    )),
+                    column(6, box(
+                      width = NULL, 
+                      title = "Select bla bla bla", 
+                      radioButtons("selected_dataset", "Select data frame:",
+                               choices = c("Original Data" = "original", "Merged Data" = "merged"),
+                               selected = "original", width = "30%"),
+                      tagList(
+                        selectInput("numerator_group", "Select numerator group", choices = NULL, width = "30%"),
+                        selectInput("denominator_group", "Select denominator group", choices = NULL, width = "30%")
+                      ),
+                      actionButton("run_lipidomer", "Run LipidomeR") #TODO when running, move to heatmap tab
+                    ))
+                  ),
+                  fluidRow(
+                    column(6, box(
+                      width = NULL,
+                      title = "Numerator",
+                      tableOutput("numerator_table")
+                    )),
+                    column(6, box(
+                      width = NULL,
+                      title = "Denominator",
+                      tableOutput("denominator_table")
+                    ))
+                  )
+                ),
+                tabPanel("Heatmap Visualization",
+                  actionButton("run_process", "Run Data Processing"),
+                  actionButton("show_help", "Show User Guide"),
+                  
+                  selectizeInput("select_lipid_groups", "Select lipids to display", choices = NULL, multiple = TRUE,
+                              options = list(placeholder = "Choose lipids...")),
+                  numericInput("p_value_max", "Maximum p-value:", value = 0.05, min = 0, step = 0.01),
+                  numericInput("logFC_input", "Enter max logFC value:", value = 2),
+                  
+                  plotOutput("heatmapPlot", width = "100%", height = "650px"),
+                  dataTableOutput("pValueTable") # Table displaying logFC and p-values.
+                ),
+                # Data of groups in Heatmap tab: Displays the data behind the groups used in the heatmap.
+                tabPanel("Data of groups in Heatmap",
+                         uiOutput("table_message"), # Dynamic message about the data table, populated server-side.
+                         conditionalPanel(
+                           condition = "input.run_process > 0", # Only display the following if data processing has been triggered.
+                           tableOutput("groups_table"), # Shows table of groups.
+                           textOutput("limitation_notice"), # Notice about any limitations or considerations.
+                           textOutput("rows_removed_text"), # Information on data rows removed during processing.
+                           tableOutput("raw_data_table") # Displays the raw data table.
+                         ),
+                         verbatimTextOutput("error_message") # Area to display any error messages.
+                )
+              )
+            ),
             tabPanel("Summary",
               box(width = NULL,
                 fluidRow(
