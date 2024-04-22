@@ -284,7 +284,7 @@ shinyServer(function(session, input, output) {
     show("buttons")
     updateCollapse(session, "menu", close = "Data input")
     disable("example")
-    sendSweetAlert(session, title = "Info", text = "You can go to our user manual to find a workflow example for the test datasets.", type = "info")
+    #sendSweetAlert(session, title = "Info", text = "You can go to our user manual to find a workflow example for the test datasets.", type = "info")
   })
 
   # Update selected data
@@ -1106,7 +1106,7 @@ observeEvent(input$mergeDatasets, {
       groups <- na.omit(seq[, 'group'])
       time <- na.omit(seq[, 'time'])
 
-      group_inputs <- c("group1", "group2", "group1_polystest", "group2_polystest")
+      group_inputs <- c("group1", "group2", "group1_polystest", "group2_polystest", "numerator_group", "denominator_group")
       for (x in group_inputs) {
         updateSelectInput(session, x, label = NULL, choices = groups)
       }
@@ -1325,5 +1325,102 @@ observeEvent(input$mergeDatasets, {
     VSClustMessage <- prepareMessage(tdata, tseq)
     js$send_message(url="http://computproteomics.bmb.sdu.dk/app_direct/VSClust/",
                     dat=VSClustMessage, tool="VSClust")
+  })
+
+
+  ##### LIPIDOMER #####
+
+  output$numerator_table <- renderDT({
+    req(rv$activeFile, input$numerator_group)
+    data <- rv$data[[rv$activeFile]]
+    sequence <- rv$sequence[[rv$activeFile]]
+    group <- input$numerator_group
+    data <- data[sequence[, 1] %in% "Sample" & sequence[, 4] %in% group]
+    data
+  }, options = list(scrollX = TRUE))
+
+  output$denominator_table <- renderDT({
+    req(rv$activeFile, input$denominator_group)
+    data <- rv$data[[rv$activeFile]]
+    sequence <- rv$sequence[[rv$activeFile]]
+    group <- input$denominator_group
+    data <- data[sequence[, 1] %in% "Sample" & sequence[, 4] %in% group]
+    data
+  }, options = list(scrollX = TRUE))
+
+  lipidLogFC <- reactive({
+    req(rv$activeFile, input$numerator_group, input$denominator_group, lipidomeR_data_means())
+    group1 <- input$numerator_group
+    group2 <- input$denominator_group
+    logFC <- log2((lipidomeR_data_means()[, group1] + 1e-6) / (lipidomeR_data_means()[, group2] + 1e-6))
+    logFC <- data.frame(Compound_Name = rownames(lipidomeR_data_means()), logFC = logFC)
+    logFC
+  })
+
+
+  lipidomeR_data <- reactiveVal(NULL)
+  lipidomeR_data_means <- reactiveVal(NULL)
+
+  observeEvent(input$process_names, {
+    data <- rv$data[[rv$activeFile]]
+    sequence <- rv$sequence[[rv$activeFile]]
+
+    # rename lipid column to X(C:D) format 
+    lipid_names <- data[sequence[, 1] %in% "Name"]
+    formatted <- sapply(lipid_names, extract_pattern)
+    formatted <- sapply(formatted, format_lipid_column)
+    print(formatted)
+    no_duplicates <- rename_duplicates(formatted)
+    valid_names <- validate_names(no_duplicates)
+
+    data[valid_names, sequence[, 1] %in% "Name"] <- no_duplicates[valid_names]
+    invalid_names <- names[!valid_names]
+    lipidomeR_data(data)
+
+    lipidomeR_data_means(get_grouped_mean(data, sequence))
+
+    updateSelectizeInput(session, 'select_lipid_groups', choices = c("All", no_duplicates[valid_names]))
+    enable("run_lipidomer")
+  })
+
+  observeEvent(input$run_lipidomer, {
+    browser()
+    lipidomeR_data()
+
+    if(!"All" %in% input$selected_lipid) {
+      data <- lipidLogFC()[lipidLogFC()$Compound_Name %in% select_lipid_groups, ]
+    }
+    else {
+      data <- lipidLogFC()
+    }
+    print(colnames(data))
+
+    output$heatmapPlot <- renderPlot({     
+        # Ensure the data is not NULL and has rows to plot
+        req(nrow(data) > 0)        
+        
+        names.mapping <- map_lipid_names(x = data$Compound_Name)
+        
+        heatmap_lipidome(
+          x = data[ , c("Compound_Name", "logFC")],
+          names.mapping = names.mapping,
+          class.facet = "wrap",
+          x.names = "Compound_Name",
+          fill.limits = c(-2.5, 2.5), # Set limits to include -2.5 to 2.5
+          fill.midpoint = 2.5, # Set midpoint explicitly to 2.5
+          melt.value.name = "logFC",
+          scales = "free"
+        ) +
+        scale_fill_gradient2(
+          low = "blue",       # Color for low values
+          mid = "white",     # Color for midpoint values
+          high = "red",     # Color for high values
+          midpoint = 0,      # Midpoint value, adjust as needed (e.g., the neutral point in your data)
+          limit = c(-2.5, 2.5),  # Limits for the scale
+          space = "Lab",     # Color space in which to calculate gradient
+          name = "logFC"     # Legend title
+        )
+      })
+
   })
 })

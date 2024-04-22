@@ -460,53 +460,50 @@ shinyUI(dashboardPage(
                     )),
                     column(6, box(
                       width = NULL, 
-                      title = "Select bla bla bla", 
+                      title = "Select XXX", 
                       radioButtons("selected_dataset", "Select data frame:",
                                choices = c("Original Data" = "original", "Merged Data" = "merged"),
-                               selected = "original", width = "30%"),
+                               selected = "original", width = "50%"),
                       tagList(
-                        selectInput("numerator_group", "Select numerator group", choices = NULL, width = "30%"),
-                        selectInput("denominator_group", "Select denominator group", choices = NULL, width = "30%")
+                        selectInput("numerator_group", "Select numerator group", choices = NULL, width = "50%"),
+                        selectInput("denominator_group", "Select denominator group", choices = NULL, width = "50%")
                       ),
-                      actionButton("run_lipidomer", "Run LipidomeR") #TODO when running, move to heatmap tab
+                      column(6, actionButton("process_names", "Process names")),
+                      column(6, actionButton("run_lipidomer", "Run LipidomeR")) #TODO when running, move to heatmap tab
                     ))
                   ),
                   fluidRow(
                     column(6, box(
                       width = NULL,
                       title = "Numerator",
-                      tableOutput("numerator_table")
+                      DTOutput("numerator_table")
                     )),
                     column(6, box(
                       width = NULL,
                       title = "Denominator",
-                      tableOutput("denominator_table")
+                      DTOutput("denominator_table")
                     ))
                   )
                 ),
-                tabPanel("Heatmap Visualization",
-                  actionButton("run_process", "Run Data Processing"),
-                  actionButton("show_help", "Show User Guide"),
-                  
-                  selectizeInput("select_lipid_groups", "Select lipids to display", choices = NULL, multiple = TRUE,
-                              options = list(placeholder = "Choose lipids...")),
-                  numericInput("p_value_max", "Maximum p-value:", value = 0.05, min = 0, step = 0.01),
-                  numericInput("logFC_input", "Enter max logFC value:", value = 2),
-                  
-                  plotOutput("heatmapPlot", width = "100%", height = "650px"),
-                  dataTableOutput("pValueTable") # Table displaying logFC and p-values.
-                ),
-                # Data of groups in Heatmap tab: Displays the data behind the groups used in the heatmap.
-                tabPanel("Data of groups in Heatmap",
-                         uiOutput("table_message"), # Dynamic message about the data table, populated server-side.
-                         conditionalPanel(
-                           condition = "input.run_process > 0", # Only display the following if data processing has been triggered.
-                           tableOutput("groups_table"), # Shows table of groups.
-                           textOutput("limitation_notice"), # Notice about any limitations or considerations.
-                           textOutput("rows_removed_text"), # Information on data rows removed during processing.
-                           tableOutput("raw_data_table") # Displays the raw data table.
-                         ),
-                         verbatimTextOutput("error_message") # Area to display any error messages.
+                tabPanel("Heatmap",
+                  fluidRow(
+                      box(width = NULL,
+                        column(4, selectizeInput("select_lipid_groups", "Select lipids to display", choices = NULL, multiple = TRUE,
+                              options = list(placeholder = "Choose lipids..."))),
+                        column(4, numericInput("p_value_max", "Maximum p-value:", value = 0.05, min = 0, step = 0.01)),
+                        column(4, numericInput("logFC_input", "Enter max logFC value:", value = 2))
+                      )
+                  ),
+                  fluidRow(
+                    box(width = NULL,
+                      column(12, plotOutput("heatmapPlot", width = "100%", height = "650px"))
+                    )
+                  ),
+                  fluidRow(
+                    box(width = NULL,
+                      column(12, dataTableOutput("pValueTable")) # Table displaying logFC and p-values.
+                    )
+                  )                                       
                 )
               )
             ),
