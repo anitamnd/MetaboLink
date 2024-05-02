@@ -502,10 +502,17 @@ shinyServer(function(session, input, output) {
     } else {
       sequence <- rv$sequence[[rv$activeFile]]
       data <- rv$data[[rv$activeFile]]
-      result <- applyBlankFiltration(data, sequence, input$signalStrength, input$keepIS, input$discardBlank)
-      rv$tmpData <- result$data
-      rv$tmpSequence <- result$sequence
+
+      filtered <- blankFiltration(data, sequence, input$signalStrength, input$keepIS)
       
+      if(input$discardBlank) {
+        filtered <- filtered[!sequence[, 1] %in% "Blank"]
+        sequence <- sequence[!sequence[, 1] %in% "Blank", ]
+      }
+      
+      rv$tmpData <- filtered
+      rv$tmpSequence <- sequence
+
       updateSelectInput(session, "selectpca1", selected = "Unsaved data", choices = c("Unsaved data", rv$choices))
       output$dttable <- renderDataTable(rv$tmpData, rownames = FALSE, options = list(scrollX = TRUE, scrollY = "700px", pageLength = 20))
       sendSweetAlert(session, "Success", paste0(nrow(rv$data[[rv$activeFile]]) - nrow(rv$tmpData), " features removed"), type = "success")
