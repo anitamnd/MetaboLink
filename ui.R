@@ -59,7 +59,7 @@ shinyUI(dashboardPage(
             ),
             column(6, style = "padding-left:0px;",
               bsButton("example", "Load example", width = "100%")  %>% 
-                bsTooltip("Load example metabolomics datasets in positive and negative ion mode and respective metadata files.", placement = "bottom", trigger = "hover")
+                bsTooltip("Load example metabolomics datasets in positive and negative ion mode and respective metadata files. More examples available on GitHub.", placement = "bottom", trigger = "hover")
             )
           )
         ),
@@ -68,7 +68,7 @@ shinyUI(dashboardPage(
           fluidRow(
             style = "padding: 0px;",
             column(12,
-              sliderInput("signalStrength", "Signal strength above blank", 0, 10, 5, step = 0.1, width = "100%"),
+              sliderInput("signalStrength", "Signal strength above blank", 1, 10, 5, step = 0.1, width = "100%"),
               style = "padding: 0px"
             )
           ),

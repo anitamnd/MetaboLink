@@ -1,6 +1,7 @@
 shinyServer(function(session, input, output) {
   options(shiny.maxRequestSize = 30 * 1024^2)
 
+  # Global variables
   rv <- reactiveValues(data = list(), sequence = list(), activeFile = NULL, results = list(),
                   tmpData = NULL, tmpSequence = NULL, choices = NULL, drift_plot_select = 1, info = vector("character"))
 
@@ -284,7 +285,6 @@ shinyServer(function(session, input, output) {
     show("buttons")
     updateCollapse(session, "menu", close = "Data input")
     disable("example")
-    sendSweetAlert(session, title = "Info", text = "You can go to our user manual to find a workflow example for the test datasets.", type = "info")
   })
 
   # Update selected data
