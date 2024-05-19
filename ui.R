@@ -281,7 +281,7 @@ shinyUI(dashboardPage(
         block = T
       )),
       column(3, bsButton("statistics_button",
-        label = "Data analysis",
+        label = "Statistics",
         icon = icon("clipboard"),
         style = "default",
         block = T
