@@ -3,7 +3,12 @@ pcaplot <- function(data, group, islog) {
   data <- data[complete.cases(data), ]
   group[!is.na(group)] <- group[!is.na(group)]
   group[is.na(group)] <- "No class"
-  ifelse(islog, data <- t(data), data <- log(t(data)))
+  shinyCatch({
+      ifelse(islog, data <- t(data), data <- log(t(data)))
+    },
+    blocking_level = 'warning',
+    shiny = FALSE
+  )
   prin <- prcomp(data, rank. = 2, center = T, scale = F)
   pov <- summary(prin)[["importance"]]["Proportion of Variance", ]
   pov <- round(pov * 100, 2)

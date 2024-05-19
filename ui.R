@@ -373,9 +373,18 @@ shinyUI(dashboardPage(
             tabPanel("PCA", 
             #TODO small guide/tooltips
               fluidRow(
+                column(12, box(width = NULL, title = "Principal Component Analysis",
+                  tagList(
+                    list(
+                      tags$li("Check log-transfomed checkbox if data is already log-transformed.")
+                    )
+                  )
+                ))
+              ),
+              fluidRow(
                 column(6, box(width = NULL,
                   selectInput("selectpca1", "", choices = NULL, width = "100%"),
-                  checkboxInput("pca1_islog", "Is data log-transformed?", value = FALSE, width = "100%"),
+                  checkboxInput("pca1_islog", "Data is log-transformed.", value = FALSE, width = "100%"),
                   actionButton("run_pca1", "Run PCA", width = "50%") %>%
                     bsTooltip("Check box if the data is log-transformed!", placement = "bottom", trigger = "hover"),
                   plotlyOutput("plotpca1", width = "100%"), br(),
@@ -383,7 +392,7 @@ shinyUI(dashboardPage(
                 )),
                 column(6, box(width = NULL,
                   selectInput("selectpca2", "", choices = NULL, width = "100%"),
-                  checkboxInput("pca2_islog", "Is data log-transformed?", value = FALSE, width = "100%"),
+                  checkboxInput("pca2_islog", "Data is log-transformed.", value = FALSE, width = "100%"),
                   actionButton("run_pca2", "Run PCA", width = "50%"),
                   plotlyOutput("plotpca2"), br(),
                   htmlOutput("pca2Details")
