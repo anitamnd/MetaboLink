@@ -14,5 +14,5 @@ RUN R -e "install.packages('BiocManager', repos='http://cran.us.r-project.org');
 RUN R -e "library(BiocManager);BiocManager::install(c('dplyr','plotly','matrixStats','DT','gplots', \
         'shiny','shinyBS','shinydashboard','shinycssloaders','limma','shinyjs','shinyalert', \
         'shinyWidgets','spsComps','ggplot2','ggrepel','gridExtra','impute', \
-        'randomForest','writexl','stringi','igraph'), ask=F)"
+        'randomForest','writexl','stringi','igraph','colorspace'), ask=F)"
         

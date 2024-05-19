@@ -1,6 +1,7 @@
 shinyServer(function(session, input, output) {
   options(shiny.maxRequestSize = 30 * 1024^2)
 
+  # Global variables
   rv <- reactiveValues(data = list(), sequence = list(), activeFile = NULL, results = list(),
                   tmpData = NULL, tmpSequence = NULL, choices = NULL, drift_plot_select = 1, info = vector("character"))
 
@@ -119,7 +120,8 @@ shinyServer(function(session, input, output) {
                                                         amount = NA)
       rv$data[[length(rv$data) + 1]] <- inputFile
       names(rv$data)[length(rv$data)] <- substr(input$inputFile$name, 1, nchar(input$inputFile$name) - 4)
-      rv$choices <- paste(seq_along(rv$data), ": ", names(rv$data)) 
+      rv$choices <- paste(seq_along(rv$data), ": ", names(rv$data))
+      rv$activeFile <- length(rv$data)
       updateTabItems(session, "tabs", selected = "Datainput")
       show("buttons")
     }
@@ -140,6 +142,25 @@ shinyServer(function(session, input, output) {
     row.names(sequence) <- sequence[, 1]
     sequence <- sequence[, -1]
     rv$sequence[[rv$activeFile]] <- sequence
+
+    if(any(grepl("[^[:alnum:]]", sequence$group))) {
+      showModal(
+        modalDialog(
+          title = "Invalid group names", size = "m", easyClose = TRUE,
+          footer = list(actionButton("group_name_format", "Format names"), modalButton("Dismiss")),
+          fluidRow(
+            column(12, p("Invalid group names found. Group names must be alphanumeric."))
+          )
+        )
+      )
+    }
+  })
+
+  observeEvent(input$group_name_format, {
+    sequence <- rv$sequence[[rv$activeFile]]
+    sequence$group <- gsub("[^[:alnum:]]", "", sequence$group)
+    rv$sequence[[rv$activeFile]] <- sequence
+    removeModal()
   })
 
   observeEvent(input$reuseSequence, {
@@ -264,7 +285,6 @@ shinyServer(function(session, input, output) {
     show("buttons")
     updateCollapse(session, "menu", close = "Data input")
     disable("example")
-    sendSweetAlert(session, title = "Info", text = "You can go to our user manual to find a workflow example for the test datasets.", type = "info")
   })
 
   # Update selected data
@@ -425,9 +445,8 @@ shinyServer(function(session, input, output) {
       rv$data <- rv$data[keep]
       rv$sequence <- rv$sequence[keep]
       rv$info <- rv$info[keep]
-      st$sequence <- st$sequence[keep]
       rv$results <- rv$results[keep]
-      rv$activeFile <- names(rv$data)[length(rv$data)]
+      rv$activeFile <- length(rv$data)
       rv$choices <- paste(seq_along(rv$data), ": ", names(rv$data))
       showNotification("Files removed.", type = "message")
     }
@@ -483,10 +502,17 @@ shinyServer(function(session, input, output) {
     } else {
       sequence <- rv$sequence[[rv$activeFile]]
       data <- rv$data[[rv$activeFile]]
-      result <- applyBlankFiltration(data, sequence, input$signalStrength, input$keepIS, input$discardBlank)
-      rv$tmpData <- result$data
-      rv$tmpSequence <- result$sequence
+
+      filtered <- blankFiltration(data, sequence, input$signalStrength, input$keepIS)
       
+      if(input$discardBlank) {
+        filtered <- filtered[!sequence[, 1] %in% "Blank"]
+        sequence <- sequence[!sequence[, 1] %in% "Blank", ]
+      }
+      
+      rv$tmpData <- filtered
+      rv$tmpSequence <- sequence
+
       updateSelectInput(session, "selectpca1", selected = "Unsaved data", choices = c("Unsaved data", rv$choices))
       output$dttable <- renderDataTable(rv$tmpData, rownames = FALSE, options = list(scrollX = TRUE, scrollY = "700px", pageLength = 20))
       sendSweetAlert(session, "Success", paste0(nrow(rv$data[[rv$activeFile]]) - nrow(rv$tmpData), " features removed"), type = "success")
@@ -644,6 +670,10 @@ shinyServer(function(session, input, output) {
   observeEvent(input$runDrift, {
     if (is.null(rv$activeFile)) {
       showNotification("No data", type = "error")
+    } else if (is.null(rv$sequence[[rv$activeFile]])) { #TODO remove? sequence is never NULL
+      showNotification("No sequence file", type = "error")
+    } else if (all(is.na(rv$sequence[[rv$activeFile]][, 'order']))) {
+      showNotification("No order information, upload sequence", type = "error")
     } else {
       data <- rv$data[[rv$activeFile]]
       sequence <- rv$sequence[[rv$activeFile]]  
@@ -704,7 +734,7 @@ shinyServer(function(session, input, output) {
     removeModal()
   })
 
-  observeEvent(input$mergeDatasets, {
+observeEvent(input$mergeDatasets, {
     if (is.null(rv$activeFile)) {
       showNotification("No data", type = "error")
     } else {
@@ -740,42 +770,52 @@ shinyServer(function(session, input, output) {
     if(userConfirmation()) {
       activeSequence <- rv$sequence[[rv$activeFile]]
       activeDataset <- rv$data[[rv$activeFile]]
-      activeAdducts <- sum(activeSequence[, 1] %in% c("Adduct_pos", "Adduct_neg"))
-
       selected <- which(rv$choices %in% input$mergeFile)
       sequenceToMerge <- rv$sequence[[selected]]
       datasetToMerge <- rv$data[[selected]]
-      adductsToMerge <- sum(sequenceToMerge[, 1] %in% c("Adduct_pos", "Adduct_neg"))
-
-      if(activeAdducts != 1 || adductsToMerge != 1) {
-        sendSweetAlert(session = session, title = "Error", text = "Each dataset must contain exactly one adduct column.", type = "error")
-      } else if(ncol(activeDataset) != ncol(datasetToMerge)) {
+      if (sum(activeSequence[, 1] %in% c("Adduct_pos", "Adduct_neg")) != 1 || sum(sequenceToMerge[, 1] %in% c("Adduct_pos", "Adduct_neg")) != 1) {
+        sendSweetAlert(session = session, title = "Error", text = "Each dataset must contain exactly one adduct column labeled in the sequence file.", type = "error")
+      } else if (ncol(activeDataset) != ncol(datasetToMerge)) {
         sendSweetAlert(session = session, title = "Error", text = "Datasets must have the same number of columns", type = "error")
       } else {
         mergedDatasets <<- mergeDatasets(activeDataset, activeSequence,
               datasetToMerge, sequenceToMerge, input$merge_ppm, input$merge_rt)
-
-        duplicates <<- extractDuplicateClusters(mergedDatasets)
-        coefVariation <- cv(select_quality_controls(duplicates, activeSequence[, 1])) 
-        outputData <- prepareOutputDataFrame(duplicates, activeSequence, coefVariation)
-        cluster_ends <- findClusterEndpoints(outputData)
-  
-        # Render the data table with appropriate formatting
+        clustn <- data.frame(table(mergedDatasets$mergeID))
+        dub_clust <- clustn[clustn$Freq > 1, ]
+        dub_dat <- mergedDatasets[mergedDatasets$mergeID %in% dub_clust[, 1], ]
+        dub_qc <- dub_dat[, activeSequence[, 1] %in% "QC"]
+        cov <- cv(dub_qc)
+        nclust <- sapply(dub_dat$mergeID, function(x) {
+          table(dub_dat$mergeID)[names(table(dub_dat$mergeID)) == x]
+        })
+        colnames(dub_dat)[activeSequence[, 1] %in% c("Adduct_pos", "Adduct_neg")] <- "adduct"
+        out_dub <- data.frame(
+          "nClust" = nclust,
+          "Cluster_ID" = dub_dat$mergeID,
+          "Ion_mode" = dub_dat$ionmode,
+          "Adductor" = dub_dat$adduct,
+          "Name" = dub_dat[, which(activeSequence[, 1] %in% "Name")],
+          "RT" = dub_dat[, which(activeSequence[, 1] %in% "RT")],
+          "Mass" = dub_dat[, which(activeSequence[, 1] %in% "Mass")],
+          "CV" = cov
+        )
+        out_dub <- out_dub[order(out_dub[, 1], out_dub[, 2], decreasing = T), ]
+        md_dup <<- out_dub
+        cluster_ends <- which(!duplicated(out_dub[, 2]))
         output$md_modal_dt <- renderDataTable({
-            datatable(outputData,
-              rownames = FALSE,
-              options = list(dom = "t", autowidth = T, paging = FALSE),
-              selection = list(selected = findDuplicate(outputData, rankings_merge))
+            datatable(out_dub,
+              rownames = F,
+              options = list(dom = "t", autowidth = T, paging = F),
+              selection = list(selected = finddup(out_dub, rankings_merge))
             ) %>% formatStyle(1:8, `border-top` = styleRow(cluster_ends, "solid 2px"))
           },
-          server = TRUE
+          server = T
         )
         userConfirmation(FALSE)
         showModal(
           modalDialog(
             title = "Select features to keep", size = "l",
-            p(paste0(length(unique(duplicates$mergeID))), " duplicate clusters found, of those ", paste0(length(unique(outputData[outputData[, 1] > 2, ][, 2]))), " consists of more than 2 features."),
-            p("Select the features to keep by clicking on the rows in the table below (blue = keep)."),
+            p(paste0(length(unique(dub_dat$mergeID))), " duplicate clusters found, of those ", paste0(length(unique(out_dub[out_dub[, 1] > 2, ][, 2]))), " consists of more than 2 features."),
             DTOutput("md_modal_dt"),
             footer = list(actionButton("confirmMerging", "Remove duplicates"), modalButton("Dismiss"))
           )
@@ -803,7 +843,7 @@ shinyServer(function(session, input, output) {
       names(rv$data)[rv$activeFile] <- paste0(names(rv$data)[rv$activeFile], "_merged")
     }
     rv$info[length(rv$data)] <- paste(ifelse(is.na(rv$info[rv$activeFile]), "", rv$info[rv$activeFile]), "Positive and negative mode merged: M/z tolerance ppm", input$merge_ppm, "and RT tolerance", input$merge_rt, "\n")
-    rv$choices <- paste(seq_along(rv$data), ": ", names(rv$data))
+    rv$choices <- paste(1:length(rv$data), ": ", names(rv$data))
   })
 
 
@@ -1164,6 +1204,16 @@ shinyServer(function(session, input, output) {
           disable("selectTest")
         }
       },
+      GroupsPaired = {
+        if(!any(complete.cases(sequence[, 4]))) {
+          sendSweetAlert(session, "Oops!", "Invalid test. Provide information on different groups/conditions.", type = "error")
+          disable("selectTest")
+        }
+        if(!any(complete.cases(sequence[, 6]))) {
+          sendSweetAlert(session, "Oops!", "Invalid test. Indicate paired samples.", type = "error")
+          disable("selectTest")
+        }
+      },
       GroupsMultipleTime = {
         if(any(complete.cases(sequence[, 5])) & any(complete.cases(sequence[, 6]))) {
           sequence <- sequence[sequence[, 1] %in% "Sample" & complete.cases(sequence[, 4]), ]
@@ -1202,6 +1252,15 @@ shinyServer(function(session, input, output) {
           sendSweetAlert(session, "Oops!", "Choose different groups to compare.", type="error")
         } else {
           results <- groupComparison(data, sequence, c(input$group1, input$group2))
+          rv$results[[rv$activeFile]][[length(rv$results[[rv$activeFile]])+1]] <- results
+          names(rv$results[[rv$activeFile]])[length(rv$results[[rv$activeFile]])] <- paste0(input$group1, "_vs_", input$group2)
+        }
+      },
+      GroupsPaired = {
+        if(input$group1 == input$group2) {
+          sendSweetAlert(session, "Oops!", "Choose different groups to compare.", type="error")
+        } else {
+          results <- groupComparisonPaired(data, sequence, c(input$group1, input$group2))
           rv$results[[rv$activeFile]][[length(rv$results[[rv$activeFile]])+1]] <- results
           names(rv$results[[rv$activeFile]])[length(rv$results[[rv$activeFile]])] <- paste0(input$group1, "_vs_", input$group2)
         }

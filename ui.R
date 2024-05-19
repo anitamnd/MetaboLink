@@ -59,7 +59,7 @@ shinyUI(dashboardPage(
             ),
             column(6, style = "padding-left:0px;",
               bsButton("example", "Load example", width = "100%")  %>% 
-                bsTooltip("Load example metabolomics datasets in positive and negative ion mode and respective metadata files.", placement = "bottom", trigger = "hover")
+                bsTooltip("Load example metabolomics datasets in positive and negative ion mode and respective metadata files. More examples available on GitHub.", placement = "bottom", trigger = "hover")
             )
           )
         ),
@@ -68,7 +68,7 @@ shinyUI(dashboardPage(
           fluidRow(
             style = "padding: 0px;",
             column(12,
-              sliderInput("signalStrength", "Signal strength above blank", 0, 10, 5, step = 0.1, width = "100%"),
+              sliderInput("signalStrength", "Signal strength above blank", 1, 10, 5, step = 0.1, width = "100%"),
               style = "padding: 0px"
             )
           ),
@@ -181,7 +181,7 @@ shinyUI(dashboardPage(
                   sliderInput("driftTrees", "ntree", min = 100, max = 1000, value = 500, step = 100, width = "100%")
               )),
               fluidRow(hidden(div(id = "dc_qcspan_hide", 
-                  sliderInput("driftQCspan", "QCspan", min = 0.2, max = 0.75, value = 0.7, step = 0.05, width = "100%"))
+                  sliderInput("driftQCspan", "QCspan", min = 0.2, max = 0.75, value = 0.5, step = 0.05, width = "100%"))
               )),
               fluidRow(hidden(div(id = "dc_degree_hide", 
                   sliderInput("driftDegree", "degree", min = 0, max = 2, value = 2, step = 1, width = "100%"))
@@ -281,7 +281,7 @@ shinyUI(dashboardPage(
         block = T
       )),
       column(3, bsButton("statistics_button",
-        label = "Data analysis",
+        label = "Statistics",
         icon = icon("clipboard"),
         style = "default",
         block = T
@@ -373,9 +373,18 @@ shinyUI(dashboardPage(
             tabPanel("PCA", 
             #TODO small guide/tooltips
               fluidRow(
+                column(12, box(width = NULL, title = "Principal Component Analysis",
+                  tagList(
+                    list(
+                      tags$li("Check log-transfomed checkbox if data is already log-transformed.")
+                    )
+                  )
+                ))
+              ),
+              fluidRow(
                 column(6, box(width = NULL,
                   selectInput("selectpca1", "", choices = NULL, width = "100%"),
-                  checkboxInput("pca1_islog", "Is data log-transformed?", value = FALSE, width = "100%"),
+                  checkboxInput("pca1_islog", "Data is log-transformed.", value = FALSE, width = "100%"),
                   actionButton("run_pca1", "Run PCA", width = "50%") %>%
                     bsTooltip("Check box if the data is log-transformed!", placement = "bottom", trigger = "hover"),
                   plotlyOutput("plotpca1", width = "100%"), br(),
@@ -383,7 +392,7 @@ shinyUI(dashboardPage(
                 )),
                 column(6, box(width = NULL,
                   selectInput("selectpca2", "", choices = NULL, width = "100%"),
-                  checkboxInput("pca2_islog", "Is data log-transformed?", value = FALSE, width = "100%"),
+                  checkboxInput("pca2_islog", "Data is log-transformed.", value = FALSE, width = "100%"),
                   actionButton("run_pca2", "Run PCA", width = "50%"),
                   plotlyOutput("plotpca2"), br(),
                   htmlOutput("pca2Details")
@@ -491,12 +500,13 @@ shinyUI(dashboardPage(
                   column(12,
                     selectInput("testType", "Select test", width = "100%",
                       choices = c("2 groups (unpaired)" = "GroupsUnpaired",
+                                  "2 groups (paired)" = "GroupsPaired",
                                   "2 groups with time (paired)" = "GroupsMultipleTime",
                                   "Compare to reference group" = "CompareToReference"), selected = NULL
                     ))
                 ),
                 conditionalPanel(
-                  condition = "input.testType == 'GroupsUnpaired'",
+                  condition = "input.testType == 'GroupsUnpaired' || input.testType == 'GroupsPaired'",
                   fluidRow(
                     column(6, selectInput("group1", "Group 1", choices = NULL, width = "100%")),
                     column(6, selectInput("group2", "Group 2", choices = NULL, width = "100%"))
