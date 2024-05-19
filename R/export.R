@@ -10,6 +10,8 @@ selectPolySTest <- function(data, sequence, groups, time) {
   }
   selected <- data[, condition, drop = FALSE]
   selected_sequence <- tseq[condition, ]
+
+  selected <- selected[!duplicated(selected[, 1]), ] #TODO right now we remove duplicates before sending but this might be wrong 
   
   return(list(selected = selected, selected_sequence = selected_sequence))
 }
