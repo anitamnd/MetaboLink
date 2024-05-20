@@ -476,13 +476,18 @@ shinyUI(dashboardPage(
           fluidPage(
             fluidRow(
                 column(12, box(width = NULL, title = "Guide", status = "primary", solidHeader = TRUE,
+                  collapsible = TRUE, collapsed = TRUE,
                   strong("Local test"),
-                  tagList(
-                    list(
-                      tags$li("Start by selecting the test type.")
-                    )
-                  ), br(),
+                  p("Start by selecting the test type:"),
+                  tags$ul(
+                    tags$li("2 groups (unpaired): compare the means of two independent or unrelated groups to determine if there is a statistically significant difference between them."),
+                    tags$li("2 groups (paired): compare the means of two related groups to see if their average difference is significantly different from zero. Used when the same subjects are tested under two different conditions (e.g., before and after a treatment)."),
+                    tags$li("2 groups with time (paired): used to analyze the changes within the same group over different times or conditions, assessing if there is a consistent effect across these points."),
+                    tags$li("Compare to reference group: compare the mean of all groups against a reference group. Can be used to determine if the groups significantly differ from the expected performance or baseline.")
+                  ),
+                  br(),
                   strong("PolySTest"),
+                  p("Usage of PolySTest is recommended for data with few replicates and high amounts of missing values."),
                   tagList(
                     list(
                       tags$li("Select groups (required) and time (optional)."),
