@@ -539,12 +539,17 @@ shinyServer(function(session, input, output) {
       data <- rv$data[[rv$activeFile]]
 
       normalized <- normalizationIS(data, sequence, input$isChoose, input$isMethod, input$normalizeQC)
-      rv$tmpData <- normalized
-      rv$tmpSequence <- sequence
-
-      sendSweetAlert(session, title = "Success", text = paste0("Internal standards normalized with ", input$isMethod, " method"), type = "success")
-      updateSelectInput(session, "selectpca1", selected = "Unsaved data", choices = c("Unsaved data", rv$choices))
-      output$dttable <- renderDataTable(rv$tmpData, rownames = FALSE, options = list(scrollX = TRUE, scrollY = "700px", pageLength = 20))
+      if(is.null(normalized)) {
+        sendSweetAlert(session, "Error", "Internal standard normalization failed due to missing values in IS.", type = "error")
+      }
+      else {
+        rv$tmpData <- normalized
+        rv$tmpSequence <- sequence
+  
+        sendSweetAlert(session, title = "Success", text = paste0("Internal standards normalized with ", input$isMethod, " method"), type = "success")
+        updateSelectInput(session, "selectpca1", selected = "Unsaved data", choices = c("Unsaved data", rv$choices))
+        output$dttable <- renderDataTable(rv$tmpData, rownames = FALSE, options = list(scrollX = TRUE, scrollY = "700px", pageLength = 20))
+      }
     }
   })
 
@@ -880,7 +885,7 @@ observeEvent(input$mergeDatasets, {
             round(cvmean(sdata[, sclass %in% x]), 2)
           })
           classcv <- sapply(seq_along(classcv), function(x) {
-            paste0("CV in group ", x, ": ", classcv[x], "</br>")
+            paste0("CV in group ", sort(unique(sclass))[x], ": ", classcv[x], "</br>")
           })
         } else {
           classcv <- NULL
@@ -1092,7 +1097,7 @@ observeEvent(input$mergeDatasets, {
           round(cvmean(sdata[sclass %in% x]), 2)
         })
         classcv <- sapply(seq_along(classcv), function(x) {
-          paste0("CV in class ", x, ": ", classcv[x], "</br>")
+          paste0("CV in group ", sort(unique(sclass))[x], ": ", classcv[x], "</br>")
         })
       } else {
         classcv <- NULL

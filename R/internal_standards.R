@@ -8,6 +8,10 @@ normalizationIS <- function(data, sequence, is, method, qc) {
   updateProgressBar(id = "pb", value = 10)
   sdat[sdat == 0] <- NA
   is <- is[complete.cases(sdat[is, ])]
+  if(length(is) == 0) {
+    closeSweetAlert()
+    return(NULL)
+  }
   near <- sapply(data[, rt], function(y) {
     which.min(abs(data[is, rt] - y))
   })
@@ -42,9 +46,12 @@ normalizationIS <- function(data, sequence, is, method, qc) {
 
 findInternalStandards <- function(data) {
   isIndex <- grepl("\\(IS\\)", toupper(data[, 1]))
+
   if (sum(isIndex) > 0) {
+
     featureName <- as.vector(data[isIndex, 1])
     internalStandards <- paste(which(isIndex), " - ", featureName)
+
     return(internalStandards)
   } else {
     return(character(0))
