@@ -149,7 +149,7 @@ shinyServer(function(session, input, output) {
           title = "Invalid group names", size = "m", easyClose = TRUE,
           footer = list(actionButton("group_name_format", "Format names"), modalButton("Dismiss")),
           fluidRow(
-            column(12, p("Invalid group names found. Group names must be alphanumeric."))
+            column(12, p("Invalid group names found. Group names must be alphanumeric and not include spaces."))
           )
         )
       )
