@@ -56,9 +56,9 @@ mergeDatasets <- function(dataset1, sequence1, dataset2, sequence2, ppmTolerance
   updateProgressBar(id = "pb", value = 70)
   adj <- distppm <= ppmTolerance & distrt <= rtTolerance
   updateProgressBar(id = "pb", value = 80)
-  graph <- graph.adjacency(adj)
+  graph <- graph_from_adjacency_matrix(adj)
   updateProgressBar(id = "pb", value = 90)
-  mergeid <- clusters(graph)$membership
+  mergeid <- components(graph)$membership
   updateProgressBar(id = "pb", value = 100)
   colnames(dataset2) <- colnames(dataset1)
   combineddat <- as.data.frame(rbind(dataset1, dataset2))
