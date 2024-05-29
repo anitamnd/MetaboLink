@@ -537,12 +537,18 @@ shinyServer(function(session, input, output) {
     } else {
       sequence <- rv$sequence[[rv$activeFile]]
       data <- rv$data[[rv$activeFile]]
-
+      
       normalized <- normalizationIS(data, sequence, input$isChoose, input$isMethod, input$normalizeQC)
+      
       if(is.null(normalized)) {
         sendSweetAlert(session, "Error", "Internal standard normalization failed due to missing values in IS.", type = "error")
       }
       else {
+        # Add isnorm column to sequence
+        isColumn <- c("-", rep(NA, ncol(sequence) - 1))
+        sequence <- rbind(sequence, isColumn)
+        rownames(sequence)[nrow(sequence)] <- "isnorm"
+
         rv$tmpData <- normalized
         rv$tmpSequence <- sequence
   
