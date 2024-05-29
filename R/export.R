@@ -29,14 +29,34 @@ addEmptyCols <- function(data, sequence, groups, replicates) {
       missing <- t(rep(NA, replicates - length(groupCols)))
       processed <- cbind(processed, missing)
     }
-    rgroup <- append(rgroup, rep(paste("g", groups[group], sep = ""), replicates))
+    rgroup <- append(rgroup, rep(groups[group], replicates))
     if(any(complete.cases(sequence[, 5])))
       rtime <- append(rtime, t(time))
-  }
+    }
   if(any(complete.cases(sequence[, 5])))
-    colnames(processed) <- paste(colnames(processed), rgroup, paste("t", rtime, sep=""), sep = "_")
+    colnames(processed) <- paste(colnames(processed), paste(rgroup, rtime, sep = "_"), sep = "_")
   else
     colnames(processed) <- paste(colnames(processed), rgroup, sep = "_")
+  return(processed)
+}
+
+addEmptyColsTime <- function(data, sequence, group_time, replicates) {
+  processed <- data[, 1] # feature names
+  rgroup <- c("") # group vector
+  
+  uniqueGroupTime <- unique(na.omit(group_time))
+
+  for(group in 1:length(uniqueGroupTime)) {
+    groupedCols <- data[, group_time %in% uniqueGroupTime[group]]
+    processed <- cbind(processed, groupedCols)
+    if(length(groupedCols) < replicates) {
+      missing <- t(rep(NA, replicates - length(groupedCols)))
+      processed <- cbind(processed, missing)
+    }
+    rgroup <- append(rgroup, rep(paste("", uniqueGroupTime[group], sep = ""), replicates))
+  }
+  colnames(processed) <- paste(colnames(processed), rgroup, sep = "_")
+  
   return(processed)
 }
 
@@ -51,6 +71,31 @@ prepareMessage <- function(data, sequence) {
   groups <- levels(groups)
   numcond <- length(groups)
   data <- addEmptyCols(data, sequence, groups, numrep)
+  message <- toJSON(list(
+    numrep = numrep, numcond = numcond, grouped = FALSE, 
+    firstquantcol = 2, expr_matrix = as.list(as.data.frame(data))
+  ))
+  return(message)
+}
+
+prepareMessage2 <- function(data, sequence, time) {
+  if(!any(time == "")) {
+    group_time <- paste(na.omit(sequence[, 4]), na.omit(sequence[, 5]), sep = "_")
+    groups <- factor(group_time, exclude = NA)
+    numrep <- max(table(groups))
+    groups <- levels(groups)
+    numcond <- length(groups)
+    data <- addEmptyColsTime(data, sequence, groups, numrep)
+  } else {
+    groups <- factor(sequence[, 4], exclude = NA)
+    numrep <- max(table(groups))
+    groups <- levels(groups)
+    numcond <- length(groups)
+    data <- addEmptyCols(data, sequence, groups, numrep)
+  }
+  
+  print(head(data))
+
   message <- toJSON(list(
     numrep = numrep, numcond = numcond, grouped = FALSE, 
     firstquantcol = 2, expr_matrix = as.list(as.data.frame(data))

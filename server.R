@@ -1322,7 +1322,7 @@ observeEvent(input$mergeDatasets, {
     groups <- c(input$group1_polystest, input$group2_polystest)
     time <- c(input$time1_polystest, input$time2_polystest)
     selected <- selectPolySTest(tdata, sequence, groups, time)
-    PolySTestMessage <- prepareMessage(selected$selected, selected$selected_sequence)
+    PolySTestMessage <- prepareMessage2(selected$selected, selected$selected_sequence, time)
     js$send_message(url="http://computproteomics.bmb.sdu.dk:443/app_direct/PolySTest/", 
                     dat=PolySTestMessage, tool="PolySTest")
   })
