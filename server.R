@@ -1124,12 +1124,12 @@ observeEvent(input$mergeDatasets, {
       groups <- na.omit(seq[, 'group'])
       time <- na.omit(seq[, 'time'])
 
-      group_inputs <- c("group1", "group2", "group1_polystest", "group2_polystest")
+      group_inputs <- c("group1", "group2", "group1_time", "group2_time", "group1_polystest", "group2_polystest")
       for (x in group_inputs) {
         updateSelectInput(session, x, label = NULL, choices = groups)
       }
 
-      time_inputs <- c("time1_polystest", "time2_polystest")
+      time_inputs <- c("time1_time", "time2_time", "time1_polystest", "time2_polystest")
       for (x in time_inputs) {
         updateSelectInput(session, x, label = NULL, choices = time, selected = "")
       }
@@ -1225,6 +1225,16 @@ observeEvent(input$mergeDatasets, {
           disable("selectTest")
         }
       },
+      GroupsTimeUnpaired = {
+        if(!any(complete.cases(sequence[, 4]))) {
+          sendSweetAlert(session, "Oops!", "Invalid test. Provide information on different groups/conditions.", type = "error")
+          disable("selectTest")
+        }
+        if(!any(complete.cases(sequence[, 5]))) {
+          sendSweetAlert(session, "Oops!", "Invalid test. Indicate time points.", type = "error")
+          disable("selectTest")
+        }
+      },
       GroupsMultipleTime = {
         if(any(complete.cases(sequence[, 5])) & any(complete.cases(sequence[, 6]))) {
           sequence <- sequence[sequence[, 1] %in% "Sample" & complete.cases(sequence[, 4]), ]
@@ -1275,6 +1285,15 @@ observeEvent(input$mergeDatasets, {
           rv$results[[rv$activeFile]][[length(rv$results[[rv$activeFile]])+1]] <- results
           names(rv$results[[rv$activeFile]])[length(rv$results[[rv$activeFile]])] <- paste0(input$group1, "_vs_", input$group2)
         }
+      },
+      GroupsTimeUnpaired = {
+          groups <- c(input$group1_time, input$group2_time)
+          times <- c(input$time1_time, input$time2_time)
+          groupTime <- paste(groups, times, sep = "_")
+          print(groupTime)
+          results <- groupComparisonTime(data, sequence, groups, times)
+          rv$results[[rv$activeFile]][[length(rv$results[[rv$activeFile]])+1]] <- results
+          names(rv$results[[rv$activeFile]])[length(rv$results[[rv$activeFile]])] <- paste0(input$group1, "_vs_", input$group2)
       },
       GroupsMultipleTime = { # multi-level in limma 
         data <- data[sequence[, 1] %in% c("Name", "Sample")]

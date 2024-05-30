@@ -506,6 +506,7 @@ shinyUI(dashboardPage(
                     selectInput("testType", "Select test", width = "100%",
                       choices = c("2 groups (unpaired)" = "GroupsUnpaired",
                                   "2 groups (paired)" = "GroupsPaired",
+                                  "2 groups with time (unpaired)" = "GroupsTimeUnpaired",
                                   "2 groups with time (paired)" = "GroupsMultipleTime",
                                   "Compare to reference group" = "CompareToReference"), selected = NULL
                     ))
@@ -516,6 +517,17 @@ shinyUI(dashboardPage(
                     column(6, selectInput("group1", "Group 1", choices = NULL, width = "100%")),
                     column(6, selectInput("group2", "Group 2", choices = NULL, width = "100%"))
                   )
+                ),
+                conditionalPanel(
+                  condition = "input.testType == 'GroupsTimeUnpaired'",
+                  fluidRow(
+                    column(6, selectInput("group1_time", "Group", choices = NULL, width = "100%")),
+                    column(6, selectInput("time1_time", "Time", choices = NULL, width = "100%"))
+                  ),
+                  fluidRow(
+                    column(6, selectInput("group2_time", "Group", choices = NULL, width = "100%")),
+                    column(6, selectInput("time2_time", "Time", choices = NULL, width = "100%"))
+                  ),
                 ),
                 conditionalPanel(
                   condition = "input.testType == 'CompareToReference'",
