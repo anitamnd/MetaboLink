@@ -932,7 +932,7 @@ observeEvent(input$mergeDatasets, {
           round(cvmean(sdata[sclass %in% x]), 2)
         })
         classcv <- sapply(seq_along(classcv), function(x) {
-          paste0("CV in class ", x, ": ", classcv[x], "</br>")
+          paste0("CV in group ", sort(unique(sclass))[x], ": ", classcv[x], "</br>")
         })
       } else {
         classcv <- NULL
