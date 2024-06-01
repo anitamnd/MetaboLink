@@ -60,6 +60,7 @@ performLOESSCorrection <- function(dcdat, qcid, degree, QCspan, frame, totalRows
 #'
 #' @return A numeric matrix representing the corrected data.
 driftCorrection <- function(data, sequence, method, ntree, degree, QCspan) {
+  browser()
   seqsq <- sequence[sequence[, 1] %in% c("Sample", "QC"), ]
   datsq <- data[, sequence[, 1] %in% c("Sample", "QC")]
   
@@ -79,7 +80,8 @@ driftCorrection <- function(data, sequence, method, ntree, degree, QCspan) {
   }
 
   #TODO 
-  data[, sequence[, 1] %in% c("Sample", "QC")] <- dcdat[, seqsq$order]
+  print(head(dcdat))
+  data[, sequence[, 1] %in% c("Sample", "QC")] <- dcdat[, as.numeric(seqsq$order)]
   closeSweetAlert()
   return(data)
 }
