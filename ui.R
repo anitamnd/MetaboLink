@@ -128,7 +128,7 @@ shinyUI(dashboardPage(
           fluidRow(hidden(div(id = "imp_minx_hide", sliderInput("imputationMinX", "Divide min by", min = 1, max = 10, value = 1, step = 1, width = "100%")))),
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, prettyCheckbox("imp_onlyQC", "Only imputate QC")),
+            column(6, prettyCheckbox("imp_onlyQC", "Only impute QC", value = TRUE)),
             column(6)
           ),
           fluidRow(
@@ -177,15 +177,23 @@ shinyUI(dashboardPage(
               fluidRow(
                 selectInput("driftMethod", "Signal correction method", choices = c("QC-RFSC (random forest)", "QC-RLSC (robust LOESS)"), width = "100%")
               ),
-              fluidRow(div(id = "dc_ntree_hide", 
-                  sliderInput("driftTrees", "ntree", min = 100, max = 1000, value = 500, step = 100, width = "100%")
-              )),
-              fluidRow(hidden(div(id = "dc_qcspan_hide", 
-                  sliderInput("driftQCspan", "QCspan", min = 0.2, max = 0.75, value = 0.5, step = 0.05, width = "100%"))
-              )),
-              fluidRow(hidden(div(id = "dc_degree_hide", 
-                  sliderInput("driftDegree", "degree", min = 0, max = 2, value = 2, step = 1, width = "100%"))
-              )),
+              fluidRow(
+                conditionalPanel(
+                  condition = "input.driftMethod == 'QC-RFSC (random forest)'",
+                  div(id = "dc_ntree_hide", 
+                    sliderInput("driftTrees", "ntree", min = 100, max = 1000, value = 500, step = 100, width = "100%")
+                  )
+                ),
+                conditionalPanel(
+                  condition = "input.driftMethod == 'QC-RLSC (robust LOESS)'",
+                  div(id = "dc_qcspan_hide", 
+                    sliderInput("driftQCspan", "QCspan", min = 0.2, max = 0.75, value = 0.5, step = 0.05, width = "100%")
+                  ),
+                  div(id = "dc_degree_hide", 
+                    sliderInput("driftDegree", "degree", min = 0, max = 2, value = 2, step = 1, width = "100%")
+                  )
+                )
+              ),
               fluidRow(style = "margin-right: 0px;",
                 column(12, checkboxInput("newFileDrift", "Save as new file", value = T, width = "100%"), style = "padding: 0px; margin-top: -10px; margin-left: 10px; margin-right: -10px;"),
                 column(6, bsButton("runDrift", "Run", width = "100%"), style = "padding-left:0px;"),

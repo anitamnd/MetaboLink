@@ -666,17 +666,17 @@ shinyServer(function(session, input, output) {
 
   ## Drift correction ##
 
-  observeEvent(input$driftMethod, {
-    if (input$driftMethod == "QC-RFSC (random forrest)") {
-      hide("dc_qcspan_hide")
-      hide("dc_degree_hide")
-      show("dc_ntree_hide")
-    } else {
-      hide("dc_ntree_hide")
-      show("dc_qcspan_hide")
-      show("dc_degree_hide")
-    }
-  })
+  # observeEvent(input$driftMethod, {
+  #   if (input$driftMethod == "QC-RFSC (random forrest)") {
+  #     hide("dc_qcspan_hide")
+  #     hide("dc_degree_hide")
+  #     show("dc_ntree_hide")
+  #   } else {
+  #     hide("dc_ntree_hide")
+  #     show("dc_qcspan_hide")
+  #     show("dc_degree_hide")
+  #   }
+  # })
 
   observeEvent(input$runDrift, {
     if (is.null(rv$activeFile)) {
@@ -1350,7 +1350,13 @@ observeEvent(input$mergeDatasets, {
     sequence <- rv$sequence[[rv$activeFile]]
     tdata <- rv$data[[rv$activeFile]][, sequence[, 1] %in% c("Name",  "Sample")]
     tseq <- sequence[sequence[, 1] %in% c("Name",  "Sample"), ]
-    PolySTestMessage <- prepareMessage(tdata, tseq)
+    time <- complete.cases(tseq[, 5])
+    if(any(complete.cases(tseq[, 5]))) {
+      time <- unique(tseq[complete.cases(tseq[, 5]), 5])
+    } else {
+      time <- c("")
+    }
+    PolySTestMessage <- prepareMessage2(tdata, tseq, time)
     js$send_message(url="http://computproteomics.bmb.sdu.dk:443/app_direct/PolySTest/", 
                     dat=PolySTestMessage, tool="PolySTest")
   })
@@ -1359,7 +1365,7 @@ observeEvent(input$mergeDatasets, {
     sequence <- rv$sequence[[rv$activeFile]]
     tdata <- rv$data[[rv$activeFile]][, sequence[, 1] %in% c("Name",  "Sample")]
     tseq <- sequence[sequence[, 1] %in% c("Name",  "Sample"), ]
-    VSClustMessage <- prepareMessage(tdata, tseq)
+    VSClustMessage <- prepareMessage2(tdata, tseq)
     js$send_message(url="http://computproteomics.bmb.sdu.dk/app_direct/VSClust/",
                     dat=VSClustMessage, tool="VSClust")
   })
