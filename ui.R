@@ -25,6 +25,7 @@ shinyUI(dashboardPage(
         color: black;
         text-decoration: underline;
       }")),
+    tags$style(".skin-blue .sidebar .norm a { color: #444; }"),
     tags$head(tags$script(src="CallShiny.js")),
     extendShinyjs(script="CallShiny.js", functions=c("retrieve_results","send_message","run_button")),
     fluidPage(
@@ -146,10 +147,10 @@ shinyUI(dashboardPage(
         bsCollapsePanel("Normalization",
           style = "primary",
           p("Expand options below to see all the normalization methods."),
+          div(class = "norm",
           bsCollapse(
-            id =  "norm2", multiple = FALSE, open = "Normalization", 
+            id =  "norm2", multiple = FALSE, open = "Normalization",
             bsCollapsePanel("Internal standards",
-              style = "color: black;",
               fluidRow(
                 selectInput("isMethod", "Method", choices = c("Nearest RT", "Same lipid structure"), selected = "Nearest RT", width = "100%")
               ),
@@ -173,7 +174,6 @@ shinyUI(dashboardPage(
               )
             ),
             bsCollapsePanel("Drift correction",
-              style = "color: black;",
               fluidRow(
                 selectInput("driftMethod", "Signal correction method", choices = c("QC-RFSC (random forest)", "QC-RLSC (robust LOESS)"), width = "100%")
               ),
@@ -199,9 +199,8 @@ shinyUI(dashboardPage(
                 column(6, bsButton("runDrift", "Run", width = "100%"), style = "padding-left:0px;"),
                 column(6, bsButton("saveDrift", "Save", width = "100%"), style = "padding-left:0px;")
               )
-            ) %>% bsTooltip("For correct usage, please refer to the user manual.", placement = "bottom", trigger = "hover"),
+            ),
             bsCollapsePanel("More",
-              style = "color: #000000;",
               fluidRow(
                 style = "margin-right: 0px;",
                 column(12, selectInput("normMethod", "Select normalization method", choices = c("QC (PQN)", "Sum", "Median", "Sample amount"), width = "100%"), style = "padding-left:0px;")
@@ -214,7 +213,7 @@ shinyUI(dashboardPage(
               )
             ) %>% 
             bsTooltip("Press for more normalization options.", placement = "bottom", trigger = "hover")
-          )
+          ))
         ),
         bsCollapsePanel("Log transform and scaling",
           style = "primary",
