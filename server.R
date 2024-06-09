@@ -261,23 +261,23 @@ shinyServer(function(session, input, output) {
   observeEvent(input$example, {
     # Load example files
     # Negative ion mode
-    data <- read.csv("./example_files/metabolomics_pos_neg/metabolomics_negative.csv", stringsAsFactors = FALSE)
-    sequence <- read.csv("./example_files/metabolomics_pos_neg/metabolomics_sequence_neg.csv", stringsAsFactors = FALSE)
+    data <- read.csv("./example_files/Liverfetus_lipid_neg1.csv", stringsAsFactors = FALSE)
+    sequence <- read.csv("./example_files/fetus seq neg.csv", stringsAsFactors = FALSE)
     row.names(sequence) <- sequence[, 1]
     sequence <- sequence[, -1]
     rv$sequence[[length(rv$sequence) + 1]] <- sequence
     rv$data[[length(rv$data) + 1]] <- data
-    names(rv$data)[length(rv$data)] <- "Metabolomics_negative"
+    names(rv$data)[length(rv$data)] <- "Liverfetus_negative"
     initializeVariables()
 
     # Positive ion mode
-    data <- read.csv("./example_files/metabolomics_pos_neg/metabolomics_positive.csv", stringsAsFactors = FALSE)
-    sequence <- read.csv("./example_files/metabolomics_pos_neg/metabolomics_sequence_pos.csv", stringsAsFactors = FALSE)
+    data <- read.csv("./example_files/Liverfetus_lipid_pos1.csv", stringsAsFactors = FALSE)
+    sequence <- read.csv("./example_files/fetus seq pos.csv", stringsAsFactors = FALSE)
     row.names(sequence) <- sequence[, 1]
     sequence <- sequence[, -1]
     rv$sequence[[length(rv$sequence) + 1]] <- sequence
     rv$data[[length(rv$data) + 1]] <- data
-    names(rv$data)[length(rv$data)] <- "Metabolomics_positive"
+    names(rv$data)[length(rv$data)] <- "Liverfetus_positive"
     initializeVariables()
     rv$choices <- paste(seq_along(rv$data), ": ", names(rv$data))
 

@@ -43,17 +43,24 @@ addEmptyCols <- function(data, sequence, groups, replicates) {
 addEmptyColsTime <- function(data, sequence, group_time, replicates) {
   processed <- data[, 1] # feature names
   rgroup <- c("") # group vector
-  
+  data <- data[, -1]
+  print(head(data))
   uniqueGroupTime <- unique(na.omit(group_time))
+  print(group_time == uniqueGroupTime[1])
+  print(group_time)
 
   for(group in 1:length(uniqueGroupTime)) {
-    groupedCols <- data[, group_time %in% uniqueGroupTime[group]]
+    groupedCols <- data[, group_time == uniqueGroupTime[group]]
+    print(uniqueGroupTime[group])
+    print(head(groupedCols))
     processed <- cbind(processed, groupedCols)
-    if(length(groupedCols) < replicates) {
-      missing <- t(rep(NA, replicates - length(groupedCols)))
+    if(ncol(groupedCols) < replicates) {
+      print("a")
+      missing <- t(rep(NA, replicates - ncol(groupedCols)))
       processed <- cbind(processed, missing)
     }
     rgroup <- append(rgroup, rep(paste("", uniqueGroupTime[group], sep = ""), replicates))
+    print(rgroup)
   }
   colnames(processed) <- paste(colnames(processed), rgroup, sep = "_")
   
@@ -85,7 +92,7 @@ prepareMessage2 <- function(data, sequence, time) {
     numrep <- max(table(groups))
     groups <- levels(groups)
     numcond <- length(groups)
-    data <- addEmptyColsTime(data, sequence, groups, numrep)
+    data <- addEmptyColsTime(data, sequence, group_time, numrep)
   } else {
     groups <- factor(sequence[, 4], exclude = NA)
     numrep <- max(table(groups))
