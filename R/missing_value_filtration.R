@@ -35,17 +35,18 @@ in_group_filtration <- function(data, sequence, cutoff) {
   data_sample <- data[sequence[, 1] %in% "Sample"]
   data_sample[data_sample == 0] <- NA
   
-  groups <- factor(sequence[, 4], exclude = NA)
+  groups <- factor(sequence[, 'group'], exclude = NA)
+  print(levels(groups))
   sequence_sample <- sequence[sequence[, 1] %in% "Sample", ]
   num_groups <- length(levels(groups))
+  keep_matrix <- matrix(FALSE, nrow = nrow(data_sample), ncol = num_groups)
 
-  keep_matrix <- matrix(FALSE, nrow(data_sample), ncol = num_groups)
-
-  for(group_index in seq_len(num_groups)) {
+  for(group_index in 1:num_groups) {
+    print(levels(groups)[group_index])
     group_data <- data_sample[, sequence_sample[, 4] %in% levels(groups)[group_index]]
+    print(head(group_data))
     keep_matrix[, group_index] <- rowSums(!is.na(group_data)) / ncol(group_data) >= cutoff
   }
-
   keep <- apply(keep_matrix, 1, any)
 
   return(keep)

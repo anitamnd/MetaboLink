@@ -29,8 +29,10 @@ normalization <- function(data, sequence, qualityControls, method) {
     normalizedData <- apply(filteredData, 2, sumNormalization)
   } else if(method == "Sample amount") {
     amount <- sequence[sequence[, 1] %in% c("QC", "Sample"), "amount"]
+    amount <- as.numeric(amount)
     amount[is.na(amount)] <- median(amount, na.rm=TRUE)
     normalizedData <- t(apply(filteredData, 1, amountNormalization, amount))
+    print(head(normalizedData))
   }
   rownames(normalizedData) <- rowNames
   colnames(normalizedData) <- colNames

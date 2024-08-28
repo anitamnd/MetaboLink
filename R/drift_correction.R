@@ -12,6 +12,7 @@
 #'
 #' @return A numeric matrix representing the corrected data.
 performRFCorrection <- function(data, qcOrder, ntree, frame, totalRows) {
+  print(qcOrder)
   dcdata <- data
   for (i in seq_len(totalRows)) {
     forest <- randomForest(data.frame(qcOrder), as.numeric(dcdata[i, qcOrder]), ntree = ntree)
@@ -62,7 +63,7 @@ driftCorrection <- function(data, sequence, method, ntree, degree, QCspan) {
   seqsq <- sequence[sequence[, 1] %in% c("Sample", "QC"), ]
   datsq <- data[, sequence[, 1] %in% c("Sample", "QC")]
   
-  datsqsorted <- datsq[order(seqsq$order)] #TODO ordered samples (check that it doesnt skip numbers)
+  datsqsorted <- datsq[order(as.numeric(seqsq$order))] #TODO ordered samples (check that it doesnt skip numbers)
 
   qcid <- sort(as.numeric(seqsq[seqsq[, 1] == "QC", "order"]))
 
@@ -78,7 +79,8 @@ driftCorrection <- function(data, sequence, method, ntree, degree, QCspan) {
   }
 
   #TODO 
-  data[, sequence[, 1] %in% c("Sample", "QC")] <- dcdat[, seqsq$order]
+  print(head(dcdat))
+  data[, sequence[, 1] %in% c("Sample", "QC")] <- dcdat[, as.numeric(seqsq$order)]
   closeSweetAlert()
   return(data)
 }

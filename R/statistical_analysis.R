@@ -60,6 +60,37 @@ groupComparisonPaired <- function(data, sequence, groups) {
     return(results)
 }
 
+groupComparisonTime <- function(data, sequence, groups, times) {
+    library(limma)
+    # Select samples corresponding to selected groups and time points
+    keep <- sequence[, 1] %in% "Name"
+    groupTime1 <- sequence[, 4] %in% groups[1] & sequence[, 5] %in% times[1]
+    groupTime2 <- sequence[, 4] %in% groups[2] & sequence[, 5] %in% times[2]
+    selected <- data[, keep | groupTime1 | groupTime2]
+    sequence <- sequence[groupTime1 | groupTime2, ]
+
+    groups <- paste(sequence[, 4], sequence[, 5], sep = ".")
+    group <- factor(groups)
+
+    print(group)
+    # Change column names to group names 
+    colnames(selected)[2:ncol(selected)] <- paste(group, colnames(selected)[2:ncol(selected)], sep=".")
+
+    print(colnames(selected))
+
+    design <- model.matrix(~ 0 + group)
+    colnames(design) <- levels(group)
+    print(design)
+    contrast.matrix <- makeContrasts(contrasts = paste(colnames(design)[1], "-", colnames(design)[2]), levels = design)
+
+    lm.fit <- lmFit(selected, design)
+    lm.contr <- contrasts.fit(lm.fit, contrast.matrix)
+    lm.ebayes <- eBayes(lm.contr)
+    results <- topTable(lm.ebayes, adjust = "BH", number = Inf)
+    detach(package:limma, unload = TRUE)
+    return(results)
+}
+
 referenceGroupComparison <- function(data, reference, groups) {
     library(limma)
     library(qvalue)

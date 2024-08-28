@@ -25,6 +25,7 @@ shinyUI(dashboardPage(
         color: black;
         text-decoration: underline;
       }")),
+    tags$style(".skin-blue .sidebar .norm a { color: #444; }"),
     tags$head(tags$script(src="CallShiny.js")),
     extendShinyjs(script="CallShiny.js", functions=c("retrieve_results","send_message","run_button")),
     fluidPage(
@@ -128,7 +129,7 @@ shinyUI(dashboardPage(
           fluidRow(hidden(div(id = "imp_minx_hide", sliderInput("imputationMinX", "Divide min by", min = 1, max = 10, value = 1, step = 1, width = "100%")))),
           fluidRow(
             style = "margin-right: 0px;",
-            column(6, prettyCheckbox("imp_onlyQC", "Only imputate QC")),
+            column(6, prettyCheckbox("imp_onlyQC", "Only impute QC", value = TRUE)),
             column(6)
           ),
           fluidRow(
@@ -146,10 +147,10 @@ shinyUI(dashboardPage(
         bsCollapsePanel("Normalization",
           style = "primary",
           p("Expand options below to see all the normalization methods."),
+          div(class = "norm",
           bsCollapse(
-            id =  "norm2", multiple = FALSE, open = "Normalization", 
+            id =  "norm2", multiple = FALSE, open = "Normalization",
             bsCollapsePanel("Internal standards",
-              style = "color: black;",
               fluidRow(
                 selectInput("isMethod", "Method", choices = c("Nearest RT", "Same lipid structure"), selected = "Nearest RT", width = "100%")
               ),
@@ -173,27 +174,33 @@ shinyUI(dashboardPage(
               )
             ),
             bsCollapsePanel("Drift correction",
-              style = "color: black;",
               fluidRow(
                 selectInput("driftMethod", "Signal correction method", choices = c("QC-RFSC (random forest)", "QC-RLSC (robust LOESS)"), width = "100%")
               ),
-              fluidRow(div(id = "dc_ntree_hide", 
-                  sliderInput("driftTrees", "ntree", min = 100, max = 1000, value = 500, step = 100, width = "100%")
-              )),
-              fluidRow(hidden(div(id = "dc_qcspan_hide", 
-                  sliderInput("driftQCspan", "QCspan", min = 0.2, max = 0.75, value = 0.5, step = 0.05, width = "100%"))
-              )),
-              fluidRow(hidden(div(id = "dc_degree_hide", 
-                  sliderInput("driftDegree", "degree", min = 0, max = 2, value = 2, step = 1, width = "100%"))
-              )),
+              fluidRow(
+                conditionalPanel(
+                  condition = "input.driftMethod == 'QC-RFSC (random forest)'",
+                  div(id = "dc_ntree_hide", 
+                    sliderInput("driftTrees", "ntree", min = 100, max = 1000, value = 500, step = 100, width = "100%")
+                  )
+                ),
+                conditionalPanel(
+                  condition = "input.driftMethod == 'QC-RLSC (robust LOESS)'",
+                  div(id = "dc_qcspan_hide", 
+                    sliderInput("driftQCspan", "QCspan", min = 0.2, max = 0.75, value = 0.5, step = 0.05, width = "100%")
+                  ),
+                  div(id = "dc_degree_hide", 
+                    sliderInput("driftDegree", "degree", min = 0, max = 2, value = 2, step = 1, width = "100%")
+                  )
+                )
+              ),
               fluidRow(style = "margin-right: 0px;",
                 column(12, checkboxInput("newFileDrift", "Save as new file", value = T, width = "100%"), style = "padding: 0px; margin-top: -10px; margin-left: 10px; margin-right: -10px;"),
                 column(6, bsButton("runDrift", "Run", width = "100%"), style = "padding-left:0px;"),
                 column(6, bsButton("saveDrift", "Save", width = "100%"), style = "padding-left:0px;")
               )
-            ) %>% bsTooltip("For correct usage, please refer to the user manual.", placement = "bottom", trigger = "hover"),
+            ),
             bsCollapsePanel("More",
-              style = "color: #000000;",
               fluidRow(
                 style = "margin-right: 0px;",
                 column(12, selectInput("normMethod", "Select normalization method", choices = c("QC (PQN)", "Sum", "Median", "Sample amount"), width = "100%"), style = "padding-left:0px;")
@@ -206,7 +213,7 @@ shinyUI(dashboardPage(
               )
             ) %>% 
             bsTooltip("Press for more normalization options.", placement = "bottom", trigger = "hover")
-          )
+          ))
         ),
         bsCollapsePanel("Log transform and scaling",
           style = "primary",
@@ -506,6 +513,7 @@ shinyUI(dashboardPage(
                     selectInput("testType", "Select test", width = "100%",
                       choices = c("2 groups (unpaired)" = "GroupsUnpaired",
                                   "2 groups (paired)" = "GroupsPaired",
+                                  "2 groups with time (unpaired)" = "GroupsTimeUnpaired",
                                   "2 groups with time (paired)" = "GroupsMultipleTime",
                                   "Compare to reference group" = "CompareToReference"), selected = NULL
                     ))
@@ -516,6 +524,17 @@ shinyUI(dashboardPage(
                     column(6, selectInput("group1", "Group 1", choices = NULL, width = "100%")),
                     column(6, selectInput("group2", "Group 2", choices = NULL, width = "100%"))
                   )
+                ),
+                conditionalPanel(
+                  condition = "input.testType == 'GroupsTimeUnpaired'",
+                  fluidRow(
+                    column(6, selectInput("group1_time", "Group", choices = NULL, width = "100%")),
+                    column(6, selectInput("time1_time", "Time", choices = NULL, width = "100%"))
+                  ),
+                  fluidRow(
+                    column(6, selectInput("group2_time", "Group", choices = NULL, width = "100%")),
+                    column(6, selectInput("time2_time", "Time", choices = NULL, width = "100%"))
+                  ),
                 ),
                 conditionalPanel(
                   condition = "input.testType == 'CompareToReference'",

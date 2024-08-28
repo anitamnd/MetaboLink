@@ -261,23 +261,23 @@ shinyServer(function(session, input, output) {
   observeEvent(input$example, {
     # Load example files
     # Negative ion mode
-    data <- read.csv("./example_files/metabolomics_pos_neg/metabolomics_negative.csv", stringsAsFactors = FALSE)
-    sequence <- read.csv("./example_files/metabolomics_pos_neg/metabolomics_sequence_neg.csv", stringsAsFactors = FALSE)
+    data <- read.csv("./example_files/Liverfetus_lipid_neg1.csv", stringsAsFactors = FALSE)
+    sequence <- read.csv("./example_files/fetus seq neg.csv", stringsAsFactors = FALSE)
     row.names(sequence) <- sequence[, 1]
     sequence <- sequence[, -1]
     rv$sequence[[length(rv$sequence) + 1]] <- sequence
     rv$data[[length(rv$data) + 1]] <- data
-    names(rv$data)[length(rv$data)] <- "Metabolomics_negative"
+    names(rv$data)[length(rv$data)] <- "Liverfetus_negative"
     initializeVariables()
 
     # Positive ion mode
-    data <- read.csv("./example_files/metabolomics_pos_neg/metabolomics_positive.csv", stringsAsFactors = FALSE)
-    sequence <- read.csv("./example_files/metabolomics_pos_neg/metabolomics_sequence_pos.csv", stringsAsFactors = FALSE)
+    data <- read.csv("./example_files/Liverfetus_lipid_pos1.csv", stringsAsFactors = FALSE)
+    sequence <- read.csv("./example_files/fetus seq pos.csv", stringsAsFactors = FALSE)
     row.names(sequence) <- sequence[, 1]
     sequence <- sequence[, -1]
     rv$sequence[[length(rv$sequence) + 1]] <- sequence
     rv$data[[length(rv$data) + 1]] <- data
-    names(rv$data)[length(rv$data)] <- "Metabolomics_positive"
+    names(rv$data)[length(rv$data)] <- "Liverfetus_positive"
     initializeVariables()
     rv$choices <- paste(seq_along(rv$data), ": ", names(rv$data))
 
@@ -666,17 +666,17 @@ shinyServer(function(session, input, output) {
 
   ## Drift correction ##
 
-  observeEvent(input$driftMethod, {
-    if (input$driftMethod == "QC-RFSC (random forrest)") {
-      hide("dc_qcspan_hide")
-      hide("dc_degree_hide")
-      show("dc_ntree_hide")
-    } else {
-      hide("dc_ntree_hide")
-      show("dc_qcspan_hide")
-      show("dc_degree_hide")
-    }
-  })
+  # observeEvent(input$driftMethod, {
+  #   if (input$driftMethod == "QC-RFSC (random forrest)") {
+  #     hide("dc_qcspan_hide")
+  #     hide("dc_degree_hide")
+  #     show("dc_ntree_hide")
+  #   } else {
+  #     hide("dc_ntree_hide")
+  #     show("dc_qcspan_hide")
+  #     show("dc_degree_hide")
+  #   }
+  # })
 
   observeEvent(input$runDrift, {
     if (is.null(rv$activeFile)) {
@@ -932,7 +932,7 @@ observeEvent(input$mergeDatasets, {
           round(cvmean(sdata[sclass %in% x]), 2)
         })
         classcv <- sapply(seq_along(classcv), function(x) {
-          paste0("CV in class ", x, ": ", classcv[x], "</br>")
+          paste0("CV in group ", sort(unique(sclass))[x], ": ", classcv[x], "</br>")
         })
       } else {
         classcv <- NULL
@@ -1124,12 +1124,12 @@ observeEvent(input$mergeDatasets, {
       groups <- na.omit(seq[, 'group'])
       time <- na.omit(seq[, 'time'])
 
-      group_inputs <- c("group1", "group2", "group1_polystest", "group2_polystest")
+      group_inputs <- c("group1", "group2", "group1_time", "group2_time", "group1_polystest", "group2_polystest")
       for (x in group_inputs) {
         updateSelectInput(session, x, label = NULL, choices = groups)
       }
 
-      time_inputs <- c("time1_polystest", "time2_polystest")
+      time_inputs <- c("time1_time", "time2_time", "time1_polystest", "time2_polystest")
       for (x in time_inputs) {
         updateSelectInput(session, x, label = NULL, choices = time, selected = "")
       }
@@ -1225,6 +1225,16 @@ observeEvent(input$mergeDatasets, {
           disable("selectTest")
         }
       },
+      GroupsTimeUnpaired = {
+        if(!any(complete.cases(sequence[, 4]))) {
+          sendSweetAlert(session, "Oops!", "Invalid test. Provide information on different groups/conditions.", type = "error")
+          disable("selectTest")
+        }
+        if(!any(complete.cases(sequence[, 5]))) {
+          sendSweetAlert(session, "Oops!", "Invalid test. Indicate time points.", type = "error")
+          disable("selectTest")
+        }
+      },
       GroupsMultipleTime = {
         if(any(complete.cases(sequence[, 5])) & any(complete.cases(sequence[, 6]))) {
           sequence <- sequence[sequence[, 1] %in% "Sample" & complete.cases(sequence[, 4]), ]
@@ -1276,6 +1286,15 @@ observeEvent(input$mergeDatasets, {
           names(rv$results[[rv$activeFile]])[length(rv$results[[rv$activeFile]])] <- paste0(input$group1, "_vs_", input$group2)
         }
       },
+      GroupsTimeUnpaired = {
+          groups <- c(input$group1_time, input$group2_time)
+          times <- c(input$time1_time, input$time2_time)
+          groupTime <- paste(groups, times, sep = "_")
+          print(groupTime)
+          results <- groupComparisonTime(data, sequence, groups, times)
+          rv$results[[rv$activeFile]][[length(rv$results[[rv$activeFile]])+1]] <- results
+          names(rv$results[[rv$activeFile]])[length(rv$results[[rv$activeFile]])] <- paste0(input$group1, "_vs_", input$group2)
+      },
       GroupsMultipleTime = { # multi-level in limma 
         data <- data[sequence[, 1] %in% c("Name", "Sample")]
         sequence <- sequence[sequence[, 1] %in% c("Sample"), ]
@@ -1322,7 +1341,7 @@ observeEvent(input$mergeDatasets, {
     groups <- c(input$group1_polystest, input$group2_polystest)
     time <- c(input$time1_polystest, input$time2_polystest)
     selected <- selectPolySTest(tdata, sequence, groups, time)
-    PolySTestMessage <- prepareMessage(selected$selected, selected$selected_sequence)
+    PolySTestMessage <- prepareMessage2(selected$selected, selected$selected_sequence, time)
     js$send_message(url="http://computproteomics.bmb.sdu.dk:443/app_direct/PolySTest/", 
                     dat=PolySTestMessage, tool="PolySTest")
   })
@@ -1331,7 +1350,13 @@ observeEvent(input$mergeDatasets, {
     sequence <- rv$sequence[[rv$activeFile]]
     tdata <- rv$data[[rv$activeFile]][, sequence[, 1] %in% c("Name",  "Sample")]
     tseq <- sequence[sequence[, 1] %in% c("Name",  "Sample"), ]
-    PolySTestMessage <- prepareMessage(tdata, tseq)
+    time <- complete.cases(tseq[, 5])
+    if(any(complete.cases(tseq[, 5]))) {
+      time <- unique(tseq[complete.cases(tseq[, 5]), 5])
+    } else {
+      time <- c("")
+    }
+    PolySTestMessage <- prepareMessage2(tdata, tseq, time)
     js$send_message(url="http://computproteomics.bmb.sdu.dk:443/app_direct/PolySTest/", 
                     dat=PolySTestMessage, tool="PolySTest")
   })
@@ -1340,7 +1365,7 @@ observeEvent(input$mergeDatasets, {
     sequence <- rv$sequence[[rv$activeFile]]
     tdata <- rv$data[[rv$activeFile]][, sequence[, 1] %in% c("Name",  "Sample")]
     tseq <- sequence[sequence[, 1] %in% c("Name",  "Sample"), ]
-    VSClustMessage <- prepareMessage(tdata, tseq)
+    VSClustMessage <- prepareMessage2(tdata, tseq)
     js$send_message(url="http://computproteomics.bmb.sdu.dk/app_direct/VSClust/",
                     dat=VSClustMessage, tool="VSClust")
   })
