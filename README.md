@@ -44,3 +44,13 @@ You can then run the app from the server.R or ui.R files using RStudio or run th
 ## Contact
 
 For software issues and general questions, please submit an issue.
+
+---
+
+## Publication
+
+If you use MetaboLink, please cite:
+
+Mendes A. et al. (2024) [MetaboLink: A web application for Streamlined Processing and Analysis of Large-Scale Untargeted Metabolomics Data](https://pubmed.ncbi.nlm.nih.gov/39018180/)
+
+DOI: 10.1093/bioinformatics/btae459
