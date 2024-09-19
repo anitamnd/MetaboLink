@@ -53,4 +53,4 @@ If you use MetaboLink, please cite:
 
 Mendes A. et al. (2024) [MetaboLink: A web application for Streamlined Processing and Analysis of Large-Scale Untargeted Metabolomics Data](https://pubmed.ncbi.nlm.nih.gov/39018180/)
 
-DOI: 10.1093/bioinformatics/btae459
+DOI: [10.1093/bioinformatics/btae459](https://doi.org/10.1093/bioinformatics/btae459)
