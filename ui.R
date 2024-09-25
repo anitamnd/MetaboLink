@@ -461,6 +461,118 @@ shinyUI(dashboardPage(
                 )
               )
             ),
+            tabPanel("Outlier Detection",
+                     tabsetPanel(
+                       tabPanel("K-means",
+                                fluidRow(
+                                  column(12, box(width = NULL, title = "K-means Analysis",
+                                                 tagList(
+                                                   list(
+                                                     tags$li("Add information regarding K-means analysis here.")))))),
+                                selectInput("kmeans_eval_method", "Choose Evaluation Method:",  # Dropdown to select evaluation method for K-means
+                                            choices = c("Within Sum of Square (WSS)" = "wss", "Silhouette" = "silhouette", "Gap Statistic" = "gap_stat")),
+                                actionButton("compute_kmeans_eval", "Compute Evaluation"),      # Button to compute K-means evaluation
+                                plotlyOutput("kmeans_eval_plot"),                                # Output for K-means evaluation plot
+                                numericInput("num_clusters", "Number of Clusters (k):", value = 3, min = 1),  # Input for number of clusters
+                                numericInput("percentile_threshold", "Percentile Threshold:", value = 95, min = 0, max = 100, step = 1), # Input for percentile threshold
+                                actionButton("run_kmeans", "Run K-means"),                      # Button to run K-means
+                                plotlyOutput("kmeans_plot"),                                    # Output for K-means plot
+                                DTOutput("kmeans_outliers"),                                    # Output for K-means outliers table
+                                actionButton("remove_kmeans_outliers", "Remove Selected Outliers"),  # Button to remove selected K-means outliers
+                                actionButton("save_cleaned_kmeans", "Save Cleaned Data")        # Button to save cleaned K-means data
+                       ),
+                       tabPanel("Hierarchical",
+                                fluidRow(
+                                  column(12, box(width = NULL, title = "Hierarchical Clustering Analysis",
+                                                 tagList(
+                                                   list(
+                                                     tags$li("Add information regarding Hierarchical analysis here.")))))),
+                                selectInput("clustering_method", "Select Clustering Method:",  # Dropdown to select clustering method
+                                            choices = c("Single" = "single",
+                                                        "Complete" = "complete",
+                                                        "Average" = "average",
+                                                        "Ward's D2" = "ward.D2")),
+                                numericInput("num_clusters_hierarchical", "Number of Clusters (k):", value = 3, min = 1),  # Input for number of clusters
+                                numericInput("threshold", "Dendrogram Threshold (Distance):", value = 5, min = 0),  # Input for dendrogram threshold
+                                actionButton("run_hierarchical", "Run Hierarchical Clustering"),  # Button to run hierarchical clustering
+                                plotlyOutput("hclust_plot"),                                      # Output for hierarchical clustering plot
+                                plotlyOutput("conf_matrix_plot"),                                 # Output for confusion matrix plot
+                                plotlyOutput("dendrogram_plot"),                                  # Output for dendrogram plot
+                                DTOutput("hierarchical_outliers"),                                # Output for hierarchical outliers table
+                                actionButton("remove_hierarchical_outliers", "Remove Selected Outliers"),  # Button to remove selected hierarchical outliers
+                                actionButton("save_cleaned_hierarchical", "Save Cleaned Data")    # Button to save cleaned hierarchical data
+                       ),
+                       tabPanel("DBSCAN",
+                                fluidRow(
+                                  column(12, box(width = NULL, title = "Density-Based Spatial Clustering of Applications with Noise Analysis",
+                                                 tagList(
+                                                   list(
+                                                     tags$li("Add information regarding DBSCAN analysis here.")))))),
+                                numericInput("knn", "Choose k for kNN Distance Plot:", value = 5, min = 1),  # Input for k in kNN
+                                actionButton("compute_knn", "Compute kNN Distance Plot"),                   # Button to compute kNN distance plot
+                                plotlyOutput("knn_plot"),                                                    # Output for kNN plot
+                                numericInput("eps", "Choose epsilon for DBSCAN:", value = 0.5, min = 0.01, step = 0.1),  # Input for epsilon in DBSCAN
+                                numericInput("min_pts_dbscan", "Choose minPts for DBSCAN:", value = 5, min = 1),  # Input for minPts in DBSCAN
+                                actionButton("run_dbscan", "Run DBSCAN"),                                   # Button to run DBSCAN
+                                plotlyOutput("dbscan_plot"),                                                # Output for DBSCAN plot
+                                DTOutput("dbscan_outliers"),                                                # Output for DBSCAN outliers table
+                                actionButton("remove_dbscan_outliers", "Remove Selected Outliers"),         # Button to remove selected DBSCAN outliers
+                                actionButton("save_cleaned_dbscan", "Save Cleaned Data")                   # Button to save cleaned DBSCAN data
+                       ),
+                       tabPanel("HDBSCAN",
+                                fluidRow(
+                                  column(12, box(width = NULL, title = "Hierarchical Density-Based Spatial Clustering of Applications with Noise (HDBSCAN)",
+                                                 tagList(
+                                                   list(
+                                                     tags$li("Add information regarding HDBSCAN analysis here.")))))),
+                                numericInput("min_pts_hdbscan", "Choose minPts for HDBSCAN:", value = 5, min = 1),  # Input for minPts in HDBSCAN
+                                numericInput("threshold_hdbscan", "Outlier Threshold for HDBSCAN:", value = 0.85, min = 0.01, max = 1),  # Input for outlier threshold in HDBSCAN
+                                actionButton("run_hdbscan", "Run HDBSCAN"),                                          # Button to run HDBSCAN
+                                plotlyOutput("hdbscan_plot"),                                                        # Output for HDBSCAN plot
+                                DTOutput("hdbscan_outliers"),                                                        # Output for HDBSCAN outliers table
+                                actionButton("remove_hdbscan_outliers", "Remove Selected Outliers"),                 # Button to remove selected HDBSCAN outliers
+                                actionButton("save_cleaned_hdbscan", "Save Cleaned Data")                            # Button to save cleaned HDBSCAN data
+                       ),
+                       tabPanel("OPTICS",
+                                fluidRow(
+                                  column(12, box(width = NULL, title = "Ordering Points To Identify the Clustering Structure",
+                                                 tagList(
+                                                   list(
+                                                     tags$li("Add information regarding OPTICS analysis here.")))))),
+                                numericInput("min_pts_optics", "Choose minPts for OPTICS:", value = 5, min = 1),  # Input for minPts in OPTICS
+                                numericInput("eps_optics", "Choose eps for OPTICS (optional):", value = NA, min = 0.1, step = 0.1),  # Input for eps in OPTICS
+                                numericInput("eps_cl_optics", "Choose cutoff (eps_cl) for OPTICS:", value = 0.5, min = 0.1, step = 0.1),  # Input for eps_cl in OPTICS
+                                actionButton("run_optics", "Run OPTICS"),                                     # Button to run OPTICS
+                                plotOutput("optics_reachability_plot"),                                      # Output for OPTICS reachability plot
+                                plotOutput("reachability_plot_threshold"),                                   # Output for reachability plot threshold
+                                plotlyOutput("cluster_plot"),                                                # Output for cluster plot
+                                DTOutput("optics_outliers"),                                                 # Output for OPTICS outliers table
+                                actionButton("remove_optics_outliers", "Remove Selected Outliers"),          # Button to remove selected OPTICS outliers
+                                actionButton("save_cleaned_optics", "Save Cleaned Data")                     # Button to save cleaned OPTICS data
+                       ),
+                       tabPanel("LOF",
+                                fluidRow(
+                                  column(12, box(width = NULL, title = "Local Outlier Factor (LOF) Analysis",
+                                                 tagList(
+                                                   list(
+                                                     tags$li("Add information regarding LOF analysis here.")))))),
+                                numericInput("lof_threshold", "Threshold for LOF:", value = 1.5, min = 0, step = 0.1),  # Input for threshold in LOF
+                                numericInput("lof_k", "k for LOF:", value = 4, min = 1),                                 # Input for k in LOF
+                                actionButton("run_lof", "Run LOF"),                                                    # Button to run LOF
+                                plotlyOutput("lof_plot"),                                                             # Output for LOF plot
+                                plotlyOutput("lof_od_plot"),                                                          # Output for LOF outlier detection plot
+                                DTOutput("lof_outliers"),                                                             # Output for LOF outliers table
+                                actionButton("remove_lof_outliers", "Remove Selected Outliers"),                      # Button to remove selected LOF outliers
+                                actionButton("save_cleaned_lof", "Save Cleaned Data")                                 # Button to save cleaned LOF data
+                       )
+                     )),
+            tabPanel("GO Term analysis",
+                     fluidRow(
+                       column(12, box(width = NULL, title = "GO Term Analysis",
+                                      tagList(
+                                        list(
+                                          tags$li("Add information regarding GO Term analysis here.")))))))
+            ,
             tabPanel("Summary",
               box(width = NULL,
                 fluidRow(

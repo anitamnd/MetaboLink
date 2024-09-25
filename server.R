@@ -2,8 +2,15 @@ shinyServer(function(session, input, output) {
   options(shiny.maxRequestSize = 30 * 1024^2)
 
   # Global variables
-  rv <- reactiveValues(data = list(), sequence = list(), activeFile = NULL, results = list(),
-                  tmpData = NULL, tmpSequence = NULL, choices = NULL, drift_plot_select = 1, info = vector("character"))
+  rv <- reactiveValues(data = list(),
+                       sequence = list(),
+                       activeFile = NULL,
+                       results = list(),
+                       tmpData = NULL,
+                       tmpSequence = NULL,
+                       choices = NULL,
+                       drift_plot_select = 1,
+                       info = vector("character"))
 
   userConfirmation <- reactiveVal(FALSE)
   disable("upload")
@@ -861,23 +868,49 @@ observeEvent(input$mergeDatasets, {
   ## Principal Component Analysis ##
   #TODO
   observeEvent(input$run_pca1, {
-    if (!is.null(rv$activeFile)) {
+    if (!is.null(rv$activeFile)) { 
       if (input$selectpca1 == "Unsaved data") {
-        data <- rv$tmpData
-        seq <- rv$tmpSequence
-      } else {
-        selectchoices <- paste(seq_along(rv$data), ": ", names(rv$data))
-        sd <- which(rv$choices %in% input$selectpca1)
-        data <- rv$data[[sd]]
-        seq <- rv$sequence[[sd]]
+        data <- rv$tmpData # Set data to the temporary data
+        seq <- rv$tmpSequence # Set sequence to the temporary sequence
+      } else { 
+        selectchoices <- paste(seq_along(rv$data), ": ", names(rv$data)) # Get the selected dataset
+        sd <- which(rv$choices %in% input$selectpca1) # Get the index of the selected dataset
+        data <- rv$data[[sd]] # Set data to the selected dataset
+        seq <- rv$sequence[[sd]] # Set sequence to the selected sequence
       }
-      if ("Sample" %in% seq[, 1]) {
-        if(any(seq[, 1] %in% "QC"))
-          seq[seq[, 1] %in% "QC", ][, 4] <- "QC"
-
-        sdata <- data[seq[, 1] %in% c("Sample", "QC")]
-        sclass <- seq[seq[, 1] %in% c("Sample", "QC"), ][, 4]
-        pca <- pcaplot(sdata, sclass, input$pca1_islog)
+      # Debugging statements
+      cat("Data dimensions:", dim(data), "\n")
+      cat("Sequence dimensions:", dim(seq), "\n")
+      cat("Colnames sequence:", colnames(seq), "\n")
+      
+      if ("Sample"  %in% seq[, "labels"]) { # Check if the sequence file contains a "Sample" column
+        cat("Sequence contains 'labels' column with samples, blank and QC.\n")
+        if (any(seq[, "labels"] %in% "QC")) { # Check if the sequence file contains a "QC" column
+          cat("Sequence contains 'QC' labels. Updating group column.\n")
+          seq[seq[, "labels"] %in% "QC", "group"] <- "QC" # Set the "QC" column to "QC"
+          
+        } else {
+          cat("No 'QC' labels found in the sequence.\n")
+        }
+        
+        data_subset <- data[seq[, "labels"] %in% c("Sample", "QC")] # Get the data for the samples and QC
+        rownames(data_subset) <- make.unique(as.character(data[, "Name"]))
+        
+        # Debugging for subset
+        cat("Data subset dimensions:", dim(data_subset), "\n")
+        if (nrow(data_subset) == 0) {
+          cat("Warning: data_subset is empty!\n")
+        }
+        
+        seq_subset <- seq[seq[, "labels"] %in% c("Sample", "QC"), ] # Get the sequence for the samples and QC
+        
+        # Debugging for sequence subset
+        cat("Sequence subset dimensions:", dim(seq_subset), "\n")
+        if (nrow(seq_subset) == 0) {
+          cat("Warning: seq_subset is empty!\n")
+        }
+        
+        pca <- pcaplot(data_subset, seq_subset, input$pca1_islog) # Perform PCA on the data
         output$plotpca1 <- renderPlotly(pca)
 
         if (sum(seq[, 1] %in% "QC") > 0) {
@@ -885,10 +918,11 @@ observeEvent(input$mergeDatasets, {
         } else {
           qccv <- "No QC in dataset </br>"
         }
+        sclass <- seq[seq[, "labels"] %in% c("Sample", "QC"), ][, "group"] # Get the class of the samples and QC
         sclass <- sclass[sclass != "QC"]
         if (sum(!is.na(sclass)) > 0) {
           classcv <- sapply(sort(unique(sclass)), function(x) {
-            round(cvmean(sdata[, sclass %in% x]), 2)
+            round(cvmean(data_subset[, sclass %in% x]), 2)
           })
           classcv <- sapply(seq_along(classcv), function(x) {
             paste0("CV in group ", sort(unique(sclass))[x], ": ", classcv[x], "</br>")
@@ -916,9 +950,12 @@ observeEvent(input$mergeDatasets, {
         shiny = FALSE
       )
       
-      sdata <- data[seq[, 1] %in% c("Sample", "QC")]
-      sclass <- seq[seq[, 1] %in% c("Sample", "QC"), ][, 4]
-      pca <- pcaplot(sdata, sclass, input$pca2_islog)
+      data_subset <- data[seq[, "labels"] %in% c("Sample", "QC")] # Get the data for the samples and QC
+      rownames(data_subset) <- make.unique(as.character(data[, "Name"]))
+      
+      seq_subset <- seq[seq[, "labels"] %in% c("Sample", "QC"), ] # Get the sequence for the samples and QC
+      
+      pca <- pcaplot(data_subset, seq_subset, input$pca2_islog)
       output$plotpca2 <- renderPlotly(pca)
 
       if (sum(seq$labels %in% "QC") > 0) {
@@ -926,10 +963,11 @@ observeEvent(input$mergeDatasets, {
       } else {
         qccv <- "No QC in dataset </br>"
       }
+      sclass <- seq[seq[, 1] %in% c("Sample", "QC"), ][, 4]
       sclass <- sclass[sclass != "QC"]
       if (sum(!is.na(sclass)) > 0) {
         classcv <- sapply(sort(unique(sclass)), function(x) {
-          round(cvmean(sdata[sclass %in% x]), 2)
+          round(cvmean(data_subset[sclass %in% x]), 2)
         })
         classcv <- sapply(seq_along(classcv), function(x) {
           paste0("CV in group ", sort(unique(sclass))[x], ": ", classcv[x], "</br>")
@@ -1088,7 +1126,7 @@ observeEvent(input$mergeDatasets, {
       sample_mv <- sum(is.na(dat[seq[, 1] %in% "Sample"])) +
                     sum(dat[seq[, 1] %in% "Sample"] == 0, na.rm = TRUE)
 
-      sdata <- dat[seq[, 1] %in% "Sample"]
+      data_subset <- dat[seq[, 1] %in% "Sample"]
       sclass <- seq[seq[, 1] %in% "Sample", ][, 4]
 
       if (sum(seq$labels %in% "QC") > 0) {
@@ -1100,7 +1138,7 @@ observeEvent(input$mergeDatasets, {
 
       if (sum(!is.na(sclass)) > 0) {
         classcv <- sapply(sort(unique(sclass)), function(x) {
-          round(cvmean(sdata[sclass %in% x]), 2)
+          round(cvmean(data_subset[sclass %in% x]), 2)
         })
         classcv <- sapply(seq_along(classcv), function(x) {
           paste0("CV in group ", sort(unique(sclass))[x], ": ", classcv[x], "</br>")
