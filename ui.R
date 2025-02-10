@@ -461,6 +461,476 @@ shinyUI(dashboardPage(
                 )
               )
             ),
+<<<<<<< Updated upstream
+=======
+            tabPanel("Outlier Detection",
+                     tabsetPanel(
+                       tabPanel("K-means",
+                                fluidRow(
+                                  column(12, box(width = NULL, title = "K-means Analysis",
+                                                 tagList(
+                                                   list(
+                                                     tags$li("Add information regarding K-means analysis here.")))))),
+                                # Make a dropdown to select the PCA results from the reactive values 
+                                selectInput("kmeans_pca", "Choose PCA Results:", choices = NULL),
+                                # With the selected PCA results, make a drowdown to select the evaluation method
+                                selectInput("kmeans_eval_method", "Choose Evaluation Method:",  # Dropdown to select evaluation method for K-means
+                                            choices = c("Within Sum of Square (WSS)" = "wss",
+                                                        "Silhouette" = "silhouette",
+                                                        "Gap Statistic" = "gap_stat")),
+                                actionButton("compute_kmeans_eval", "Compute Evaluation"),      # Button to compute K-means evaluation
+                                plotlyOutput("kmeans_eval_plot"),                                # Output for K-means evaluation plot
+                                numericInput("num_clusters", "Number of Clusters (k):", value = 3, min = 1, step = 1),  # Input for number of clusters
+                                numericInput("percentile_threshold", "Percentile Threshold:", value = 95, min = 0, max = 100, step = 1), # Input for percentile threshold
+                                actionButton("run_kmeans", "Run K-means"),                      # Button to run K-means
+                                plotlyOutput("kmeans_plot"),                                    # Output for K-means plot
+                                DTOutput("kmeans_outliers")                                    # Output for K-means outliers table
+                       ),
+                       tabPanel("Hierarchical",
+                                fluidRow(
+                                  column(12, box(width = NULL, title = "Hierarchical Clustering Analysis",
+                                                 tagList(
+                                                   list(
+                                                     tags$li("Add information regarding Hierarchical analysis here.")))))),
+                                # Make a dropdown to select the PCA results from the reactive values 
+                                selectInput("hierarchical_pca", "Choose PCA Results:", choices = NULL),
+                                selectInput("clustering_method", "Select Clustering Method:",  # Dropdown to select clustering method
+                                            choices = c("Single" = "single",
+                                                        "Complete" = "complete",
+                                                        "Average" = "average",
+                                                        "Ward's D2" = "ward.D2")),
+                                numericInput("num_clusters_hierarchical", "Number of Clusters (k):", value = 3, min = 1),  # Input for number of clusters
+                                numericInput("threshold", "Dendrogram Threshold (Distance):", value = 5, min = 0),  # Input for dendrogram threshold
+                                actionButton("run_hierarchical", "Run Hierarchical Clustering"),  # Button to run hierarchical clustering
+                                plotlyOutput("hclust_plot"),                                      # Output for hierarchical clustering plot
+                                plotlyOutput("conf_matrix_plot"),                                 # Output for confusion matrix plot
+                                plotlyOutput("dendrogram_plot"),                                  # Output for dendrogram plot
+                                DTOutput("hierarchical_outliers")                                # Output for hierarchical outliers table
+                       ),
+                       tabPanel("DBSCAN",
+                                fluidRow(
+                                  column(12, box(width = NULL, title = "Density-Based Spatial Clustering of Applications with Noise Analysis",
+                                                 tagList(
+                                                   list(
+                                                     tags$li("Add information regarding DBSCAN analysis here.")))))),
+                                # Make a dropdown to select the PCA results from the reactive values 
+                                selectInput("dbscan_pca", "Choose PCA Results:", choices = NULL),
+                                numericInput("knn", "Choose k for kNN Distance Plot:", value = 5, min = 1, step = 1),  # Input for k in kNN
+                                actionButton("compute_knn", "Compute kNN Distance Plot"),                   # Button to compute kNN distance plot
+                                plotlyOutput("knn_plot"),                                                    # Output for kNN plot
+                                numericInput("eps", "Choose epsilon for DBSCAN:", value = 3, min = 0.01, step = 0.1),  # Input for epsilon in DBSCAN
+                                numericInput("min_pts_dbscan", "Choose minPts for DBSCAN:", value = 5, min = 1),  # Input for minPts in DBSCAN
+                                actionButton("run_dbscan", "Run DBSCAN"),                                   # Button to run DBSCAN
+                                plotlyOutput("dbscan_plot"),                                                # Output for DBSCAN plot
+                                DTOutput("dbscan_outliers")                                                # Output for DBSCAN outliers table
+                       ),
+                       tabPanel("HDBSCAN",
+                                fluidRow(
+                                  column(12, box(width = NULL, title = "Hierarchical Density-Based Spatial Clustering of Applications with Noise (HDBSCAN)",
+                                                 tagList(
+                                                   list(
+                                                     tags$li("Add information regarding HDBSCAN analysis here.")))))),
+                                # Make a dropdown to select the PCA results from the reactive values 
+                                selectInput("hdbscan_pca", "Choose PCA Results:", choices = NULL),
+                                numericInput("min_pts_hdbscan", "Choose minPts for HDBSCAN:", value = 5, min = 1),  # Input for minPts in HDBSCAN
+                                numericInput("threshold_hdbscan", "Outlier Threshold for HDBSCAN:", value = 0.85, min = 0.01, max = 1),  # Input for outlier threshold in HDBSCAN
+                                actionButton("run_hdbscan", "Run HDBSCAN"),                                          # Button to run HDBSCAN
+                                plotlyOutput("hdbscan_plot"),                                                        # Output for HDBSCAN plot
+                                DTOutput("hdbscan_outliers")                                                        # Output for HDBSCAN outliers table
+                       ),
+                       tabPanel("OPTICS",
+                                fluidRow(
+                                  column(12, box(width = NULL, title = "Ordering Points To Identify the Clustering Structure",
+                                                 tagList(
+                                                   list(
+                                                     tags$li("Add information regarding OPTICS analysis here.")))))),
+                                # Make a dropdown to select the PCA results from the reactive values 
+                                selectInput("optics_pca", "Choose PCA Results:", choices = NULL),
+                                numericInput("min_pts_optics", "Choose minPts for OPTICS:", value = 5, min = 1),  # Input for minPts in OPTICS
+                                numericInput("eps_optics", "Choose eps for OPTICS (optional):", value = NA, min = 0.1, step = 0.1),  # Input for eps in OPTICS
+                                numericInput("eps_cl_optics", "Choose cutoff (eps_cl) for OPTICS:", value = 0.5, min = 0.1, step = 0.1),  # Input for eps_cl in OPTICS
+                                # actionButton("run_optics", "Run OPTICS"),                                     # Button to run OPTICS
+                                plotOutput("optics_reachability_plot"),                                      # Output for OPTICS reachability plot
+                                plotOutput("reachability_plot_threshold"),                                   # Output for reachability plot threshold
+                                plotlyOutput("cluster_plot"),                                                # Output for cluster plot
+                                DTOutput("optics_outliers")                                                 # Output for OPTICS outliers table
+                       ),
+                       tabPanel("LOF",
+                                fluidRow(
+                                  column(12, box(width = NULL, title = "Local Outlier Factor (LOF) Analysis",
+                                                 tagList(
+                                                   list(
+                                                     tags$li("Add information regarding LOF analysis here.")))))),
+                                # Make a dropdown to select the PCA results from the reactive values 
+                                selectInput("lof_pca", "Choose PCA Results:", choices = NULL),
+                                numericInput("lof_threshold", "Threshold for LOF:", value = 1.5, min = 0, step = 0.1),  # Input for threshold in LOF
+                                numericInput("lof_k", "k for LOF:", value = 4, min = 1),                                 # Input for k in LOF
+                                actionButton("run_lof", "Run LOF"),                                                    # Button to run LOF
+                                plotlyOutput("lof_plot"),                                                             # Output for LOF plot
+                                plotlyOutput("lof_od_plot"),                                                          # Output for LOF outlier detection plot
+                                DTOutput("lof_outliers")                                                             # Output for LOF outliers table
+                       )
+                     )),
+            tabPanel("Visualization",
+                     tabsetPanel(
+                       tabPanel(
+                         "Heatmap",
+                         # Heatmap Analysis Information
+                         fluidRow(
+                           column(
+                             width = 12,
+                             box(
+                               width = NULL,
+                               title = "Heatmap Analysis",
+                               tags$ul(
+                                 tags$li("Add information regarding Heatmap analysis here."))))
+                         ),
+                         # Heatmap Controls and Customizations
+                         fluidRow(
+                           # Heatmap Controls Box
+                           column(
+                             width = 6,
+                             box(
+                               width = NULL,
+                               title = "Heatmap Controls",
+                               # Dataset Selection
+                               selectInput(
+                                 inputId = "select_heatmap_data",
+                                 label = "Select Dataset for Heatmap",
+                                 choices = NULL,  # To be populated dynamically
+                                 width = "100%"
+                               ),
+                               # Group Selection Checkbox
+                               checkboxInput(
+                                 inputId = "select_groups",
+                                 label = "Select Specific Groups",
+                                 value = FALSE
+                               ),
+                               # Dynamic UI for Group Selection (appears when 'select_groups' is TRUE)
+                               uiOutput("group_selection_ui"),
+                               # Top Features Selection
+                               numericInput(
+                                 inputId = "top_x",
+                                 label = "Number of Top Features:",
+                                 value = 20,
+                                 min = 1,
+                                 step = 1
+                               ),
+                               # Generate Heatmap Button
+                               actionButton(
+                                 inputId = "run_heatmap",
+                                 label = "Generate Heatmap",
+                                 width = "50%"))
+                           ),
+                           # Heatmap Customization Box
+                           column(
+                             width = 6,
+                             box(
+                               width = NULL,
+                               title = "Heatmap Customizations",
+                               # Customization: Show Column Names
+                               checkboxInput(
+                                 inputId = "show_column_names",
+                                 label = "Show Column Names",
+                                 value = FALSE
+                               ),
+                               helpText("Toggle to display or hide column names."),
+                               # Customization: Show Row Names
+                               checkboxInput(
+                                 inputId = "show_row_names",
+                                 label = "Show Row Names",
+                                 value = FALSE
+                               ),
+                               helpText("Toggle to display or hide row names."),
+                               # Customization: Cluster Rows
+                               checkboxInput(
+                                 inputId = "cluster_rows",
+                                 label = "Cluster Rows",
+                                 value = FALSE
+                               ),
+                               helpText("Enable or disable hierarchical clustering of rows."),
+                               # Customization: Show Row Dendrogram
+                               checkboxInput(
+                                 inputId = "show_row_dend",
+                                 label = "Show Row Dendrogram",
+                                 value = FALSE
+                               ),
+                               helpText("Toggle the visibility of the row dendrogram.")))
+                         ),
+                         # Heatmap Output
+                         fluidRow(
+                           column(
+                             width = 12,
+                             box(
+                               width = NULL,
+                               # Heatmap Plot
+                               plotOutput(
+                                 outputId = "heatmap_plot",
+                                 height = "600px"
+                               ))))
+                       ),
+                       
+                       tabPanel(
+                         "Volcano Plot",
+                         
+                         # Row 1: Volcano Plot Information
+                         fluidRow(
+                           column(
+                             width = 12,
+                             box(
+                               width = NULL,
+                               title = "Volcano Plot Information",
+                               status = "info",
+                               solidHeader = TRUE,
+                               collapsible = FALSE,
+                               tagList(
+                                 tags$ul(
+                                   tags$li("Volcano plots help visualize differential expression data (e.g., metabolomics, proteomics)."),
+                                   tags$li("Select two groups to compare, typically an experimental condition vs. a control."),
+                                   tags$li("You can set thresholds for log2 fold change and p-value to highlight significantly changed features.")
+                                 )
+                               )
+                             )
+                           )
+                         ),
+                         
+                         # Row 2: Two boxes side-by-side: Data/Group Selection (left), Plot Customization (right)
+                         fluidRow(
+                           # Left box: Data & group selection
+                           column(
+                             width = 6,  # half width, you can also use 4/8, etc.
+                             box(
+                               width = 12,
+                               title = "Data & Group Selection",
+                               status = "primary",
+                               solidHeader = TRUE,
+                               collapsible = FALSE,
+                               
+                               selectInput("select_volcano_data", "Select Dataset for volcano plot:", choices = NULL, width = "100%"),
+                               selectInput("volcano_labels", "Select Label Column:", choices = NULL, width = "100%"),
+                               
+                               fluidRow(
+                                 column(
+                                   width = 6,
+                                   selectInput("group1_vol", "Numerator (group):", choices = NULL)
+                                 ),
+                                 column(
+                                   width = 6,
+                                   selectInput("group2_vol", "Denominator (group):", choices = NULL)
+                                 )
+                               ),
+                               
+                               fluidRow(
+                                 column(
+                                   width = 6,
+                                   numericInput("log2fc_threshold", "Log2 FC Threshold:", value = 2, min = 0)
+                                 ),
+                                 column(
+                                   width = 6,
+                                   numericInput("pval_threshold", "p-value Threshold:", value = 0.05, min = 0, max = 1, step = 0.01)
+                                 )
+                               ),
+                               
+                               actionButton("run_volcano_plot", "Generate Volcano Plot", width = "100%")
+                             )
+                           ),
+                           
+                           # Right box: Volcano Plot Customization
+                           column(
+                             width = 6,
+                             box(
+                               width = 12,
+                               title = "Volcano Plot Customization",
+                               status = "primary",
+                               solidHeader = TRUE,
+                               collapsible = FALSE,
+                               
+                               textInput("volcano_title", "Plot Title:", "My Volcano Plot"),
+                               
+                               # We create three fluidRows, each with two columns (6 color pickers total)
+                               
+                               # 1) Up-regulated colors
+                               fluidRow(
+                                 column(
+                                   width = 6,
+                                   colourInput("color_up_fill", "Up Fill:", value = "#FF0909")
+                                 ),
+                                 column(
+                                   width = 6,
+                                   colourInput("color_up_outline", "Up Outline:", value = "#B10E0E")
+                                 )
+                               ),
+                               
+                               # 2) Down-regulated colors
+                               fluidRow(
+                                 column(
+                                   width = 6,
+                                   colourInput("color_down_fill", "Down Fill:", value = "#0E66E2")
+                                 ),
+                                 column(
+                                   width = 6,
+                                   colourInput("color_down_outline", "Down Outline:", value = "#0A3E88")
+                                 )
+                               ),
+                               
+                               # 3) Non-significant colors
+                               fluidRow(
+                                 column(
+                                   width = 6,
+                                   colourInput("color_ns_fill", "NS Fill:", value = "#808080")
+                                 ),
+                                 column(
+                                   width = 6,
+                                   colourInput("color_ns_outline", "NS Outline:", value = "#000000")
+                                 )
+                               ),
+                               
+                               # Additional toggles, e.g. to show/hide legend
+                               checkboxInput("show_legend", "Show Legend:", TRUE),
+                             )
+                           )
+                         ),
+                         
+                         # Row 3: Volcano Plot & Results (full width)
+                         fluidRow(
+                           column(
+                             width = 12,
+                             box(
+                               width = NULL,
+                               title = "Volcano Plot & Results",
+                               status = "primary",
+                               solidHeader = TRUE,
+                               collapsible = FALSE,
+                               
+                               plotlyOutput("volcano_plot", height = "500px"),
+                               br(),
+                               DTOutput("volcano_table")
+                             )
+                           )
+                         )
+                       )
+                     )
+            ),
+            # UI for Pathway Enrichment Analysis
+            tabPanel(
+              "Pathway Enrichment",
+              fluidRow(
+                column(
+                  12,
+                  box(
+                    width = NULL, title = "Pathway Enrichment Analysis",
+                    tagList(
+                      list(
+                        tags$li("Select a dataset and the column containing compound identifiers. Click 'Run Gather Identifiers' to first update InChI from cached or online sources, then gather chemical identifiers for enrichment analysis."),
+                        tags$li("Once identifiers are gathered, click 'Run Enrichment Analysis' to perform the pathway enrichment.")
+                      )
+                    )
+                  )
+                )
+              ),
+              fluidRow(
+                column(
+                  width = 6,
+                  box(
+                    width = 12,
+                    selectInput("select_data_for_enrichment", "Select Dataset for Identifier gathering", choices = NULL, width = "100%"),
+                    
+                    fluidRow(
+                      column(
+                        width = 6,
+                        selectInput("identifier_column", "Select Identifier Column", choices = NULL, width = "100%")
+                      ),
+                      column(
+                        width = 6,
+                        selectInput("compound_column", "Select Compound Column", choices = NULL, width = "100%")
+                      )
+                    ),
+                    
+                    actionButton("run_gather_identifiers", "Gather Identifiers", width = "50%"),
+                    checkboxInput("gene_selected", "Run Gene Enrichment", TRUE),
+                    checkboxInput("module_selected", "Run Module Enrichment", FALSE),
+                    # select group for enrichment analysis 
+                    selectInput("group_enrichment", "Select Group for Enrichment Analysis", choices = NULL, width = "100%"),
+                    numericInput(
+                      inputId = "top_x_enrich",
+                      label = "Number of Top Features:",
+                      value = 20,
+                      min = 1,
+                      step = 1
+                    ),
+                    actionButton("run_enrichment_analysis", "Enrichment Analysis", width = "50%")
+                  )
+                ),
+                column(
+                  6,
+                  box(
+                    width = NULL,
+                    h4("Number of Identifiers Gathered"),
+                    textOutput("identifier_count_text"),
+                    uiOutput("identifier_count_table")
+                  )
+                ),
+                column(
+                  12,
+                  box(
+                    width = NULL,
+                    plotOutput("enrichment_barplot"),
+                    plotOutput("enrichment_dotplot")
+                  )
+                ),
+                column(
+                  12,
+                  box(
+                    width = NULL,
+                    plotOutput("enrichment_cnetplot")
+                  )
+                ),
+                fluidRow(
+                  # Left column with radio buttons (width = 3)
+                  column(
+                    width = 3,
+                    wellPanel(
+                      h4("Select which class plot to display:"),
+                      radioButtons(
+                        inputId  = "classChoice",
+                        label    = NULL,  # Using an h4 above instead
+                        choices  = c("Super Class" = "super",
+                                     "Main Class"  = "main",
+                                     "Sub Class"   = "sub"),
+                        selected = "super"  # Default selection
+                      )
+                    )
+                  ),
+                  
+                  # Right column (width = 9): shows whichever plot is selected
+                  column(
+                    width = 9,
+                    conditionalPanel(
+                      condition = "input.classChoice == 'super'",
+                      plotlyOutput("super_class_plot")
+                    ),
+                    conditionalPanel(
+                      condition = "input.classChoice == 'main'",
+                      plotlyOutput("main_class_plot")
+                    ),
+                    conditionalPanel(
+                      condition = "input.classChoice == 'sub'",
+                      plotlyOutput("sub_class_plot")
+                    )
+                  )
+                )
+                ,
+                column(
+                  12,
+                  box(
+                    width = NULL,
+                    DTOutput("identifier_table")
+                  )
+                )
+              )
+            ),
+            # Summary tab
+>>>>>>> Stashed changes
             tabPanel("Summary",
               box(width = NULL,
                 fluidRow(
