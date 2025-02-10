@@ -48,6 +48,9 @@ library(threejs)
 library(ndtv)
 library(ggnetwork)
 
+# lipid heatmap
+library("lipidomeR") # new, used in Lipid Heatmap
+
 
 #options(repos = BiocManager::repositories())
 source("functions.R")
