@@ -18,40 +18,6 @@ library(stringi)
 library(BiocManager)
 library(shinycssloaders)
 library(jsonlite)
-library(shinyalert)
-library(shinybusy)
-library(gtools)
-library(webchem)
-library(PubChemR)
-library(data.table)
-library(KEGGREST)
-library(car)
-# for heatmap 
-library(stringr)
-library(ComplexHeatmap)
-library(circlize)    # for colorRamp2
-library(grid)        # for manual text annotation
-library(stats)       # for t.test, aov
-# volcano 
-library(colourpicker)
-# pathway 
-library(clusterProfiler)
-
-library(ggraph)
-library(tidygraph)
-library(tidyr)
-library(networkD3)
-library(network)
-library(sna)
-library(visNetwork)
-library(threejs)
-library(ndtv)
-library(ggnetwork)
-
-# lipid heatmap
-library("lipidomeR") # new, used in Lipid Heatmap
-
-
 #options(repos = BiocManager::repositories())
 source("functions.R")
 

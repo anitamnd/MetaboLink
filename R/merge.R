@@ -55,12 +55,8 @@ mergeDatasets <- function(dataset1, sequence1, dataset2, sequence2, ppmTolerance
   distrt <- as.matrix(dist(comb$rt))
   updateProgressBar(id = "pb", value = 70)
   adj <- distppm <= ppmTolerance & distrt <= rtTolerance
-  # print(head(adj))
-  # sum(adj)
   updateProgressBar(id = "pb", value = 80)
   graph <- graph_from_adjacency_matrix(adj)
-  # print(graph)
-  # summary(graph)
   updateProgressBar(id = "pb", value = 90)
   mergeid <- components(graph)$membership
   updateProgressBar(id = "pb", value = 100)
