@@ -29,7 +29,9 @@ shinyServer(function(session, input, output) {
   massCorrection <- read.csv("./csvfiles/adducts.csv") # Import mass correction data
   refmet <- read.csv("./csvfiles/refmet.csv") # Import reference metabolite data
   query <- read.csv("./csvfiles/queried_properties.csv") # Import query data
-  
+  # Hidden features
+  quotes <- readLines("./csvfiles/quotes.csv")
+    
   # Window/panel selection
   observeEvent(list(c(input$sequence, input$example, input$upload)), {
     windowselect("sequence")
@@ -158,7 +160,10 @@ shinyServer(function(session, input, output) {
   }
   
   observeEvent(input$inputFile, { # Ensure file is uploaded before pressing Upload button
-    inputFile <<- read.csv(input$inputFile$datapath, header = 1, stringsAsFactors = F, check.names = FALSE)
+    inputFile <<- read.csv(input$inputFile$datapath,
+                           header = 1,
+                           stringsAsFactors = F,
+                           check.names = FALSE)
     enable("upload")
   })
   
@@ -168,11 +173,31 @@ shinyServer(function(session, input, output) {
       if(input$fileType == "Samples in rows") {
         inputFile <- t(inputFile)
       }
+      
+      # Look for column "Name" or "name" and make it the first column
+      if("Name" %in% colnames(inputFile)) {
+        inputFile <- inputFile[, c("Name", setdiff(colnames(inputFile), "Name"))]
+      } else if("name" %in% colnames(inputFile)) {
+        inputFile <- inputFile[, c("name", setdiff(colnames(inputFile), "name"))]
+      }
+      
+      
+      # TODO: maybe used for data type in future
+      # inputFile$Data_Type <- ifelse(length(input$dataType) > 0,
+      #                               paste(input$dataType,
+      #                                     collapse = ", "),
+      #                               "Not Specified")
+      # inputFile <- inputFile %>% 
+      #   relocate(Data_Type, .after = Name)
+      
     },
     blocking_level = 'message'
     )
     if(any(duplicated(names(inputFile)))) {
-      sendSweetAlert(session, title = "Error", text = paste("Duplicate columns found."), type = "error")
+      sendSweetAlert(session,
+                     title = "Error",
+                     text = paste("Duplicate columns found."),
+                     type = "error")
     } else {
       labels <- identifyLabels(inputFile)
       initializeVariables()
@@ -185,6 +210,7 @@ shinyServer(function(session, input, output) {
                                                            amount = NA)
       rv$data[[length(rv$data) + 1]] <- inputFile
       names(rv$data)[length(rv$data)] <- substr(input$inputFile$name, 1, nchar(input$inputFile$name) - 4)
+      
       rv$choices <- paste(seq_along(rv$data), ": ", names(rv$data))
       rv$activeFile <- length(rv$data)
       updateTabItems(session, "tabs", selected = "Datainput")
@@ -239,6 +265,233 @@ shinyServer(function(session, input, output) {
     row.names(sequence) <- sequence[, 1]
     sequence <- sequence[, -1]
     rv$sequence[[rv$activeFile]] <- sequence
+  })
+  
+  observeEvent(input$addRefmet, {
+    show_modal_spinner(
+      spin = "atom",
+      color = "#0A4F8F",
+      text = "Extracting RefMet information... This may take a few minutes."
+    )
+    
+    if(is.null(rv$activeFile)) {
+      showNotification("No data", type = "error")
+    } else if (sum(rv$sequence[[rv$activeFile]][, 1] %in% "Name") != 1) {
+      showNotification("Data must have exactly 1 \"Name\" column", type = "error")
+    } else {
+      sequence <- rv$sequence[[rv$activeFile]]
+      data <- rv$data[[rv$activeFile]]
+      identifier <- input$identifier_column_refmet
+      
+      print(identifier)
+      
+      data_query <- data %>%
+        left_join(
+          query %>% select(InChI, CanonicalSMILES,  InChIKey),
+          by = setNames("InChI", identifier),
+          relationship = "many-to-many"
+        )
+      
+      colnames_refmet <- setdiff(names(refmet), "inchi_key")
+      
+      # Step 2: Merge the result with refmet using the InChIKey
+      data_final <- data_query %>%
+        left_join(refmet,
+                  by = c("InChIKey" = "inchi_key"),
+                  relationship = "many-to-many") %>%
+        relocate(all_of(colnames_refmet), .after = all_of(identifier))
+      
+      if (input$online_refmet) {
+        print("Online RefMet")
+        
+        update_modal_spinner(
+          session = session,
+          text = "Ohh so you choose to look online? This might take an extra bit of time. Please be patient."
+        )
+        
+        sub_data <- data_final[is.na(data_final$refmet_name),]
+        sub_data <- sub_data[ !grepl("^_", sub_data[[1]]), ]
+        # remove duplicated rows 
+        sub_data <- sub_data[!duplicated(sub_data[,identifier]),]
+        
+        # subset sub_data if Original annotation exist else use Name
+        if("Original annotation" %in% colnames(sub_data)) {
+          sub_data <- sub_data %>% 
+            select("Original annotation") %>% 
+            # us gsub to remove everything after ;
+            mutate(`Original annotation` = gsub(";.*", "", `Original annotation`))
+        } else {
+          sub_data <- sub_data %>% 
+            select(Name)
+        }
+        
+        # make intermediate df for online look up 
+        
+        desired_properties <- c(
+          "CanonicalSMILES","IsomericSMILES","InChI","InChIKey","IUPACName")
+        
+        all_results <- data.frame()
+        chunk_size <- 5
+        
+        print(head(sub_data))
+        
+        if (length(sub_data) > 0) {
+          num_rows <- nrow(sub_data)
+          print(paste0("# of entries: ", num_rows))
+          
+          row_indices <- seq(1, num_rows, by = chunk_size)
+          print(paste0("Row indices: ", row_indices))
+          
+          for (start_idx in row_indices) {
+            end_idx <- min(start_idx + chunk_size - 1, num_rows)
+            print(paste0("Index: ", start_idx, "-", end_idx))
+            
+            sub_data_chunk <- sub_data[start_idx:end_idx,]
+            print(sub_data_chunk)
+            
+            props_chunk <- tryCatch({
+              get_properties(
+                properties = desired_properties,
+                identifier = sub_data_chunk,
+                namespace = "name",
+                propertyMatch = list(.ignore.case = TRUE, type = "contain")
+              )
+            }, error = function(e) {
+              warning("Failed to get properties for compounds: ", paste(sub_data_chunk, collapse = ", "))
+              return(NULL)
+            })
+            
+            if (is.null(props_chunk) || !inherits(props_chunk, "PubChemInstanceList")) {
+              print("props_chunk is NULL or not a PubChemInstanceList, skipping this batch.")
+              Sys.sleep(1) # respect rate limit
+              next
+            }
+            
+            props_retrieved <- tryCatch({
+              retrieve(object = props_chunk, .to.data.frame = TRUE, .combine.all = TRUE)
+            }, error = function(e) {
+              warning("Failed to retrieve data for compounds: ", paste(sub_data_chunk, collapse = ", "))
+              return(data.frame())
+            })
+            
+            if (!is.null(props_retrieved) && nrow(props_retrieved) > 0) {
+              all_results <- dplyr::bind_rows(all_results, props_retrieved)
+            } else {
+              print("No valid rows retrieved for this batch.")
+            }
+            
+            print(Sys.time())
+            # Pause to respect the 5 queries/second limit
+            Sys.sleep(1)
+            
+          }
+        } 
+        
+        if(!is.null(all_results)) {
+          print(head(all_results))
+        }
+
+        data_query_online <- data_final %>%
+          left_join(
+            all_results %>% select(InChI, CanonicalSMILES, InChIKey),
+            by = setNames("InChI", identifier),
+            relationship = "many-to-many"
+          )
+        
+        # merge two columns with the same name
+        data_query_online <- data_query_online %>%
+          mutate(
+            CanonicalSMILES = coalesce(CanonicalSMILES.x, CanonicalSMILES.y),
+            InChIKey = coalesce(InChIKey.x, InChIKey.y)
+          ) %>%
+          select(-ends_with(".x"), -ends_with(".y")) %>%
+          relocate(c("CanonicalSMILES", "InChIKey"), .after = identifier)
+        
+        data_final <- data_query_online %>%
+          left_join(refmet,
+                    by = c("InChIKey" = "inchi_key"),
+                    relationship = "many-to-many") %>%
+          mutate(
+            refmet_id = coalesce(refmet_id.x, refmet_id.y),
+            refmet_name = coalesce(refmet_name.x, refmet_name.y),
+            super_class = coalesce(super_class.x, super_class.y),
+            main_class = coalesce(main_class.x, main_class.y),
+            sub_class = coalesce(sub_class.x, sub_class.y),
+            formula = coalesce(formula.x, formula.y),
+            exactmass = coalesce(exactmass.x, exactmass.y),
+            pubchem_cid = coalesce(pubchem_cid.x, pubchem_cid.y),
+            chebi_id = coalesce(chebi_id.x, chebi_id.y),
+            hmdb_id = coalesce(hmdb_id.x, hmdb_id.y),
+            lipidmaps_id = coalesce(lipidmaps_id.x, lipidmaps_id.y),
+            kegg_id = coalesce(kegg_id.x, kegg_id.y),
+          ) %>%
+          select(-ends_with(".x"), -ends_with(".y")) %>%
+          relocate(c("refmet_id", "refmet_name", "super_class",
+                     "main_class","sub_class", "formula",
+                     "exactmass", "pubchem_cid", "chebi_id",
+                     "hmdb_id", "lipidmaps_id", "kegg_id"), .after = InChIKey)
+        
+        data_final[data_final == ""] <- NA
+        data_final <- data_final[order(data_final$super_class),]
+          
+      } else {
+        print("Offline RefMet")
+        
+        update_modal_spinner(
+          session = session,
+          text = "Very you in a hurry? This does not take as long as online lookup. Please be patient."
+        )
+        
+        data_final <- data_final %>%
+          { 
+            if ("smiles" %in% colnames(.)) {
+              relocate(., CanonicalSMILES, .after = smiles)
+            } else {
+              relocate(., CanonicalSMILES, .after = !!sym(identifier))
+            }
+          } %>%
+          relocate(InChIKey, .after = !!sym(identifier))
+        
+        # If you want to consider empty strings ("") as missing values, replace them with NA
+        data_final[data_final == ""] <- NA
+        data_final <- data_final[order(data_final$super_class),]
+      }
+      
+      # Debug
+      print("Are data column names and sequence row names identical?")
+      print(identical(colnames(rv$tmpData),
+                      rownames(rv$tmpSequence)))
+      
+      update_modal_spinner(
+        session = session,
+        text = "Just a second. I'm updating your sequence and data file. Please be patient."
+      )
+      
+      # Update sequence
+      print("Updating sequence...")
+      updated_seq <- updateSequence(sequence, data_final, colnames_refmet, "-")
+      
+      # Store temporarily
+      rv$tmpData <- data_final
+      rv$tmpSequence <- updated_seq
+      
+      # Debug
+      print("Are data column names and sequence row names identical?")
+      print(identical(colnames(rv$tmpData), rownames(rv$tmpSequence)))
+      
+      # Update sequence
+      print("Updating data file...")
+      updateDataAndSequence(
+        notificationMessage = paste("Identifiers gathered from column:", identifier),
+        newFileInput = TRUE,
+        suffix = "_RefMet",
+        additionalInfo = NULL
+      )
+      
+      remove_modal_spinner()
+      sendSweetAlert(session, "Success", "Identifiers gathered and data updated.", type = "success")
+      message(sample(quotes, 1))
+    }
   })
   
   observeEvent(input$editColumns, {
@@ -386,11 +639,16 @@ shinyServer(function(session, input, output) {
                                                                                   scrollX = TRUE))
     
     # Make a debugging statement for the active file
-    print(paste("Active file is", rv$activeFile))
+    print(paste0("Active file is ", rv$activeFile))
     # Make a debugging statement for the choices
-    print(paste("Choices are", rv$choices))
+    print(paste0("Choices are ", rv$choices))
     # Make a debugging statement for the selectDataset
-    print(paste("SelectDataset is", input$selectDataset))
+    print(paste0("Select Dataset is ", input$selectDataset))
+    
+    # TODO: Maybe use in future  
+    # Make a debugging statement for the datatype
+    # datatype <- input$dataType
+    # print(paste0(datatype))
     
     output$seq_table <- renderDT(rv$sequence[[rv$activeFile]],
                                  extensions = 'Responsive',
@@ -406,8 +664,11 @@ shinyServer(function(session, input, output) {
     output$dt_drift_panel <- renderDT(rv$data[[rv$activeFile]][rv$sequence[[rv$activeFile]][, 1] %in% "Name"], rownames = FALSE, 
                                       options = list(autoWidth = TRUE, scrollY = "700px", pageLength = 20))
     
-    output$dt_boxplot_panel <- renderDT(rv$data[[rv$activeFile]][rv$sequence[[rv$activeFile]][, 1] %in% "Name"], rownames = FALSE, 
-                                        options = list(autoWidth = TRUE, scrollY = "700px", pageLength = 20))
+    output$dt_boxplot_panel <- renderDT(rv$data[[rv$activeFile]][rv$sequence[[rv$activeFile]][, 1] %in% "Name"],
+                                        rownames = FALSE, 
+                                        options = list(autoWidth = TRUE,
+                                                       scrollY = "700px",
+                                                       pageLength = 20))
     
     data <- rv$data[[rv$activeFile]]
     sequence <- rv$sequence[[rv$activeFile]]
@@ -462,7 +723,9 @@ shinyServer(function(session, input, output) {
   })
   
   observe({
-    req(rv$activeFile, rv$data[[rv$activeFile]], rv$sequence[[rv$activeFile]])
+    req(rv$activeFile,
+        rv$data[[rv$activeFile]],
+        rv$sequence[[rv$activeFile]])
     
     data <- rv$data[[rv$activeFile]]
     sequence <- rv$sequence[[rv$activeFile]]
@@ -625,6 +888,7 @@ shinyServer(function(session, input, output) {
     inputs <- c("selectDataset", "mergeFile",
                 "selectpca1", "selectpca2",
                 "select_data_for_enrichment",
+                "select_data_circular_barplot",
                 "select_heatmap_data", "select_volcano_data") # Update select inputs
     
     selected <- ifelse(is.null(rv$activeFile), length(choices), rv$activeFile)
@@ -1058,141 +1322,92 @@ shinyServer(function(session, input, output) {
   })
   
   
-  ## Principal Component Analysis ##
+  ################################
+  # Principal Component Analysis #
+  ################################
   #TODO
   observeEvent(input$run_pca1, {
-    if (!is.null(rv$activeFile)) {
+    if (!is.null(rv$activeFile)) { 
+      # cat("rv$activeFile is not NULL.\n")
       if (input$selectpca1 == "Unsaved data") {
-        data <- rv$tmpData
-        seq <- rv$tmpSequence
-      } else {
-        selectchoices <- paste(seq_along(rv$data), ": ", names(rv$data))
-        sd <- which(rv$choices %in% input$selectpca1)
-        data <- rv$data[[sd]]
-        seq <- rv$sequence[[sd]]
+        # cat("Input selectpca1 is 'Unsaved data'.\n")
+        data <- rv$tmpData       # Set data to the temporary data
+        seq <- rv$tmpSequence    # Set sequence to the temporary sequence
+        # cat("Temporary data and sequence have been assigned.\n")
+      } else { 
+        # cat("Input selectpca1 is:", input$selectpca1, "\n")
+        selectchoices <- paste(seq_along(rv$data), ": ", names(rv$data)) # Get the selected dataset
+        # cat("Select choices are:", selectchoices, "\n")
+        # Ensure rv$choices is up to date
+        # cat("rv$choices are:", rv$choices, "\n")
+        sd <- which(rv$choices %in% input$selectpca1) # Get the index of the selected dataset
+        # cat("Selected dataset index (sd):", sd, "\n")
+        data <- rv$data[[sd]]    # Set data to the selected dataset
+        seq <- rv$sequence[[sd]] # Set sequence to the selected sequence
+        # cat("Data and sequence have been assigned from rv$data and rv$sequence.\n")
       }
       
-      if ("Sample" %in% seq[, 1]) {
-        if(any(seq[, 1] %in% "QC"))
-          seq[seq[, 1] %in% "QC", ][, 4] <- "QC"
-        
-        sdata <- data[seq[, 1] %in% c("Sample", "QC")]
-        sclass <- seq[seq[, 1] %in% c("Sample", "QC"), ][, 4]
-        pca <- pcaplot(sdata, sclass, input$pca1_islog)
-        output$plotpca1 <- renderPlotly(pca)
-        
-        if ("Sample"  %in% seq[, "labels"]) { # Check if the sequence file contains a "Sample" column
-          if (any(seq[, "labels"] %in% "QC")) { # Check if the sequence file contains a "QC" column
-            seq[seq[, "labels"] %in% "QC", "group"] <- "QC" # Set the "QC" column to "QC"
-          } else {
-            cat("No 'QC' labels found in the sequence.\n")
-          }
-          
-          # make a print statement of the name of the dataset used
-          # cat("Using dataset: ", names(rv$data)[sd], "\n")
-          # make a print statement of all the sequence files 
-          # cat("Sequence files: ", names(rv$sequence), "\n")
-          # make a print statement of the name of the sequence used
-          # cat("Using sequence: ", names(rv$sequence[[rv$activeFile]]), "\n")
-          
-          
-          # check that data[,"Name"] exist
-          name_exists <- "Name" %in% colnames(data)
-          # Print the result as TRUE or FALSE
-          # cat("Does the 'Name' column exist? ", name_exists, "\n")
-          
-          # Check if 'Name' column is unique
-          is_unique <- length(unique(as.character(data[, "Name"]))) == length(as.character(data[, "Name"]))
-          # Print the result as TRUE or FALSE
-          # cat("Are all names unique? ", is_unique, "\n")
-          
-          # check if the 'Name' column is a empty string
-          is_empty <- any(data[, "Name"] == "")
-          # Print the result as TRUE or FALSE
-          # cat("Is there an empty string in the 'Name' column? ", is_empty, "\n")
-          
-          # Check for duplicated names 
-          is_duplicated <- any(duplicated(as.character(data[, "Name"])))
-          # Print the result as TRUE or FALSE
-          # cat("Are there duplicated names? ", is_duplicated, "\n")
-          # Print which names are duplicated
-          # cat("Duplicated names: \n")
-          # print(data[duplicated(as.character(data[, "Name"])), "Name"])
-          
-          data_subset <- data[seq[, "labels"] %in% c("Sample", "QC")] # Get the data for the samples and QC
-          rownames(data_subset) <- make.unique(as.character(data[, "Name"])) # Make the rownames unique
-          
-          # Debugging to show the dimensions of the data_subset
-          # cat("Data before PCA: \n")
-          # print(class(data_subset))
-          # print(str(data))
-          # any(is.na(rownames(data)))
-          # any(is.na(rownames(data)))
-          # any(rownames(data) == "")
-          # any(rownames(data) == "NA")
-          # # print(str(data_subset[,1:6]))
-          # # print(str(data_subset[,(ncol(data_subset)-5):ncol(data_subset)]))
-          # print(dim(data_subset))
-          
-          seq_subset <- seq[seq[, "labels"] %in% c("Sample", "QC"), ] # Get the sequence for the samples and QC
-          
-          # Debugging to show the dimensions of the seq_subset
-          # cat("Seq before PCA: \n")
-          # print(str(seq_subset))
-          
-          
-          # Perform PCA once and save the results to pca_result
-          pca_result <- pcaplot(data_subset, seq_subset, input$pca1_islog)
-          
-          # Generate a unique name for the PCA result based on the dataset name
-          if (input$selectpca1 == "Unsaved data") {
-            dataset_name <- "Unsaved data"
-          } else {
-            dataset_name <- names(rv$data)[sd]
-          }
-          pca_name <- paste0(dataset_name, "_pca")
-          pc_name <- paste0(dataset_name, "_PC")
-          
-          # Check if the PCA name already exists in rv$pca_results
-          if (!(pca_name %in% names(rv$pca_results))) {
-            # If the name does not exist, save the PCA and PC results
-            rv$pca_results[[pca_name]] <- list(pca_df = pca_result$pca_df,
-                                               PC_df = pca_result$PC_df)
-          }
-          
-          output$plotpca1 <- renderPlotly({
-            pca_result$pca_plotly
-          })
-          
-          output$plotscree1 <- renderPlotly({
-            pca_result$scree_plotly
-          })
-          
-          if (sum(seq[, 1] %in% "QC") > 0) {
-            qccv <- paste0("CV in QC samples: ", round(cvmean(data[seq[, 1] %in% "QC"]), 2), "</br>")
-          } else {
-            qccv <- "No QC in dataset </br>"
-          }
-          sclass <- sclass[sclass != "QC"]
-          if (sum(!is.na(sclass)) > 0) {
-            classcv <- sapply(sort(unique(sclass)), function(x) {
-              round(cvmean(sdata[, sclass %in% x]), 2)
-            })
-            classcv <- sapply(seq_along(classcv), function(x) {
-              paste0("CV in group ", sort(unique(sclass))[x], ": ", classcv[x], "</br>")
-            })
-          } else {
-            classcv <- NULL
-          }
-          text <- c(qccv, classcv)
-          output$pca1Details <- renderUI({
-            HTML(text)
-          })
+      if ("Sample"  %in% seq[, "labels"]) { # Check if the sequence file contains a "Sample" column
+        if (any(seq[, "labels"] %in% "QC")) { # Check if the sequence file contains a "QC" column
+          seq[seq[, "labels"] %in% "QC", "group"] <- "QC" # Set the "QC" column to "QC"
+        } else {
+          cat("No 'QC' labels found in the sequence.\n")
         }
+        
+        data_subset <- data[seq[, "labels"] %in% c("Sample", "QC")] # Get the data for the samples and QC
+        rownames(data_subset) <- make.unique(as.character(data[, "Name"])) # Make the rownames unique
+        
+        seq_subset <- seq[seq[, "labels"] %in% c("Sample", "QC"), ] # Get the sequence for the samples and QC
+        
+        # Perform PCA once and save the results to pca_result
+        pca_result <- pcaplot(data_subset, seq_subset, input$pca1_islog)
+        
+        # Generate a unique name for the PCA result based on the dataset name
+        dataset_name <- names(rv$data)[sd]
+        pca_name <- paste0(dataset_name, "_pca")
+        pc_name <- paste0(dataset_name, "_PC")
+        
+        # Check if the PCA name already exists in rv$pca_results
+        if (!(pca_name %in% names(rv$pca_results))) {
+          # If the name does not exist, save the PCA and PC results
+          rv$pca_results[[pca_name]] <- list(pca_df = pca_result$pca_df,
+                                             PC_df = pca_result$PC_df)
+        }
+        
+        output$plotpca1 <- renderPlotly({
+          pca_result$pca_plotly
+        })
+        
+        output$plotscree1 <- renderPlotly({
+          pca_result$scree_plotly
+        })
+        
+        message(sample(quotes, 1))
+        
+        if (sum(seq[, 1] %in% "QC") > 0) {
+          qccv <- paste0("CV in QC samples: ", round(cvmean(data[seq[, 1] %in% "QC"]), 2), "</br>")
+        } else {
+          qccv <- "No QC in dataset </br>"
+        }
+        sclass <- seq[seq[, "labels"] %in% c("Sample", "QC"), ][, "group"] # Get the class of the samples and QC
+        sclass <- sclass[sclass != "QC"]
+        if (sum(!is.na(sclass)) > 0) {
+          classcv <- sapply(sort(unique(sclass)), function(x) {
+            round(cvmean(data_subset[, sclass %in% x]), 2)
+          })
+          classcv <- sapply(seq_along(classcv), function(x) {
+            paste0("CV in group ", sort(unique(sclass))[x], ": ", classcv[x], "</br>")
+          })
+        } else {
+          classcv <- NULL
+        }
+        text <- c(qccv, classcv)
+        output$pca1Details <- renderUI({
+          HTML(text)
+        })
       }
     }
   })
-  
   observeEvent(input$run_pca2, {
     selectchoices <- paste(seq_along(rv$data), ": ", names(rv$data))
     sd <- which(rv$choices %in% input$selectpca2)
@@ -1205,20 +1420,52 @@ shinyServer(function(session, input, output) {
         shiny = FALSE
       )
       
-      sdata <- data[seq[, 1] %in% c("Sample", "QC")]
-      sclass <- seq[seq[, 1] %in% c("Sample", "QC"), ][, 4]
-      pca <- pcaplot(sdata, sclass, input$pca2_islog)
-      output$plotpca2 <- renderPlotly(pca)
+      data_subset <- data[seq[, "labels"] %in% c("Sample", "QC")] # Get the data for the samples and QC
+      rownames(data_subset) <- make.unique(as.character(data[, "Name"]))
+      
+      seq_subset <- seq[seq[, "labels"] %in% c("Sample", "QC"), ] # Get the sequence for the samples and QC
+      
+      # Save the PCA results to pca_results
+      pca_result <- pcaplot(data_subset, seq_subset, input$pca2_islog)
+      
+      # Generate a unique name for the PCA result based on the dataset name
+      dataset_name <- names(rv$data)[sd]
+      pca_name <- paste0(dataset_name, "_pca")
+      pc_name <- paste0(dataset_name, "_PC")
+      
+      # Check if the PCA name already exists in rv$pca_results
+      if (!(pca_name %in% names(rv$pca_results))) {
+        # If the name does not exist, save the PCA and PC results
+        pca_result <- pcaplot(data_subset, seq_subset, input$pca2_islog)  # Perform PCA
+        
+        # Save the PCA and PC results as a named list for each PCA result
+        rv$pca_results[[pca_name]] <- list(pca_df = pca_result$pca_df,
+                                           PC_df = pca_result$PC_df)
+      }
+      
+      # Debugging to show that rv$results is updated
+      # cat("PCA results saved as:", pca_name, "\n")
+      # cat("PCA results dimensions:", dim(rv$pca_results[[pca_name]]), "\n")
+      # print(str(rv$pca_results[[pca_name]]))
+      
+      output$plotpca2 <- renderPlotly({
+        pca_result$pca_plotly
+      })
+      
+      output$plotscree2 <- renderPlotly({
+        pca_result$scree_plotly
+      })
       
       if (sum(seq$labels %in% "QC") > 0) {
         qccv <- paste0("CV in QC samples: ", round(cvmean(data[seq[, 1] %in% "QC"]), 2), "</br>")
       } else {
         qccv <- "No QC in dataset </br>"
       }
+      sclass <- seq[seq[, 1] %in% c("Sample", "QC"), ][, 4]
       sclass <- sclass[sclass != "QC"]
       if (sum(!is.na(sclass)) > 0) {
         classcv <- sapply(sort(unique(sclass)), function(x) {
-          round(cvmean(sdata[sclass %in% x]), 2)
+          round(cvmean(data_subset[sclass %in% x]), 2)
         })
         classcv <- sapply(seq_along(classcv), function(x) {
           paste0("CV in group ", sort(unique(sclass))[x], ": ", classcv[x], "</br>")
@@ -1362,6 +1609,11 @@ shinyServer(function(session, input, output) {
     }
   })
   
+  
+  #####################
+  # Outlier Detection #
+  #####################
+  
   # PCA results update 
   # Whenever pca_results are updated, update the selectInput choices for outlier detection
   observe({
@@ -1382,7 +1634,6 @@ shinyServer(function(session, input, output) {
     })
   })
   
-  # Outlier Detection 
   # kmeans
   observeEvent(input$compute_kmeans_eval, {
     # Fetch the PCA data from the reactive values
@@ -1658,6 +1909,9 @@ shinyServer(function(session, input, output) {
     })
   })
   
+  ###########
+  # Heatmap #
+  ###########
   # Generate Heatmap
   output$group_selection_ui <- renderUI({
     
@@ -1686,8 +1940,6 @@ shinyServer(function(session, input, output) {
   observeEvent(input$run_heatmap, {
     # Ensure a dataset is selected
     req(input$select_heatmap_data)
-    
-    cat("Success is a journey, not a destination \n")
     
     if (!is.null(rv$activeFile)) {
       if (input$select_heatmap_data == "Unsaved data") {
@@ -1752,9 +2004,15 @@ shinyServer(function(session, input, output) {
         }
       }, height = 600)
       
+      
+      message(sample(quotes, 1))
+      
     }
   })
   
+  ###########
+  # Volcano #
+  ###########
   # Generate Volcano Plot
   observeEvent(input$select_volcano_data, {
     req(input$select_volcano_data) # Ensure a dataset is selected
@@ -1794,8 +2052,7 @@ shinyServer(function(session, input, output) {
       input$color_ns_fill,
       input$color_ns_outline
     ) 
-    cat("Your efforts are making a difference\n")
-    
+
     if (!is.null(rv$activeFile)) {
       if (input$select_volcano_data == "Unsaved data") {
         data <- rv$tmpData  # Use the temporary data
@@ -1889,8 +2146,7 @@ shinyServer(function(session, input, output) {
         vlcn
       })
       
-      message("Let god have mercy on our souls")
-      
+      message(sample(quotes, 1))
       # Output the data table of upregulated/downregulated features
       # output$volcano_table <- renderDT({
       #   up_down_regulated <- volcano_df %>%
@@ -1906,11 +2162,12 @@ shinyServer(function(session, input, output) {
     
   })
   
-  #### Pathway Enrichment Analysis 
+  ######################
+  # Pathway Enrichment #
+  ######################
+  # Pathway Enrichment Analysis 
   observeEvent(input$select_data_for_enrichment, {
     req(input$select_data_for_enrichment) # Ensure a dataset is selected
-    
-    cat("Stay curious and keep coding \n")
     
     if (!is.null(rv$activeFile)) {
       if (input$select_data_for_enrichment == "Unsaved data") {
@@ -1932,21 +2189,24 @@ shinyServer(function(session, input, output) {
       }
     }
     
-    cat("Keep pushing forward \n")
-    
+    message(sample(quotes, 1))
   })
   observeEvent(input$run_gather_identifiers, {
     req(input$select_data_for_enrichment,
         input$identifier_column,
         input$compound_column)
     
+    message("Running pathway enrichment analysis...")
+    
     show_modal_spinner(
       spin = "atom",
       color = "#0A4F8F",
       text = "Gathering Identifiers... This may take a few minutes."
     )
-    cat("Keep up the good work \n")
     
+    print("Selected rows:")
+    print(selectedData())
+
     # Process logic
     if (!is.null(rv$activeFile)) {
       if (input$select_data_for_enrichment == "Unsaved data") {
@@ -1962,16 +2222,29 @@ shinyServer(function(session, input, output) {
       identifier <- input$identifier_column
       compound <- input$compound_column
       
-      # Use subset_data function to subset the data
-      subset <- subset_data(data, compound)
+      message(paste0("Number of features: ", nrow(data)))
+      
+      # Subset the data based on the compound column
+      # subset <- data %>%
+      #   filter(
+      #     !is.na(.data[[compound]]),
+      #     .data[[compound]] != "",
+      #     .data[[compound]] != " ",
+      #     .data[[compound]] != "N/A",
+      #     .data[[compound]] != "NA"
+      #   )
+      
+      subset <- data
+      
+      message(paste0("Number of features after filtering: ", nrow(subset)))
       
       # Set this to TRUE during development and FALSE in production
       run_development_code <- TRUE
-      
+
       if (run_development_code) {
         # Check how many rows query has initially
         query_start <- nrow(query)
-        print(paste("Number of rows in query before gathering identifiers:", query_start))
+        print(paste0("Number of established features: ", query_start))
         
         desired_properties <- c(
           "MolecularFormula", "MolecularWeight", "ExactMass", "MonoisotopicMass",
@@ -1981,33 +2254,31 @@ shinyServer(function(session, input, output) {
         all_results <- data.frame()
         chunk_size <- 5
         
-        # Identify new compounds (those not already in query$Identifier)
-        new_compounds <- subset[[compound]][!subset[[compound]] %in% query$Identifier]
-        new_compounds <- unique(new_compounds)
+        # Identify new compounds (those not already in query$Identifier) using dplyr
+        new_compounds <- subset %>%
+          pull(!!sym(compound)) %>%  # extract the column as a vector
+          { .[!. %in% query$Identifier] } %>%  # filter out entries that are in query$Identifier
+          unique()
         
-        clean_names <- FALSE # Set to TRUE to clean compound names else FALSE
+        clean_names <- TRUE # Set to TRUE to clean compound names else FALSE
         if (clean_names) {
-          new_compounds <- remove_top_level_comma(new_compounds)
-          new_compounds <- clean_compound_names(new_compounds)
+          new_compounds <- gsub(";.*", "", new_compounds)
         }
+        print(paste("Number of features not in query:", length(new_compounds)))
         
-        print(paste("Number of new compounds not in query:", length(new_compounds)))
         
         if (length(new_compounds) > 0) {
           num_rows <- length(new_compounds)
-          print(paste("Number of rows/elements in new_compounds for querying:", num_rows))
-          
           row_indices <- seq(1, num_rows, by = chunk_size)
           print("Row indices to be processed:")
           print(row_indices)
           
           for (start_idx in row_indices) {
             end_idx <- min(start_idx + chunk_size - 1, num_rows)
-            print(paste("Processing rows from", start_idx, "to", end_idx))
+            print(paste("Processing features from", start_idx, "to", end_idx))
             
             compound_subset <- new_compounds[start_idx:end_idx]
-            
-            print("Current compound subset:")
+            print("Current features subset:")
             print(compound_subset)
             
             props_chunk <- tryCatch({
@@ -2036,7 +2307,7 @@ shinyServer(function(session, input, output) {
             })
             
             if (!is.null(props_retrieved) && nrow(props_retrieved) > 0) {
-              all_results <- dplyr::bind_rows(all_results, props_retrieved)
+              all_results <- bind_rows(all_results, props_retrieved)
             } else {
               print("No valid rows retrieved for this batch.")
             }
@@ -2047,10 +2318,12 @@ shinyServer(function(session, input, output) {
           }
           
           if (nrow(all_results) > 0) {
-            # Convert these columns to numeric if they aren't already
-            all_results$MolecularWeight <- as.numeric(all_results$MolecularWeight)
-            all_results$ExactMass <- as.numeric(all_results$ExactMass)
-            all_results$MonoisotopicMass <- as.numeric(all_results$MonoisotopicMass)
+            # use dplyr to convert columns to numeric
+            all_results <- all_results %>%
+              mutate_at(vars(MolecularWeight,
+                             ExactMass,
+                             MonoisotopicMass),
+                        as.numeric)
             
             dir_path <- "~/Desktop/SDU/Cand/Master thesis /GitHub/MetaboLink-Main/csvfiles" # Adjust path as needed
             file_path <- file.path(dir_path, "queried_properties.csv")
@@ -2061,11 +2334,7 @@ shinyServer(function(session, input, output) {
               
               # Identify new entries that are not already in existing_data by 'Identifier'
               if ("Identifier" %in% colnames(existing_data) && "Identifier" %in% colnames(all_results)) {
-                new_entries <- dplyr::anti_join(all_results, existing_data, by = "Identifier")
-                
-                query_final <- nrow(new_entries)
-                print(paste("Number of rows in query after gathering identifiers:", query_final))
-                
+                new_entries <- anti_join(all_results, existing_data, by = "Identifier")
               } else {
                 # If 'Identifier' is not present, just append all results
                 warning("No 'Identifier' column found. Appending all results without filtering.")
@@ -2074,12 +2343,11 @@ shinyServer(function(session, input, output) {
               
               # Only bind if there are new entries
               if (nrow(new_entries) > 0) {
-                combined_data <- dplyr::bind_rows(existing_data, new_entries)
+                combined_data <- bind_rows(existing_data, new_entries)
                 # Remove duplicates based on Identifier if needed
                 combined_data <- combined_data[!duplicated(combined_data$Identifier), ]
                 
-                combined_data_nrow <- nrow(combined_data)
-                print(paste("Number of rows in query after gathering identifiers:", combined_data_nrow))
+                print(paste("Number of rows in query after gathering identifiers:", nrow(combined_data)))
                 
                 write.csv(combined_data, file_path, row.names = FALSE)
                 message("queried_properties.csv has been updated with new entries.")
@@ -2110,10 +2378,30 @@ shinyServer(function(session, input, output) {
         text = "Updating InChI... Please be patient."
       )
       
+      old_columns <- colnames(subset)
+      
+      # Append the information from query to subset 
+      subset <- subset %>%
+        left_join(
+          query %>% 
+            select(CID, InChI, CanonicalSMILES, IsomericSMILES, InChIKey, IUPACName),
+          by = setNames("InChI", identifier),
+          relationship = "many-to-many"
+        )
+      
+      subset <- subset %>%
+        relocate(all_of(c("InChIKey", "CID", "CanonicalSMILES", "IsomericSMILES", "IUPACName")), .after = identifier)
+      
+      # Remove duplicated columns based on InChI 
+      subset <- subset %>% distinct(.keep_all = TRUE)
+      
+      message(paste0("Number of features after joining query: ", nrow(subset)))
+      # print(head(subset))
+      
       # Update InChI from local cache and online queries
-      print("Running update_inchi function...")
+      message("Running update_inchi function...")
       subset_updated <- update_inchi(subset, compound, identifier, query)
-      # print(head(subset_updated))
+      message("Update InChI function completed.")
       
       update_modal_spinner(
         session = session,
@@ -2121,23 +2409,48 @@ shinyServer(function(session, input, output) {
       )
       
       # Gather CID's after InChI update
-      print("Running update_cid function...")
-      subset_updated <- update_cid(subset_updated, identifier, query)
-      print("Update cid function completed.")
-      
-      subset_updated$cid <- as.integer(subset_updated$cid)
-      cid_info <- subset_updated[, c("Name", "cid")]
-      # print(head(cid_info))
-      
-      data_updated <- merge(data, cid_info, by = "Name", all.x = TRUE)
+      message("Running update_cid function...")
+      data_updated <- update_cid(subset_updated, compound, identifier, query)
+      # message("DATA UPDATED with CID INFO: ")
       # print(head(data_updated))
+      message("Update cid function completed.")
       
-      refmet_updated <- refmet[!is.na(refmet$pubchem_cid),]
-      filtered_refmet <- refmet_updated[refmet_updated$pubchem_cid %in% subset_updated$cid, ]
+      refmet_updated <- refmet %>%
+        filter(
+          ( !is.na(pubchem_cid) & pubchem_cid %in% data_updated$CID ) |
+            ( !is.na(inchi_key) & inchi_key %in% data_updated$InChIKey ))
+      
+      filtered_refmet <- refmet_updated %>%
+        filter(pubchem_cid %in% data_updated$CID |
+                 inchi_key %in% data_updated$InChIKey)
+      
+      filtered_refmet$pubchem_cid <- as.character(filtered_refmet$pubchem_cid)
+      colnames_refmet <- colnames(filtered_refmet)
       # print(head(filtered_refmet))
       
-      final_data <- merge(data_updated, filtered_refmet, by.x = "cid", by.y = "pubchem_cid", all.x = TRUE)
+      # For data_updated, use CID if available; otherwise, use InChIKey
+      data_updated <- data_updated %>%
+        mutate(join_key = coalesce(CID, InChIKey))
+      
+      # For filtered_refmet, use pubchem_cid if available; otherwise, use InChIKey
+      filtered_refmet <- filtered_refmet %>%
+        mutate(join_key = coalesce(pubchem_cid, inchi_key))
+      
+      # Now join by join_key. Only rows where at least one key is available and matches will join.
+      final_data <- data_updated %>%
+        left_join(
+          filtered_refmet %>% select(all_of(colnames_refmet), join_key),
+          by = "join_key",
+          relationship = "many-to-many"
+        )
+      
+      final_data <- final_data %>%
+        relocate(all_of(colnames_refmet), .after = IUPACName) %>%
+        select(-c(pubchem_cid, inchi_key))
+      
       # print(head(final_data))
+      
+      message(paste0("Number of features after merge with refmet: ", nrow(final_data)))
       
       update_modal_spinner(
         session = session,
@@ -2151,17 +2464,20 @@ shinyServer(function(session, input, output) {
       data_updated_pathways <- data_updated_list$data_joined
       
       # Print outputs for verification
-      cat("\n--- Long format (pathways_long) ---\n")
-      print(head(pathways_long))
+      # cat("\n--- Long format (pathways_long) ---\n")
+      # print(head(pathways_long))
       
-      cat("\n--- Merged dataset ---\n")
-      print(head(data_updated_pathways))
+      # cat("\n--- Merged dataset ---\n")
+      # print(head(data_updated_pathways))
+      
+      data_updated_pathways <- data_updated_pathways %>%
+        select(-join_key)
       
       # add new columns to data_updated_pathways
-      new_cols <- setdiff(colnames(data_updated_pathways), colnames(data_updated))
-      new_cols <- c("cid", new_cols)
+      new_cols <- setdiff(colnames(data_updated_pathways), old_columns)
+      print(new_cols)
       
-      identifier_index <- which(names(data_updated_pathways) == "inchi")
+      identifier_index <- which(names(data_updated_pathways) == identifier)
       
       original_cols <- names(data_updated_pathways)[!(names(data_updated_pathways) %in% new_cols)]
       
@@ -2169,12 +2485,17 @@ shinyServer(function(session, input, output) {
       
       final_data <- data_updated_pathways[, final_col_order]
       
+      # Merge the data with the original data
+      # final_data <- data %>%
+      #   left_join(
+      #     final_data %>% select(all_of(c(identifier, new_cols))),
+      #     by = identifier
+      #   )
+      
+      
       cat("\n--- Final dataset ---\n")
       print(head(final_data))
-      
-      # add pathways to final_data 
-      # final_data <- get_pathways(final_data)
-      
+      message(paste0("Number of features after adding pathways: ", nrow(final_data)))
       
       # make a subset of the data which contains only the identifiers
       identifier_data <- final_data[, c(compound, identifier, new_cols)]
@@ -2215,58 +2536,103 @@ shinyServer(function(session, input, output) {
       sendSweetAlert(session, "Success", "Identifiers gathered and data updated.", type = "success")
     }
     
-    cat("Your code is working \n")
+    message(sample(quotes, 1))
     
     # Stop the timer and remove the spinner
     rv$timer_active <- FALSE
     remove_modal_spinner()
   })
   
+  # Create a reactive expression to store the data used in dt_table
+  dataForPathEnri <- reactive({
+    req(input$select_data_for_enrichment)
+    
+    if (!is.null(rv$activeFile)) {
+      if (input$select_data_for_enrichment == "Unsaved data") {
+        data <- rv$tmpData
+        seq <- rv$tmpSequence
+      } else {
+        sd <- which(rv$choices %in% input$select_data_for_enrichment)
+        data <- rv$data[[sd]]
+        seq <- rv$sequence[[sd]]
+      }
+      
+      # If the specific columns are present, select only those columns.
+      if (all(c("Name", "refmet_name", "main_class") %in% colnames(data))) {
+        data <- data %>% select(Name, refmet_name, main_class)
+      }
+      data
+    }
+  })
+  # Render the datatable
+  output$dt_table_path <- renderDT({
+    datatable(dataForPathEnri(),
+              options = list(autoWidth = TRUE,
+                             scrollY = "300px",
+                             pageLength = 50))
+  })
+  # Extract the selected rows from the dt_table:
+  selectedData <- reactive({
+    selectedRows <- input$dt_table_path_rows_selected
+    if (length(selectedRows) > 0) {
+      dataForPathEnri()[selectedRows, ]
+    } else {
+      NULL
+    }
+  })
+  
   # Render the identifier count table
   output$identifier_count_table <- renderUI({
-    req(nrow(rv$identifier_df) > 0)
+    req(nrow(rv$identifier_df) > 0,
+        input$select_data_for_enrichment)
     
-    # Count valid (non-NA and non-empty) values
+    sd <- which(rv$choices %in% input$select_data_for_enrichment)
+    data <- rv$data[[sd]]
+    
+    # Count valid (non-NA and non-empty) values for each column
     valid_counts <- sapply(rv$identifier_df, function(x) {
       sum(!is.na(x) & x != "")
     })
     
-    # Count missing or empty values
+    # Count missing or empty values for each column
     na_empty_counts <- sapply(rv$identifier_df, function(x) {
       sum(is.na(x) | x == "")
     })
     
-    # Build the HTML content
-    html_content <- HTML(
-      paste0("<b>Total Identifiers retrieved:</b> ", nrow(rv$identifier_df), "<br><br>"),
-      "<b>Identifiers Found (valid vs. NA/empty):</b><br>",
-      paste(
-        sapply(names(valid_counts), function(col_name) {
-          paste0(
-            col_name, ": ",
-            valid_counts[col_name], " valid ( ",
-            na_empty_counts[col_name], " NA/empty)", 
-            "<br>"
-          )
-        }),
-        collapse = ""
+    # Build the table rows
+    table_rows <- paste(
+      sapply(names(valid_counts), function(col_name) {
+        paste0(
+          "<tr>",
+          "<td>", col_name, "</td>",
+          "<td>", valid_counts[col_name], "</td>",
+          "<td>", na_empty_counts[col_name], "</td>",
+          "</tr>"
+        )
+      }),
+      collapse = ""
+    )
+    
+    # Build the complete HTML table
+    table_html <- HTML(
+      paste0(
+        "<table border='1' style='border-collapse: collapse; width: 100%;'>",
+        "<caption style='caption-side: top; text-align: left;'><b>Total numbers of metabolites: </b>", nrow(data), "</caption>",
+        "<thead>",
+        "<tr>",
+        "<th>Identifier</th>",
+        "<th>Valid Count</th>",
+        "<th>NA/Empty Count</th>",
+        "</tr>",
+        "</thead>",
+        "<tbody>",
+        table_rows,
+        "</tbody>",
+        "</table>"
       )
     )
-    html_content
-  })
-  
-  # Render the identifier table
-  output$identifier_table <- renderDT({
-    req(nrow(rv$identifier_df) > 0)
-    datatable(
-      rv$identifier_df, 
-      options = list(
-        pageLength = 10,
-        autoWidth = FALSE,
-        scrollX = TRUE
-      ),
-      class = "display nowrap"
-    )
+    
+    table_html
   })
   
   # Plot of classes in the identifer table
@@ -2285,30 +2651,36 @@ shinyServer(function(session, input, output) {
     
     # Check if "super_class" column exists; if not, send an error alert and exit.
     if (!("super_class" %in% colnames(data_sub))) {
-      sendSweetAlert(
-        session,
-        title = "Error",
-        text = "No Super Class column found in the dataset. 
-                  Make sure a column named 'super_class' is present 
-                  by running 'Gather Identifiers'.",
-        type = "error"
+      showNotification(
+        paste("No Super Class column found in the dataset.
+        Make sure a column named 'super_class' is present 
+              by running 'Gather Identifiers'."),
+        type = "message",
+        duration = 10
       )
       return(NULL)  # Stop further execution of the renderPlotly block.
     }
     
     # Create ggplot
     p <- data_sub %>%
-      arrange(super_class) %>%  # Sort the dataframe lexicographically
+      arrange(super_class) %>%  # Sort lexicographically
       mutate(super_class = factor(super_class, levels = unique(super_class))) %>%  # Ensure unique levels
       ggplot(aes(x = super_class)) +
-      geom_bar(fill = "blue", width = 0.2) +
+      geom_bar(fill = "steelblue", color = "black", width = 0.4) +
+      geom_text(stat = "count", aes(label = after_stat(count)), vjust = -4, size = 3, color = "black") +  # Add labels
       labs(title = "Distribution of Super Classes",
            x = "Super Class",
            y = "Count") +
-      theme_bw() +
-      theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x labels
+      theme_bw(base_size = 11) +  # Modern theme
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1, size = 12, color = "black"),
+        axis.text.y = element_text(size = 12, color = "black"),
+        axis.title.x = element_text(size = 14, face = "bold"),
+        axis.title.y = element_text(size = 14, face = "bold"),
+        panel.grid.major = element_blank(),  # Remove grid lines for cleaner look
+        panel.grid.minor = element_blank()
+      )
     
-    # Convert ggplot to interactive plotly plot
     ggplotly(p)
   })
   output$main_class_plot <- renderPlotly({
@@ -2317,35 +2689,47 @@ shinyServer(function(session, input, output) {
     sd <- which(rv$choices == input$select_data_for_enrichment)
     data_sub <- rv$data[[sd]]
     
-    # Check if "super_class" column exists; if not, send an error alert and exit.
+    # remove rows where NA, "", " " or "NA" are present in the main_class column
+    data_sub <- data_sub[!is.na(data_sub$main_class) &
+                           data_sub$main_class != "" &
+                           data_sub$main_class != " " &
+                           data_sub$main_class != "NA" &
+                           data_sub$main_class != "N/A", ]
+    
+    # Check if "main_class" column exists; if not, send an error alert and exit.
     if (!("main_class" %in% colnames(data_sub))) {
-      sendSweetAlert(
-        session,
-        title = "Error",
-        text = "No Main Class column found in the dataset. 
-              Make sure a column named 'main_class' is present 
-              by running 'Gather Identifiers'.",
-        type = "error"
+      showNotification(
+        paste("No Main Class column found in the dataset. 
+                  Make sure a column named 'main_class' is present 
+                  by running 'Gather Identifiers'."),
+        type = "message",
+        duration = 10
       )
       return(NULL)  # Stop further execution of the renderPlotly block.
     }
     
-    # If the column exists, create the Plotly bar chart.
-    plot_ly(
-      x = names(table(data_sub$main_class)),
-      y = as.vector(table(data_sub$main_class)),
-      type = "bar",
-      name = "Main Class",
-      marker = list(color = "red")
-    ) %>%
-      layout(
-        title = "Distribution of Main Classes",
-        xaxis = list(
-          tickangle = 45,            # Rotate labels 45 degrees
-          tickfont  = list(size = 10) # Make label text smaller
-        ),
-        margin = list(b = 100)        # Add bottom margin if labels get cut off
+    # Create ggplot
+    p <- data_sub %>%
+      arrange(main_class) %>%  # Sort lexicographically
+      mutate(main_class = factor(main_class, levels = unique(main_class))) %>%  # Ensure unique levels
+      ggplot(aes(x = main_class)) +
+      geom_bar(fill = "steelblue", color = "black", width = 0.4) +  # Better color and border
+      geom_text(stat = "count", aes(label = after_stat(count)), vjust = -4, size = 3, color = "black") +  # Add labels
+      labs(title = "Distribution of Main Classes",
+           x = "Main Class",
+           y = "Count") +
+      theme_bw(base_size = 11) +  # Modern theme
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1, size = 12, color = "black"),
+        axis.text.y = element_text(size = 12, color = "black"),
+        axis.title.x = element_text(size = 14, face = "bold"),
+        axis.title.y = element_text(size = 14, face = "bold"),
+        panel.grid.major = element_blank(),  # Remove grid lines for cleaner look
+        panel.grid.minor = element_blank()
       )
+    
+    # Convert ggplot to interactive plotly plot
+    ggplotly(p)
   })
   output$sub_class_plot <- renderPlotly({
     req(input$select_data_for_enrichment)
@@ -2353,39 +2737,64 @@ shinyServer(function(session, input, output) {
     sd <- which(rv$choices == input$select_data_for_enrichment)
     data_sub <- rv$data[[sd]]
     
+    # remove rows where NA, "", " " or "NA" are present in the sub_class column
+    data_sub <- data_sub[!is.na(data_sub$sub_class) &
+                           data_sub$sub_class != "" &
+                           data_sub$sub_class != " " &
+                           data_sub$sub_class != "NA" &
+                           data_sub$sub_class != "N/A", ]
+    
     # Check if "sub_class" column exists; if not, send an error alert and exit.
     if (!("sub_class" %in% colnames(data_sub))) {
-      sendSweetAlert(
-        session,
-        title = "Error",
-        text = "No Sub Class column found in the dataset. 
-              Make sure a column named 'sub_class' is present 
-              by running 'Gather Identifiers'.",
-        type = "error"
+      showNotification(
+        paste("No Sub Class column found in the dataset. 
+                  Make sure a column named 'sub_class' is present 
+                  by running 'Gather Identifiers'."),
+        type = "message",
+        duration = 10
       )
       return(NULL)  # Stop further execution of the renderPlotly block.
     }
     
-    # If the column exists, create the Plotly bar chart.
-    plot_ly(
-      x = names(table(data_sub$sub_class)),
-      y = as.vector(table(data_sub$sub_class)),
-      type = "bar",
-      name = "Sub Class",
-      marker = list(color = "green")
-    ) %>%
-      layout(
-        title = "Distribution of Sub Classes",
-        xaxis = list(
-          tickangle = 45,            # Rotate labels 45 degrees
-          tickfont  = list(size = 10) # Make label text smaller
-        ),
-        margin = list(b = 100)        # Add bottom margin if labels get cut off
+    # Create ggplot
+    p <- data_sub %>%
+      arrange(sub_class) %>%  # Sort lexicographically
+      mutate(sub_class = factor(sub_class, levels = unique(sub_class))) %>%  # Ensure unique levels
+      ggplot(aes(x = sub_class)) +
+      geom_bar(fill = "steelblue", color = "black", width = 0.4) +  # Better color and border
+      geom_text(stat = "count", aes(label = after_stat(count)), vjust = -4, size = 3, color = "black") +  # Add labels
+      labs(title = "Distribution of Sub Classes",
+           x = "Sub Class",
+           y = "Count") +
+      theme_bw(base_size = 11) +  # Modern theme
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1, size = 8, color = "black"),
+        axis.text.y = element_text(size = 12, color = "black"),
+        axis.title.x = element_text(size = 14, face = "bold"),
+        axis.title.y = element_text(size = 14, face = "bold"),
+        panel.grid.major = element_blank(),  # Remove grid lines for cleaner look
+        panel.grid.minor = element_blank()
       )
+    
+    # Convert ggplot to interactive plotly plot
+    ggplotly(p)
   })
   
   observeEvent(input$run_enrichment_analysis, {
-    req(input$select_data_for_enrichment)
+    req(input$select_data_for_enrichment,
+        input$group_enrichment,
+        input$top_x_enrich)
+    
+    # if input$group_enrichment is NA or empty, send an error alert and exit
+    if (is.null(input$group_enrichment) || input$group_enrichment == "NA") {
+      sendSweetAlert(
+        session,
+        title = "Error",
+        text = "Please select a group for enrichment analysis.",
+        type = "error"
+      )
+      return(NULL)  # Stop further execution of the observeEvent block.
+    }
     
     # Ensure only one of gene/module is selected
     if (input$gene_selected && input$module_selected) {
@@ -2396,15 +2805,9 @@ shinyServer(function(session, input, output) {
       return()
     }
     
-    cat("You have made it this far \n")
-    
     sd <- which(rv$choices == input$select_data_for_enrichment)
     data <- rv$data[[sd]]
     seq <- rv$sequence[[sd]]
-    
-    data_name <- names(rv$data)[sd]
-    
-    top_x <- as.numeric(input$top_x_enrich)
     
     # display warning if column "kegg_id" or "kegg id" is not present
     if (!("kegg_id" %in% colnames(data) || "kegg id" %in% colnames(data))) {
@@ -2422,52 +2825,81 @@ shinyServer(function(session, input, output) {
       return()
     }
     
-    # subset data to only include kegg_id column
-    kegg_data <- data[c(!is.na(data$kegg_id)),]
-    kegg_data <- kegg_data[c(kegg_data$kegg_id != ""),]
-    
-    # Select only kegg_data where the columns are samples, kegg_id and refmet_name
-    sample_names <- rownames(seq[seq$labels == "Sample",])
-    kegg_data <- kegg_data[,c("refmet_name","kegg_id", sample_names)]
-    
-    # TODO Might not be necessary
-    kegg_data <- kegg_data[!duplicated(kegg_data$kegg_id),]
-    
-    # select group for enrichment analysis
     group <- input$group_enrichment
+    top_x <- as.numeric(input$top_x_enrich)
+    data_name <- names(rv$data)[sd]
+    
+    seq_subset <- seq[seq[, "labels"] %in% c("Sample"), ]
+    data_subset <- data[, c("refmet_name", "kegg_id", rownames(seq_subset)), drop = FALSE]
+    
+    unique_groups <- unique(seq_subset$group)
+    
+    data_subset <- data_subset[!is.na(data_subset$kegg_id) &
+                                 data_subset$kegg_id != "" &
+                                 data_subset$kegg_id != " " &
+                                 data_subset$kegg_id != "NA" &
+                                 data_subset$kegg_id != "N/A", ]
+    
+    rownames(data_subset) <- make.unique(as.character(data_subset[, "refmet_name"]))
+    
+    stat_results <- calculate_stats(data_subset, seq_subset)
+    
+    sig_threshold <- 0.05
+    sig_df <- stat_results[stat_results$p.adj < sig_threshold, ]
+    
+    sig_df$metabolite <- sub("^[^.]+\\.", "", rownames(sig_df))
+    
+    group_metabolites <- lapply(unique_groups, function(grp) {
+      grp_rows <- sig_df[grepl(grp, sig_df$Contrast), ]
+      unique(grp_rows$metabolite)
+    })
+    names(group_metabolites) <- unique_groups
+    
+    cat("\nSignificant Metabolite Names by Group:\n")
+    print(group_metabolites)
+    
+    group_sig_info <- lapply(unique_groups, function(grp) {
+      sig_df[grepl(grp, sig_df$Contrast), ]
+    })
+    names(group_sig_info) <- unique_groups
+    
+    cat("\nDetailed Significant Results by Group:\n")
+    for (grp in names(group_sig_info)) {
+      cat(grp, ":\n")
+      print(group_sig_info[[grp]])
+      cat("\n")
+    }
+    
+    sig_for_group <- sig_df[grepl(group, sig_df$Contrast), ]
+    unique_metabs <- unique(sig_for_group$metabolite)
+    kegg_info <- data_subset[unique_metabs, c("refmet_name", "kegg_id"), drop = FALSE]
+    cat("For group", group, "the significant metabolites and their KEGG IDs are:\n")
+    print(kegg_info)
     
     group_samples <- rownames(seq[seq$group == group & seq$labels == "Sample",])
     
-    # select data only for group 
-    kegg_data <- kegg_data[,c("refmet_name","kegg_id", group_samples)]
+    kegg_data <- data %>%
+      filter(!is.na(kegg_id), kegg_id != "", kegg_id != " ") %>%
+      distinct(kegg_id, .keep_all = TRUE) %>%
+      select(refmet_name, kegg_id, all_of(group_samples))
+    
+    all_kegg_ids <- unique(kegg_data$kegg_id)
+    
+    # print(all_kegg_ids)
     
     # Run enrichment analysis based on selection
     if (input$gene_selected) {
       title_name <- "Gene Enrichment Analysis"
       print(paste0("#---", title_name, " ", data_name, "---#"))
       
-      all_kegg <- unique(kegg_data$kegg_id)
-      
-      print(paste0("# row :" , nrow(kegg_data)))
-      sup_kegg_data <- kegg_data %>% 
-        filter(rowMeans(!is.na(.)) >= 0.75)
-      print(paste0("# row :" , nrow(sup_kegg_data)))
-      
-      enrichment_result <- run_gene_enrichment(sup_kegg_data, all_kegg)
+      enrichment_result <- run_gene_enrichment(kegg_info, all_kegg_ids)
       print(head(enrichment_result))
       
     } else {
       title_name <- "Module Enrichment Analysis"
       print(paste0("#---", title_name, " ", data_name, "---#"))
       
-      all_kegg <- unique(kegg_data$kegg_id)
-      
-      print(paste0("# row :" , nrow(kegg_data)))
-      sup_kegg_data <- kegg_data %>% 
-        filter(rowMeans(!is.na(.)) >= 0.75)
-      print(paste0("# row :" , nrow(sup_kegg_data)))
-      
-      enrichment_result <- run_module_enrichment(sup_kegg_data, all_kegg)
+      enrichment_result <- run_module_enrichment(kegg_info, all_kegg_ids)
       print(head(enrichment_result))
     }
     
@@ -2481,12 +2913,16 @@ shinyServer(function(session, input, output) {
       plots$dot
     })
     
+    print(head(kegg_data))
     # TODO 
     if (input$gene_selected) {
       cat("#-----Selected data Gene-----# \n")
       cnet <- plot_cnetplot_subcat(enrichment_result, kegg_data, top_x)
     } else {
       cat("#-----Selected data Module-----# \n")
+      print(head(enrichment_result))
+      print(head(kegg_data))
+      print(top_x)
       cnet <- plot_cnetplot_desc(enrichment_result, kegg_data, top_x)
     }
     
@@ -2506,12 +2942,227 @@ shinyServer(function(session, input, output) {
       )
     })
     
-    cat("You are awesome \n")
+    # TODO Implement FELLA 
+    
+    message(sample(quotes, 1))
     
   })
   
-  # Server
-  
+  ####################
+  # circular barplot #
+  ####################
+  observeEvent(input$run_circular_barplot, {
+    # Ensure all required inputs are available.
+    req(input$select_data_circular_barplot,
+        input$top_x_cirbar,
+        input$name_column_cirbar,
+        input$group_column_cirbar,  
+        input$group1_cirbar,
+        input$group2_cirbar)
+    
+    if (!is.null(rv$activeFile)) {
+      if (input$select_data_circular_barplot == "Unsaved data") {
+        data <- rv$tmpData  # Use the temporary data
+        seq <- rv$tmpSequence  # Use the temporary sequence
+        dataset_name <- "Unsaved data"
+      } else {
+        # Get the index of the selected dataset
+        sd <- which(rv$choices %in% input$select_data_circular_barplot)
+        data <- rv$data[[sd]]  # Retrieve the selected dataset
+        seq <- rv$sequence[[sd]]  # Retrieve the selected sequence
+        dataset_name <- names(rv$data)[sd]  # Retrieve dataset name
+      }
+      
+      # Retrieve input selections
+      names_col   <- input$name_column_cirbar
+      grouping    <- input$group_column_cirbar  # use the correct input id
+      numerator      <- input$group1_cirbar
+      denominator      <- input$group2_cirbar
+      top_X <- input$top_x_cirbar
+      feature <- input$feature_cirbar
+      
+      if (numerator == denominator) {
+        sendSweetAlert(session, "Error", "Please select different groups for comparison.", type = "error")
+        return()
+      }
+      
+      seq_subset <- seq[seq[, "labels"] %in% c("Sample"), ]  # Restrict to "Sample" rows
+      
+      # if seq[,group] is numeric put group_ infron
+      if (is.numeric(seq_subset[, "group"])) {
+        seq_subset[, "group"] <- paste0("group_", seq_subset[, "group"])
+        numerator <- paste0("group_", numerator)
+        denominator <- paste0("group_", denominator)
+      }
+      
+      # remove rows where data[, names_col] is empty or NA
+      data <- data[!is.na(data[, names_col]) & data[, names_col] != "", ]
+      
+      data_subset <- data[, c(rownames(seq_subset)), drop = FALSE]  # Use row names of seq_subset to filter columns
+      
+      rownames(data_subset) <- make.unique(rep(data[, names_col], length.out = nrow(data_subset)))
+
+      stat_results <- calculate_stats(data_subset, seq_subset)
+      
+      target_contrast   <- paste0(numerator, "_vs_", denominator)
+      reversed_contrast <- paste0(denominator, "_vs_", numerator)
+      
+      # If  contrast is present in stat_results:
+      if (target_contrast %in% stat_results$Contrast) {
+        # Just subset
+        sub_df <- subset(stat_results, Contrast == target_contrast)
+      } else if (reversed_contrast %in% stat_results$Contrast) {
+        # Subset, then flip the log2FC & FC
+        sub_df <- subset(stat_results, Contrast == reversed_contrast)
+        sub_df$log2FC <- -sub_df$log2FC
+        sub_df$FC     <- 1 / sub_df$FC
+        
+        # Rename the contrast column to reflect the new direction
+        sub_df$Contrast <- target_contrast
+      } else {
+        # No matching contrast found; handle how you like (warn user, or return empty)
+        warning(
+          paste0("No matching contrast found for '", numerator, " vs ", denominator, "'. ",
+                 "Available contrasts are: ", paste(unique(stat_results$Contrast), collapse=", "))
+        )
+        sub_df <- data.frame()
+      }
+      
+      # assign the sub_df a name for debugging
+      cirbar_df_name <- paste0(dataset_name, "_volcano_df")
+      assign(cirbar_df_name, sub_df)
+      
+      # Define custom colors
+      custom_colors <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
+                         "#D55E00", "#CC79A7", "#999999", "#8E44AD", "#1ABC9C",
+                         "#2ECC71", "#3498DB", "#F39C12", "#E74C3C", "#95A5A6",
+                         "#34495E", "#FB9A99", "brown", "#2980B9", "#C0392B")
+      
+      # column bind with dplyr 
+      plotting_data <- bind_cols(
+        data %>% select(all_of(names_col),all_of(grouping)),
+        sub_df %>% select(FC, log2FC, p.value, p.adj, AveExpr, t, B)
+      )
+      
+      # for each column return the min and max value in a 2xncol(data) matrix
+      min_max_values <- sapply(plotting_data[,3:ncol(plotting_data)], function(x) c(min(x, na.rm = TRUE), max(x, na.rm = TRUE)))
+      rownames(min_max_values) <- c("min", "max")
+      print(round(min_max_values, 2))
+      
+      plotting_data <- plotting_data %>%
+        mutate(!!grouping := as.factor(.data[[grouping]])) %>%
+        arrange(p.adj) %>% 
+        # select top_X rows 
+        slice_head(n = top_X) %>%
+        arrange(.data[[grouping]],p.adj)
+      
+      # Add empty start and end rows
+      # empty_start <- data.frame(matrix(0, nrow = 1, ncol = ncol(plotting_data)))
+      # colnames(empty_start) <- colnames(plotting_data)
+      # empty_start[1, 1:2] <- NA
+      
+      empty_end <- data.frame(matrix(0, nrow = 1, ncol = ncol(plotting_data)))
+      colnames(empty_end) <- colnames(plotting_data)
+      empty_end[1, 1:2] <- NA
+      
+      plotting_data <- rbind(plotting_data, empty_end)
+      plotting_data <- plotting_data %>%
+        mutate(id = row_number()) %>%
+        relocate(id, .before = all_of(names_col)) # Reassign id after adding empty bars
+      
+      # Remove potential NA values in factor levels
+      plotting_data[,grouping] <- factor(plotting_data[,grouping], exclude = NULL)
+      
+      # Prepare label data
+      label_data <- plotting_data
+      number_of_bar <- nrow(label_data)
+
+      # Calculate angles and alignment
+      label_data <- label_data %>%
+        mutate(angle = 90 - 360 * (id - 0.5) / number_of_bar,
+               hjust = ifelse(angle < -90, 1, 0),
+               angle = ifelse(angle < -90, angle + 180, angle))
+      
+      valid_data <- plotting_data %>% filter(!is.na(.data[[feature]]))
+      
+      # Create 5 evenly spaced ticks from min to max
+      tick_min <- min(plotting_data[[feature]], na.rm = TRUE)
+      tick_max <- max(plotting_data[[feature]], na.rm = TRUE)
+      ticks <- seq(tick_min, tick_max, length.out = 5)
+      
+      tick_1 <- ticks[1]  # same as min
+      tick_2 <- ticks[2]  # 25% of the range
+      tick_3 <- ticks[3]  # 50% of the range
+      tick_4 <- ticks[4]  # 75% of the range
+      tick_5 <- ticks[5]  # same as max
+      
+      # Generate the circular bar plot with correctly ordered
+      cirbar_plot <- ggplot(plotting_data,
+                            aes(x = as.factor(id),
+                                y = .data[[feature]],
+                                fill = .data[[grouping]])) +
+        geom_bar(stat = "identity", alpha = 0.5) +
+        
+        # geom_segment(data = valid_data,
+        #              aes(x = as.factor(id), xend = as.factor(id), y = tick_1, yend = tick_5),
+        #              linetype = "dashed", color = "gray", linewidth = 0.3) +
+        
+        geom_segment(data = valid_data,
+                     aes(x = min(id), xend = max(id), y = tick_1, yend = tick_1),
+                     linetype = "dashed", color = "gray70", linewidth = 0.3) +
+        geom_segment(data = valid_data,
+                     aes(x = min(id), xend = max(id), y = tick_2, yend = tick_2),
+                     linetype = "dashed", color = "gray70", linewidth = 0.3) +
+        geom_segment(data = valid_data,
+                     aes(x = min(id), xend = max(id), y = tick_3, yend = tick_3),
+                     linetype = "dashed", color = "gray70", linewidth = 0.3) +
+        geom_segment(data = valid_data,
+                     aes(x = min(id), xend = max(id), y = tick_4, yend = tick_4),
+                     linetype = "dashed", color = "gray70", linewidth = 0.3) +
+        geom_segment(data = valid_data,
+                     aes(x = min(id), xend = max(id), y = tick_5, yend = tick_5),
+                     linetype = "dashed", color = "gray70", linewidth = 0.3) +
+        
+        annotate("text",
+                 x = min(plotting_data$id),
+                 y = c(tick_1, tick_2, tick_3, tick_4, tick_5),
+                 label = c(as.character(round(tick_1, 2)),
+                           as.character(round(tick_2, 2)),
+                           as.character(round(tick_3, 2)),
+                           as.character(round(tick_4, 2)),
+                           as.character(round(tick_5, 2))),
+                 color = "black", size = 5, angle = 0, fontface = "bold", hjust = 1) +
+        
+        ylim(min(valid_data[,feature]) - 0.25,
+             max(valid_data[,feature])) +
+        
+        theme_minimal() +
+        theme(
+          axis.text = element_blank(),
+          axis.title = element_blank(),
+          panel.grid = element_blank(),
+          plot.margin = unit(rep(0, 4), "cm")
+        ) +
+        coord_polar(start = 0) +
+        scale_fill_manual(values = custom_colors, na.value = "gray90") +
+        geom_text(data = label_data %>% filter(!is.na(.data[[names_col]])),
+                  aes(x = as.factor(id),
+                      y = tick_5,
+                      label = .data[[names_col]],
+                      hjust = hjust,
+                      angle = angle),
+                  color = "black",
+                  fontface = "bold",
+                  alpha = 1,
+                  size = 3,
+                  inherit.aes = FALSE)
+      
+      # Render the plotly plot
+      output$circular_barplot <- renderPlot({
+        cirbar_plot
+      })
+    }
+  })
   
   #################
   # Lipid Heatmap #
@@ -3314,7 +3965,6 @@ shinyServer(function(session, input, output) {
     })
   }) # This finishes the first 'observeEvent' when 'Run data processing' is clicked
   
-  
   # Outside of the observeEvent, based on whether runProcessClicked is TRUE or FALSE, the message display will be placed on this: 
   # For the first message, which is placed in the 'Lipid Heatmap' tab.
   output$table_message_1 <- renderUI({
@@ -3584,7 +4234,9 @@ shinyServer(function(session, input, output) {
       groups <- na.omit(seq[, 'group'])
       time <- na.omit(seq[, 'time'])
       
-      group_inputs <- c("group1", "group2", "group1_time", "group2_time", "group1_polystest", "group2_polystest")
+      group_inputs <- c("group1", "group2",
+                        "group1_time", "group2_time",
+                        "group1_polystest", "group2_polystest")
       
       # Update select input options where groups are needed
       groups <- unique(seq$group[seq$labels == "Sample" & seq$group != ""])
@@ -3594,6 +4246,7 @@ shinyServer(function(session, input, output) {
                         "group1_time", "group2_time",
                         "group1_polystest", "group2_polystest",
                         "group_enrichment",
+                        "group1_cirbar", "group2_cirbar",
                         "group1_vol", "group2_vol")
       
       for (x in group_inputs) {
@@ -3617,6 +4270,30 @@ shinyServer(function(session, input, output) {
         updateSelectInput(session, x, label = NULL, choices = time, selected = "")
       }
       
+      features <- c("FC","log2FC","p.value","p.adj","AveExpr","t","B")
+      feature_inputs <- c("feature_cirbar")
+      
+      for (x in feature_inputs) {
+        updateSelectInput(session, x, label = NULL, choices = features, selected = "log2FC")
+      }
+      
+      columns <- colnames(dat)
+      column_inputs <- c("identifier_column_refmet",
+                         "name_column_cirbar",
+                         "group_column_cirbar")
+      
+      for (x in column_inputs) {
+        if (grepl("identifier_column_refmet", x)) {
+          default_val <- if ("Structure" %in% columns) "Structure" else ""
+          updateSelectInput(session, x, label = NULL, choices = columns, selected = default_val)
+        } else if (grepl("group_column_cirbar", x)) {
+          default_val <- if ("super_class" %in% columns) "super_class" else ""
+          updateSelectInput(session, x, label = NULL, choices = columns, selected = default_val)
+        } else {
+          default_val <- if ("Original annotation" %in% columns) "Original annotation" else ""
+          updateSelectInput(session, x, label = NULL, choices = columns, selected = default_val)
+        }
+      }
     }
   })
   

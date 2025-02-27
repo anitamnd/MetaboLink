@@ -53,6 +53,14 @@ shinyUI(dashboardPage(
                                            width = "100%"
                                  )
                         ),
+                        # TODO: might be releveant for future
+                        # fluidRow(style = "padding: 0px;",
+                        #          checkboxGroupInput("dataType", "",
+                        #                             choices = c("Metabolomics" = "metabolomics",
+                        #                                         "Lipidomics" = "lipidomics"),
+                        #                             selected = NULL, 
+                        #                             inline = TRUE)
+                        # ),
                         fluidRow(
                           style = "margin-right: 0px;",
                           column(6, style = "padding-left:0px;",
@@ -320,7 +328,7 @@ shinyUI(dashboardPage(
             width = 8,
             box(
               title = textOutput("diboxtitle"), width = NULL,
-              DTOutput("seq_table") %>% withSpinner(color="#0A4F8F")
+              DTOutput("seq_table") %>% withSpinner(color="steelblue")
             )
           ),
           column(
@@ -331,6 +339,17 @@ shinyUI(dashboardPage(
               column(6, style = "padding-left: 0px;", actionButton("updateSequence", label = "Update", width = "100%")), 
               column(6, style = "padding-right: 0px;", actionButton("reuseSequence", label = "Re-use sequence", width = "100%"))
             ),
+            
+            box(
+              column(
+                width = 6,
+                selectInput("identifier_column_refmet", "Select Inchi Column", choices = NULL, width = "100%")
+              ),
+              checkboxInput("online_refmet", "Online lookup. ", value = FALSE, width = "100%"),
+              width = NULL, title = "Add Refmet Information",
+              actionButton("addRefmet", "Add", width = "50%")
+            ),
+            
             box(
               width = NULL, title = "Edit data columns",
               actionButton("editColumns", "Edit", width = "50%")
@@ -355,7 +374,7 @@ shinyUI(dashboardPage(
           tabsetPanel(
             tabPanel("Data table",
                      fluidRow(
-                       column(12, box(width = NULL, DTOutput("dttable") %>% withSpinner(color="#0A4F8F")))
+                       column(12, box(width = NULL, DTOutput("dttable") %>% withSpinner(color="steelblue")))
                      )
             ),
             tabPanel("Sample distribution",
@@ -363,17 +382,17 @@ shinyUI(dashboardPage(
                      fluidRow(
                        column(12,
                               box(width = NULL, title = "Median across samples", 
-                                  plotlyOutput("histogram") %>% withSpinner(color="#0A4F8F")
+                                  plotlyOutput("histogram") %>% withSpinner(color="steelblue")
                               )),
                        column(12,
                               box(width = NULL, title = "Median across QCs",
-                                  uiOutput("histogram_qc") %>% withSpinner(color="#0A4F8F")
+                                  uiOutput("histogram_qc") %>% withSpinner(color="steelblue")
                               )),
                        column(12,
                               box(width = NULL, title = "Median across groups",
                                   column(6, selectInput("select_group", "Select group", choices = NULL, width = "100%")),
                                   column(6),
-                                  plotlyOutput("histogram_group") %>% withSpinner(color="#0A4F8F")
+                                  plotlyOutput("histogram_group") %>% withSpinner(color="steelblue")
                               ))
                      )
             ),
@@ -406,10 +425,10 @@ shinyUI(dashboardPage(
                        )),
                        #TODO boxplots (see normalization)
                        column(6, box(width = NULL,
-                                     plotOutput("boxplot_1", width = "100%")
+                                     plotlyOutput("plotscree1", width = "100%")
                        )),
                        column(6, box(width = NULL,
-                                     plotOutput("boxplot_2", width = "100%")
+                                     plotlyOutput("plotscree2", width = "100%")
                        ))
                      ),
             ),
@@ -665,8 +684,64 @@ shinyUI(dashboardPage(
                                plotOutput(
                                  outputId = "heatmap_plot",
                                  height = "600px"
-                               ))))
+                               ) %>% withSpinner(color="steelblue")
+                             )))
                        ),
+                       tabPanel("Wierd circular barplot",
+                                fluidRow(
+                                  column(12, box(width = NULL, title = "Wierd circular barplot",
+                                                 tagList(
+                                                   list(
+                                                     tags$li("Add information regarding Wierd circular barplot analysis here.")
+                                                   )
+                                                 )
+                                  ))
+                                ),
+                                fluidRow(
+                                  column(12, box(width = NULL, title = "Wierd circular barplot",
+                                                 selectInput(
+                                                   inputId = "select_data_circular_barplot",
+                                                   label = "Select Dataset for circular barplot",
+                                                   choices = NULL,  # To be populated dynamically
+                                                   width = "100%"
+                                                 ),
+                                                 fluidRow(
+                                                   column(
+                                                     width = 6,
+                                                     selectInput("name_column_cirbar", "Select nameing column", choices = NULL, width = "100%")
+                                                   ),
+                                                   column(
+                                                     width = 6,
+                                                     selectInput("group_column_cirbar", "Select grouping column", choices = NULL, width = "100%")
+                                                   ),
+                                                   column(
+                                                     width = 6,
+                                                     numericInput("top_x_cirbar", "Select top features:", value = 100, min = 1, step = 1, width = "100%")
+                                                   ),
+                                                   column(
+                                                     width = 6,
+                                                     selectInput("feature_cirbar", "Select plotting feature:", choices = NULL, width = "100%")
+                                                   ),
+                                                   column(
+                                                     width = 6,
+                                                     selectInput("group1_cirbar", "Numerator (group):", choices = NULL)
+                                                   ),
+                                                   column(
+                                                     width = 6,
+                                                     selectInput("group2_cirbar", "Denominator (group):", choices = NULL)
+                                                   )
+                                                 ),
+                                                 # Added action button to run the plot
+                                                 actionButton(
+                                                   inputId = "run_circular_barplot",
+                                                   label = "Run Plot",
+                                                   class = "btn-primary"
+                                                 ),
+                                                 plotOutput("circular_barplot", width = "800px", height = "800px") %>% withSpinner(color="steelblue")
+                                  ))
+                                )
+                       ),
+                       
                        tabPanel("Lipid Heatmap",
                                 useShinyjs(),
                                 tabsetPanel(
@@ -1013,7 +1088,7 @@ shinyUI(dashboardPage(
                                solidHeader = TRUE,
                                collapsible = FALSE,
                                
-                               plotlyOutput("volcano_plot", height = "500px"),
+                               plotlyOutput("volcano_plot", height = "500px") %>% withSpinner(color="steelblue"),
                                br(),
                                DTOutput("volcano_table")
                              )
@@ -1058,6 +1133,15 @@ shinyUI(dashboardPage(
                     ),
                     
                     actionButton("run_gather_identifiers", "Gather Identifiers", width = "50%"),
+                    
+                    checkboxInput("showDT", "Display Data Table", value = FALSE),
+                    
+                    # Only show search bar and DT if checkbox is checked
+                    conditionalPanel(
+                      condition = "input.showDT == true",
+                      DTOutput("dt_table_path")
+                    ),
+                    
                     checkboxInput("gene_selected", "Run Gene Enrichment", TRUE),
                     checkboxInput("module_selected", "Run Module Enrichment", FALSE),
                     # select group for enrichment analysis 
@@ -1084,49 +1168,69 @@ shinyUI(dashboardPage(
                 column(
                   12,
                   box(
+                    title = "Enrichment Barplot and Dotplot",
                     width = NULL,
-                    plotOutput("enrichment_barplot"),
-                    plotOutput("enrichment_dotplot")
+                    status = "primary",
+                    solidHeader = TRUE,
+                    collapsible = TRUE,
+                    plotOutput("enrichment_barplot") %>% withSpinner(color="steelblue"),
+                    plotOutput("enrichment_dotplot") %>% withSpinner(color="steelblue")
                   )
                 ),
                 column(
                   12,
                   box(
+                    title = "Enrichment Cnetplot",  # Adds a title to the box
                     width = NULL,
-                    plotOutput("enrichment_cnetplot")
-                  )
-                ),
+                    status = "primary",             # Sets a color style (requires shinydashboard)
+                    solidHeader = TRUE,             # Gives the header a solid background
+                    collapsible = TRUE,             # Allows the user to collapse the box if needed
+                    plotOutput("enrichment_cnetplot", height = "500px") %>% withSpinner(color="steelblue"  # Sets a fixed height
+                    )
+                  )), 
                 fluidRow(
                   # Left column with radio buttons (width = 3)
                   column(
-                    width = 3,
-                    wellPanel(
-                      h4("Select which class plot to display:"),
-                      radioButtons(
-                        inputId  = "classChoice",
-                        label    = NULL,  # Using an h4 above instead
-                        choices  = c("Super Class" = "super",
-                                     "Main Class"  = "main",
-                                     "Sub Class"   = "sub"),
-                        selected = "super"  # Default selection
+                    12,
+                    box(
+                      title = "Enrichment Class Plot",  # Title for the class plot section
+                      width = NULL,
+                      status = "primary",               # Sets a primary color style (requires shinydashboard)
+                      solidHeader = TRUE,               # Gives the header a solid background
+                      collapsible = TRUE,               # Allows the user to collapse the box if needed
+                      fluidRow(
+                        # Left column for the radio buttons (width = 3)
+                        column(
+                          width = 3,
+                          wellPanel(
+                            h4("Select which class plot to display:"),
+                            radioButtons(
+                              inputId  = "classChoice",
+                              label    = NULL,  # Using the h4 above for a title
+                              choices  = c("Super Class" = "super",
+                                           "Main Class"  = "main",
+                                           "Sub Class"   = "sub"),
+                              selected = "super"  # Default selection
+                            )
+                          )
+                        ),
+                        # Right column for the plots (width = 9)
+                        column(
+                          width = 9,
+                          conditionalPanel(
+                            condition = "input.classChoice == 'super'",
+                            plotlyOutput("super_class_plot") %>% withSpinner(color = "steelblue")
+                          ),
+                          conditionalPanel(
+                            condition = "input.classChoice == 'main'",
+                            plotlyOutput("main_class_plot") %>% withSpinner(color = "steelblue")
+                          ),
+                          conditionalPanel(
+                            condition = "input.classChoice == 'sub'",
+                            plotlyOutput("sub_class_plot") %>% withSpinner(color = "steelblue")
+                          )
+                        )
                       )
-                    )
-                  ),
-                  
-                  # Right column (width = 9): shows whichever plot is selected
-                  column(
-                    width = 9,
-                    conditionalPanel(
-                      condition = "input.classChoice == 'super'",
-                      plotlyOutput("super_class_plot")
-                    ),
-                    conditionalPanel(
-                      condition = "input.classChoice == 'main'",
-                      plotlyOutput("main_class_plot")
-                    ),
-                    conditionalPanel(
-                      condition = "input.classChoice == 'sub'",
-                      plotlyOutput("sub_class_plot")
                     )
                   )
                 )
@@ -1305,4 +1409,5 @@ shinyUI(dashboardPage(
       )
     )
   )
-))
+)
+)
