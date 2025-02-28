@@ -2244,7 +2244,7 @@ shinyServer(function(session, input, output) {
       if (run_development_code) {
         # Check how many rows query has initially
         query_start <- nrow(query)
-        print(paste0("Number of established features: ", query_start))
+        message(paste0("Number of established features: ", query_start))
         
         desired_properties <- c(
           "MolecularFormula", "MolecularWeight", "ExactMass", "MonoisotopicMass",
@@ -2264,7 +2264,7 @@ shinyServer(function(session, input, output) {
         if (clean_names) {
           new_compounds <- gsub(";.*", "", new_compounds)
         }
-        print(paste("Number of features not in query:", length(new_compounds)))
+        message(paste("Number of features not in query:", length(new_compounds)))
         
         
         if (length(new_compounds) > 0) {
@@ -2389,8 +2389,18 @@ shinyServer(function(session, input, output) {
           relationship = "many-to-many"
         )
       
+      print(colnames(subset))
+      
+      if ("InChIKey.x" %in% colnames(subset)) {
+        # Merge InChIKey.x and InChIKey.y into InChIKey
+        subset <- subset %>%
+          mutate(InChIKey = coalesce(InChIKey.x, InChIKey.y)) %>%
+          select(-c(InChIKey.x, InChIKey.y))
+      }
+      
       subset <- subset %>%
         relocate(all_of(c("InChIKey", "CID", "CanonicalSMILES", "IsomericSMILES", "IUPACName")), .after = identifier)
+      
       
       # Remove duplicated columns based on InChI 
       subset <- subset %>% distinct(.keep_all = TRUE)
@@ -2875,6 +2885,7 @@ shinyServer(function(session, input, output) {
     kegg_info <- data_subset[unique_metabs, c("refmet_name", "kegg_id"), drop = FALSE]
     cat("For group", group, "the significant metabolites and their KEGG IDs are:\n")
     print(kegg_info)
+    
     
     group_samples <- rownames(seq[seq$group == group & seq$labels == "Sample",])
     
