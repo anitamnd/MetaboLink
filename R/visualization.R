@@ -247,9 +247,9 @@ calculate_stats <- function(data, meta,
   #         and a factor (or character) column 'Group' (or group_col) for group labels
   # 'min_reps': if you want to ensure at least 2 replicates per group
   
-  library(limma)
+  # library(limma)
   
-  on.exit(detach("package:limma", unload = TRUE))
+  # on.exit(detach("package:limma", unload = TRUE))
   
   # --- Match sample order between 'data' and 'meta' ---
   sampleIDs_data <- colnames(data)

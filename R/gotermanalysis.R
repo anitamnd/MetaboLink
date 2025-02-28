@@ -12,85 +12,19 @@ library(tibble)
 
 # GO2heatmap {annotate}	R Documentation !!!!!!!!!!!!!!!!!!!! 
 
-# Function to subset data based on some criteria in the identifier column
-is_valid <- function(x) {
-  !(is.na(x) | x == "" | x == " " | x == "N/A" | x == "NA")
-}
-
-subset_data <- function(data, compound_column) {
-  # Keep rows where either the identifier_column OR the compound_column is valid ie. not missing
-  subset <- data[ is_valid(data[[compound_column]]), ]
-  
-  cat("The number of rows and columns in the data are:", nrow(subset), "and", ncol(subset), "\n")
-  return(subset)
-}
-
-
-# THE NEXT SECTION CAN BE DELETED AS IT HAS BEEN UPDATED 
-# # Main function to gather identifiers
-# gather_identifiers <- function(data, identifier_column) {
-#   # Initialize the results df
-#   identifier_df <- data.frame()
-#   # Use a progress bar to track progress
-#   shiny::withProgress(message = "Gathering identifiers...", value = 0, {
-#     for (i in 1:nrow(data)) { # nrow(data) instead of 2
-#       # Increment the progress bar
-#       incProgress(1 / nrow(data), detail = paste("Processing metabolite", i, "of", nrow(data)))
-#       
-#       # Get the start time
-#       start <- Sys.time()
-#       # Get the InChI from the data and other identifiers using webchem
-#       InChI <- data[[identifier_column]][i]
-#       # InChIKey <- tryCatch(cs_convert(InChI, from = "inchi", to = "inchikey"), error = function(e) NA)
-#       # SMILES <- tryCatch(cs_convert(InChI, from = "inchi", to = "smiles"), error = function(e) NA)
-#       CID <- tryCatch(get_cid(InChI, from = "inchi") %>% slice(1) %>% pull(cid), error = function(e) NA)
-#       # CSID <- tryCatch(get_csid(InChI, from = "inchi") %>% pull(csid), error = function(e) NA)
-#       IUPACName <- tryCatch(pc_prop(as.integer(CID)) %>% slice(1) %>% pull(IUPACName), error = function(e) NA)
-#       WDID <- tryCatch(pc_sect(CID, "wikidata")%>% slice(1) %>% pull(SourceID), error = function(e) NA)
-#       HMDBID <- tryCatch(pc_sect(CID, "hmdb id")%>% slice(1) %>% pull(Result), error = function(e) NA)
-#       CASID <- tryCatch(pc_sect(CID, "cas")%>% slice(1) %>% pull(Result), error = function(e) NA)
-#       KEGGID <- tryCatch(pc_sect(CID, "kegg id")%>% slice(1) %>% pull(Result), error = function(e) NA)
-#       ChEBIID <- tryCatch(get_chebiid(InChI, from = "inchi")%>% slice(1) %>% pull(chebiid), error = function(e) NA)
-#       
-#       # Append each row to identifier_df
-#       identifier_df <- rbind(identifier_df, data.frame(
-#         InChI = InChI,
-#         # InChIKey = InChIKey,
-#         # SMILES = SMILES,
-#         CID = CID,
-#         # CSID = CSID,
-#         IUPACName = IUPACName,
-#         WDID = WDID,
-#         HMDBID = HMDBID,
-#         CASID = CASID,
-#         KEGGID = KEGGID,
-#         ChEBIID = ChEBIID,
-#         stringsAsFactors = FALSE
-#       ))
-#       
-#       # Print runtime for debugging
-#       cat("Metabolite:", i, "Run Time:", Sys.time() - start, "seconds\n")
-#     }
-#   })
-#   
-#   # Return the identifier_df
-#   return(identifier_df)
-# }
-
 # Function to update InChI in the data frame
 update_inchi <- function(data, compound_column, identifier_column, query) {
   
-  print(paste0("# of entries: ", nrow(data)))
-  print(paste0("# of inchi entries in data: ",
+  message(paste0("Features with InChI: ",
                sum(!is.na(data[[identifier_column]]) & !data[[identifier_column]] %in% c("", " ", "NA", "N/A"))))
-  print(paste0("# of missing InChI entries in data: ",
+  message(paste0("Features without InChI: ",
                sum(is.na(data[[identifier_column]]) | data[[identifier_column]] %in% c("", " ", "NA", "N/A"))))
   
   # Identify rows with missing or invalid InChI
   missing_idx <- which(is.na(data[[identifier_column]]) | data[[identifier_column]] %in% c("", " ", "NA", "N/A"))
   
   if (length(missing_idx) == 0) {
-    message("No missing InChI entries found.")
+    message("Features has no missing InChI's")
     return(data)
   }
   
@@ -105,16 +39,16 @@ update_inchi <- function(data, compound_column, identifier_column, query) {
     data[[identifier_column]][missing_idx]
   )
   
-  print(paste0("# of inchi entries in data after local update: ",
+  message(paste0("Features with InChI after local update: ",
                sum(!is.na(data[[identifier_column]]) & !data[[identifier_column]] %in% c("", " ", "NA", "N/A"))))
-  print(paste0("# of missing InChI entries in data after local update: ",
+  message(paste0("Features without InChI after local update: ",
                sum(is.na(data[[identifier_column]]) | data[[identifier_column]] %in% c("", " ", "NA", "N/A"))))
   
   # Handle still-missing InChI entries using cir_query()
   still_missing_idx <- which(is.na(data[[identifier_column]]) | data[[identifier_column]] %in% c("", " ", "NA", "N/A"))
   if (length(still_missing_idx) > 0) {
     no_inchi_compounds <- unique(data[[compound_column]][still_missing_idx])
-    message("Fetching InChI using cir_query for: ", paste(no_inchi_compounds, collapse = ", "))
+    message("Fetching InChI using cir_query for:\n", paste(no_inchi_compounds, collapse = ",\n"))
     
     # Replace the following line with your `cir_query()` implementation
     inchi_results <- vapply(no_inchi_compounds, function(compound) {
@@ -133,51 +67,24 @@ update_inchi <- function(data, compound_column, identifier_column, query) {
       data[[identifier_column]][idx] <- inchi_results[no_inchi_compounds[i]]
     }
   }
-  print(sapply(data,function(x) sum(!is.na(x) & x != "" & x != " " & x != "NA" & x != "N/A")))
-  
-  print(data[[identifier_column]])
-  
-  print(paste0("# of missing InChI entries in data after online update: ",
+  message(paste0("Features with InChI after online update: ",
+                 sum(!is.na(data[[identifier_column]]) & !data[[identifier_column]] %in% c("", " ", "NA", "N/A"))))
+  message(paste0("Features without InChI after online update: ",
                sum(is.na(data[[identifier_column]]) | data[[identifier_column]] %in% c("", " ", "NA", "N/A"))))
   
   return(data)
 }
 
-# pos1 <- update_inchi(pos, compound_column = "compound", identifier_column = "inchi")
-# # pos1 <- update_inchi(pos[1:10, ], compound_column = "compound", identifier_column = "inchi")
-# # Investigate pos1 inchi 
-# sum(is.na(pos1$inchi))
-# 
-# cat("Before: ", "\n")
-# cat("Number of features: ", nrow(pos), "\n")
-# cat("Number of compounds: ", nrow(pos)-sum(pos$compound == "" | pos$compound == " " | pos$compound == "N/A"), "\n")
-# cat("Number of missing compounds: ", sum(pos$compound == "" | pos$compound == " " | pos$compound == "N/A"), "\n")
-# cat("Number of InChI: ", nrow(pos)-sum(pos$inchi == "" | pos$inchi == " " | pos$inchi == "N/A"), "\n")
-# cat("Number of missing InChI: ", sum(pos$inchi == "" | pos$inchi == " " | pos$inchi == "N/A"), "\n")
-# cat("After: ", "\n")
-# cat("Number of features: ", nrow(pos1), "\n")
-# cat("Number of InChI: ", 
-#     nrow(pos1)-sum(is.na(pos1$inchi) | pos1$inchi == "" | pos1$inchi == " " | pos1$inchi == "NA"), 
-#     "\n")
-# cat("Number of missing InChI: ", 
-#     sum(is.na(pos1$inchi) | pos1$inchi == "" | pos1$inchi == " " | pos1$inchi == "NA"), 
-#     "\n")
-# 
-# # Counts of successes (InChI found) before and after
-# counts <- c(120, 399)
-# totals <- c(4511, 4511)
-# 
-# # Run a two-proportion test
-# test_result <- prop.test(counts, totals)
-# 
-# test_result
-
 # Main function to gather CID's
-update_cid <- function(data, identifier_column, query) {
-
-  print(paste0("# of entries: ", nrow(data)))
+update_cid <- function(data, compound_column, identifier_column, query) {
   
-  # Start timer for performance monitoring
+  message(paste0("Number of features: ", nrow(data)))
+  
+  message(paste0("Features with CID: ",
+                 sum(!is.na(data$CID) & !data$CID %in% c("", " ", "NA", "N/A"))))
+  message(paste0("Features without CID: ",
+                 sum(is.na(data$CID) | data$CID %in% c("", " ", "NA", "N/A"))))
+  
   Start <- Sys.time()
   
   # Ensure identifier_column is a vector
@@ -185,93 +92,66 @@ update_cid <- function(data, identifier_column, query) {
   if (!is.vector(identifiers)) {
     stop("identifier_column must be a vector.")
   }
-  # debuggin: 
-  print(paste0("# of identifiers: ", length(identifiers)))
   
-  # Check that 'query' data frame has required columns
-  required_cols <- c("Identifier", "InChI", "CID")
-  if (!all(required_cols %in% names(query))) {
-    stop("The 'query' data frame must contain 'Identifier', 'InChI', and 'CID' columns.")
+  # ---- Local Update from Query ----
+  # Update data$CID by matching the identifier (e.g. InChI) with query$InChI
+  data <- data %>%
+    mutate(CID = coalesce(CID, query$CID[match(.data[[identifier_column]], query$InChI)]))
+  
+  message(paste0("Features with CID after local update: ",
+                 sum(!is.na(data$CID) & !data$CID %in% c("", " ", "NA", "N/A"))))
+  message(paste0("Features without CID after local update: ",
+                 sum(is.na(data$CID) | data$CID %in% c("", " ", "NA", "N/A"))))
+  
+  # Identify rows still missing a valid CID
+  missing_idx <- which(is.na(data$CID) | data$CID %in% c("", " ", "NA", "N/A"))
+  
+  if (length(missing_idx) == 0) {
+    message("All missing CIDs updated from local.")
+    message(paste0("Run Time CID collection: ", Sys.time() - Start, " min"))
+    return(data)
   }
   
-  # Initialize a tibble with queries (InChI) and initially unknown CIDs
-  # Here, 'query' column represents the InChI from data
-  CIDs <- tibble(query = identifiers, cid = NA_character_)
-  print(paste0("# of CIDs: ", nrow(CIDs)))
+  # ---- Online Lookup for Remaining Missing CIDs ----
+  # Get the unique InChI values from rows missing a CID, cleaning out invalid ones
+  missing_inchi <- unique(data[[identifier_column]][missing_idx])
+  missing_inchi <- missing_inchi[!is.na(missing_inchi) & missing_inchi != "" &
+                                   missing_inchi != " " & missing_inchi != "NA" & missing_inchi != "N/A"]
   
-  # Function to count missing CIDs
-  count_missing <- function(x) sum(is.na(x) | x == "" | x == " " | x == "NA" | x == "N/A")
+  message(paste0("Unique, non-NA missing InChI to query online: ", length(missing_inchi)))
   
-  # Print initial missing count
-  cat("Initial missing CIDs:", count_missing(CIDs$cid), "\n")
+  # Attempt to retrieve CIDs for all missing InChI values in one call.
+  # Assumes get_cid() is vectorized and returns a data frame with columns "inchi" and "cid"
+  cid_results <- tryCatch({
+    get_cid(missing_inchi, from = "inchi")
+  }, error = function(e) {
+    data.frame(inchi = missing_inchi, cid = NA_character_, stringsAsFactors = FALSE)
+  })
   
-  # Step 1: Local Update from 'query'
-  # Create a lookup map from query InChI to CID
-  cid_map_inchi <- setNames(query$CID, query$InChI)
-  print(paste0("# of CID map InChI: ", length(cid_map_inchi)))
+  print(head(cid_results))
   
-  # Update CIDs where possible from local data using InChI
-  local_idx <- CIDs$query %in% names(cid_map_inchi)
-  print(paste0("# of local idx: ", sum(local_idx)))
-  CIDs$cid[local_idx] <- cid_map_inchi[CIDs$query[local_idx]]
-  print(paste0("# of CIDs after local update: ", sum(!is.na(CIDs$cid))))
+  # Mutate data$CID to be character type
+  data$CID <- as.character(data$CID)
   
-  # Print count after local update
-  cat("After local update missing CIDs:", count_missing(CIDs$cid), "\n")
+  # Use a dplyr left_join to update data$CID:
+  # We join on the identifier column (e.g. "InChI") matching to cid_results$inchi,
+  # then use coalesce() to update CID where missing.
+  data <- data %>%
+    left_join(cid_results, by = setNames("query", identifier_column)) %>%
+    mutate(CID = coalesce(CID, cid)) %>%
+    select(-cid)
   
-  # Check if all missing CIDs are resolved
-  still_missing_idx <- which(is.na(CIDs$cid) | CIDs$cid %in% c("", " ", "NA", "N/A"))
-  print(paste0("# of still missing idx: ", length(still_missing_idx)))
-  if (length(still_missing_idx) == 0) {
-    cat("All missing CIDs updated from local cache.\n")
-    cat("Run Time CID collection:", Sys.time() - Start, "min\n")
-    
-    merged_data <- merge_data(data, CIDs, identifier_column)
-    return(merged_data)
-  }
+  message(paste0("Features with CID after online update: ",
+                 sum(!is.na(data$CID) & !data$CID %in% c("", " ", "NA", "N/A"))))
+  message(paste0("Features without CID after online update: ",
+                 sum(is.na(data$CID) | data$CID %in% c("", " ", "NA", "N/A"))))
   
-  # Step 2: Online Lookup for Remaining Missing CIDs
-  # For each missing InChI, attempt to retrieve CID online
-  for (i in still_missing_idx) {
-    input_for_cid <- CIDs$query[i]  # This is the InChI
-    print(paste0("Input for CID: ", input_for_cid))
-    
-    # Attempt to retrieve CID from online service
-    res <- tryCatch({
-      get_cid(input_for_cid, from = "inchi")
-    }, error = function(e) {
-      NULL
-    })
-    
-    if (!is.null(res) && "cid" %in% names(res) && !is.na(res$cid)) {
-      CIDs$cid[i] <- res$cid
-    } else {
-      # Remains NA if we cannot retrieve CID
-      CIDs$cid[i] <- NA
-    }
-  }
+  message(paste0("Number of features after CID collection: ", nrow(data)))
+  message(paste0("Run Time - CID collection: ", Sys.time() - Start, " min"))
   
-  # Print final missing count after online update
-  cat("After online update missing CIDs:", count_missing(CIDs$cid), "\n")
-  
-  # Check if some remain missing
-  final_missing <- which(is.na(CIDs$cid) | CIDs$cid %in% c("", " ", "NA", "N/A"))
-  if (length(final_missing) > 0) {
-    warning("No CID found for some queries even after online lookup: ", 
-            paste(CIDs$query[final_missing], collapse = ", "))
-  }
-  
-  #remove duplicates from CIDs
-  CIDs <- CIDs[!duplicated(CIDs$cid), ]
-  
-  # use the merge_data function to merge data with the CID
-  merged_data <- merge_data(data, CIDs, identifier_column)
-  
-  # Print run time
-  cat("Run Time CID collection:", Sys.time() - Start, "min\n")
-  
-  return(merged_data)
+  return(data)
 }
+
 
 get_kegg_pathways <- function(data) {
   # Extract KEGG IDs from data
@@ -405,58 +285,6 @@ merge_data <- function(main_df, identifier_df, identifier_column) {
   return(final_df)
 }
 
-# cleaning names function ---- 
-clean_compound_names <- function(names_vec) {
-  sapply(names_vec, function(x) {
-    # If there's a semicolon, take only the part before the first semicolon
-    if (grepl(";", x)) {
-      x <- strsplit(x, ";", fixed = TRUE)[[1]][1]
-    }
-    x <- trimws(x)
-    
-    # If there's a comma, take only the part before the first comma
-    if (grepl(", ", x)) {
-      x <- strsplit(x, ", ", fixed = TRUE)[[1]][1]
-    }
-    x <- trimws(x)
-    
-    # Remove " cation" and " anion" from the end of the name
-    x <- gsub(" cation$", "", x)
-    x <- gsub(" anion$", "", x)
-    x <- trimws(x)
-    # Remove " - [0-9.]+ eV" from the end of the name
-    x <- gsub(" - [0-9.]+ eV$", "", x)
-    x <- trimws(x)
-    
-    return(x)
-  }, USE.NAMES = FALSE)
-}
-
-remove_top_level_comma <- function(s) {
-  chars <- strsplit(s, "")[[1]]
-  depth <- 0
-  comma_pos <- NA
-  for (i in seq_along(chars)) {
-    c <- chars[i]
-    if (c == "(") {
-      depth <- depth + 1
-    } else if (c == ")") {
-      depth <- depth - 1
-    } else if (c == "," && depth == 0) {
-      # Found a comma at top-level (not inside parentheses)
-      comma_pos <- i
-      break
-    }
-  }
-  if (!is.na(comma_pos)) {
-    # Keep only the part before the top-level comma
-    s <- substr(s, 1, comma_pos - 1)
-  }
-  s <- trimws(s)
-  return(s)
-}
-
-# insert column ----
 # Make a function that take in a df and a column name and insert a new column to the right of the column
 insertColumn <- function(df, column_name, new_column_name, new_column) {
   # Get the position of the column
@@ -483,15 +311,6 @@ insertColumn <- function(df, column_name, new_column_name, new_column) {
   return(new_df)
 }
 
-
-# Function to perform pathway enrichment analysis
-
-
-
-
-
-
-
 # Function to perform GO term enrichment analysis
 run_gene_enrichment <- function(data, all_kegg) {
   
@@ -516,7 +335,7 @@ run_module_enrichment <- function(data, all_kegg) {
   # metabolite or compound-centric enrichment analysis
   mcce_enrich_result <- enrichMKEGG(
     gene          = data[,"kegg_id"],
-    # universe      = all_kegg, 
+    # universe      = as.character(all_kegg),
     keyType       = "kegg",         # "kegg" is appropriate for compound IDs like CXXXXXX
     organism      = "cpd",          # "cpd" is used for compound pathways
     pvalueCutoff  = 0.05,
@@ -661,17 +480,20 @@ plot_cnetplot_desc <- function(enrichment_data, main_data, top_n = 5) {
   enrichment_data <- enrichment_data %>%
     arrange(p.adjust) %>%
     head(top_n)
+  print(enrichment_data)
   
   # Prepare long format data
   df_long <- enrichment_data %>%
     mutate(geneID = str_split(geneID, "/")) %>%
     unnest(cols = geneID) %>%
     select(ID, geneID, Description, p.adjust)
+  print(df_long)
   
   # Create edge list
   df_edges <- df_long %>%
     select(ID, geneID) %>%
     rename(from = ID, to = geneID)
+  print(df_edges)
   
   # Create node data for Pathway and Compound
   df_nodes_pathway <- enrichment_data %>%
@@ -679,6 +501,7 @@ plot_cnetplot_desc <- function(enrichment_data, main_data, top_n = 5) {
            FoldEnrichment, zScore, pvalue, p.adjust, qvalue, Count) %>%
     rename(id = ID) %>%
     mutate(type = "Pathway") 
+  print(df_nodes_pathway)
   
   df_nodes_compound <- data.frame(
     id = unique(df_edges$to),
@@ -687,6 +510,7 @@ plot_cnetplot_desc <- function(enrichment_data, main_data, top_n = 5) {
     p.adjust = NA,
     Description = NA
   )
+  print(df_nodes_pathway)
   
   # Add new column to df_nodes with refmet_name from main_df if kegg_id matches to id 
   df_nodes_compound <- df_nodes_compound %>%
@@ -761,5 +585,3 @@ plot_cnetplot_desc <- function(enrichment_data, main_data, top_n = 5) {
   return(list(net = net,
               plot = complete_plot))
 }
-
-
