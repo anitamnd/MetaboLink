@@ -234,13 +234,13 @@ shinyServer(function(session, input, output) {
     sequence <- sequence[, -1]
     rv$sequence[[rv$activeFile]] <- sequence
     
-    if(any(grepl("[^[:alnum:]]", sequence$group))) {
+    if(any(grepl("[^[:alnum:]_]", sequence$group))) {
       showModal(
         modalDialog(
           title = "Invalid group names", size = "m", easyClose = TRUE,
           footer = list(actionButton("group_name_format", "Format names"), modalButton("Dismiss")),
           fluidRow(
-            column(12, p("Invalid group names found. Group names must be alphanumeric and not include spaces."))
+            column(12, p("Invalid group names found. Group names must be alphanumeric and not include spaces. The use of ´_´ has been allowed."))
           )
         )
       )
@@ -1678,6 +1678,12 @@ shinyServer(function(session, input, output) {
       k <- input$num_clusters   # Get the number of clusters (k)
       percentile_threshold <- input$percentile_threshold  # Get the percentile threshold
       
+      # in pca_df remove rows with QC in column group 
+      pca_df <- pca_df[pca_df$group != "QC", ]
+      
+      print(pca_df)
+      print(PC_df)
+      
       # Check if pca_df is a valid data frame
       if (!is.null(pca_df) && is.data.frame(pca_df)) {
         # Call the kmeans_clustering function to get the results
@@ -1727,6 +1733,9 @@ shinyServer(function(session, input, output) {
       pca_df <- pca_data[[1]]   # Extract pca_df from the list
       PC_df <- pca_data[[2]]    # Extract PC_df from the list
       
+      # in pca_df remove rows with QC in column group 
+      pca_df <- pca_df[pca_df$group != "QC", ]
+      
       # Retrieve parameters from the UI
       method <- input$clustering_method   # Clustering method selected
       k <- input$num_clusters_hierarchical  # Number of clusters
@@ -1772,6 +1781,10 @@ shinyServer(function(session, input, output) {
     pca_df <- pca_data[[1]]  # Extract pca_df from the list
     k <- input$knn
     
+    # in pca_df remove rows with QC in column group 
+    pca_df <- pca_df[pca_df$group != "QC", ]
+    
+    
     # Debug print
     # print(paste("Computing kNN distance plot with k =", k))
     
@@ -1784,6 +1797,10 @@ shinyServer(function(session, input, output) {
     req(rv$pca_results[[input$dbscan_pca]])  # Ensure PCA data is loaded
     pca_data <- rv$pca_results[[input$dbscan_pca]]  # Fetch the selected PCA result (list)
     pca_df <- pca_data[[1]]  # Extract pca_df from the list
+    
+    # in pca_df remove rows with QC in column group 
+    pca_df <- pca_df[pca_df$group != "QC", ]
+    
     
     eps <- input$eps
     min_pts <- input$min_pts_dbscan
@@ -1816,6 +1833,9 @@ shinyServer(function(session, input, output) {
     # Fetch the selected PCA result
     pca_data <- rv$pca_results[[input$hdbscan_pca]]
     pca_df <- pca_data[[1]]  # Extract pca_df from the list
+    
+    # in pca_df remove rows with QC in column group 
+    pca_df <- pca_df[pca_df$group != "QC", ]
     
     min_pts <- input$min_pts_hdbscan  # Minimum number of points for HDBSCAN
     threshold <- input$threshold_hdbscan  # Outlier threshold
@@ -1854,6 +1874,9 @@ shinyServer(function(session, input, output) {
     pca_data <- rv$pca_results[[input$optics_pca]]
     pca_df <- pca_data[[1]]  # Extract pca_df from the list
     
+    # in pca_df remove rows with QC in column group 
+    pca_df <- pca_df[pca_df$group != "QC", ]
+    
     # Debugging print
     min_pts <- input$min_pts_optics
     eps <- if (is.na(input$eps_optics)) NULL else input$eps_optics
@@ -1886,6 +1909,9 @@ shinyServer(function(session, input, output) {
     req(rv$pca_results[[input$optics_pca]])
     pca_data <- rv$pca_results[[input$optics_pca]]
     pca_df <- pca_data[[1]]  # Extract pca_df from the list
+    
+    # in pca_df remove rows with QC in column group 
+    pca_df <- pca_df[pca_df$group != "QC", ]
     
     threshold <- input$lof_threshold
     min_pts <- input$lof_k
