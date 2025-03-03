@@ -31,7 +31,7 @@ shinyServer(function(session, input, output) {
   query <- read.csv("./csvfiles/queried_properties.csv") # Import query data
   # Hidden features
   quotes <- readLines("./csvfiles/quotes.csv")
-    
+  
   # Window/panel selection
   observeEvent(list(c(input$sequence, input$example, input$upload)), {
     windowselect("sequence")
@@ -2902,7 +2902,7 @@ shinyServer(function(session, input, output) {
     cat("\nDetailed Significant Results by Group:\n")
     for (grp in names(group_sig_info)) {
       cat(grp, ":\n")
-      print(group_sig_info[[grp]])
+      print(head(group_sig_info[[grp]]))
       cat("\n")
     }
     
@@ -2918,7 +2918,7 @@ shinyServer(function(session, input, output) {
     kegg_data <- data %>%
       filter(!is.na(kegg_id), kegg_id != "", kegg_id != " ") %>%
       distinct(kegg_id, .keep_all = TRUE) %>%
-      select(refmet_name, kegg_id, all_of(group_samples))
+      select(refmet_name, kegg_id,super_class,main_class, sub_class, all_of(group_samples))
     
     all_kegg_ids <- unique(kegg_data$kegg_id)
     
@@ -2953,24 +2953,29 @@ shinyServer(function(session, input, output) {
     
     print(head(kegg_data))
     # TODO 
-    if (input$gene_selected) {
-      cat("#-----Selected data Gene-----# \n")
-      cnet <- plot_cnetplot_subcat(enrichment_result, kegg_data, top_x)
-    } else {
-      cat("#-----Selected data Module-----# \n")
-      print(head(enrichment_result))
-      print(head(kegg_data))
-      print(top_x)
-      cnet <- plot_cnetplot_desc(enrichment_result, kegg_data, top_x)
-    }
+    # if (input$gene_selected) {
+    #   cat("#-----Selected data Gene-----# \n")
+    #   cnet <- plot_cnetplot_subcat(enrichment_result, kegg_data, top_x)
+    # } else {
+    #   cat("#-----Selected data Module-----# \n")
+    #   cnet <- plot_cnetplot_desc(enrichment_result, kegg_data, top_x)
+    # }
+    
+    # graph <- NetGraphPlot(enrichment_result, kegg_data, classification_level = "main_class")
+    # graph <- NetGraphPlotWithGgraph(enrichment_result, kegg_data)
+    
     
     output$enrichment_cnetplot <- renderPlot({
-      cnet$plot
+      NetGraphPlotWithGgraph(enrichment_result, kegg_data)  # Directly call the function
     })
+    
+    # output$enrichment_cnetplot <- renderPlot({
+    #   graph$plot
+    # })
     
     output$enrichment_table <- renderDT({
       datatable(
-        cnet$net, 
+        graph$net, 
         options = list(
           pageLength = 10,
           autoWidth = FALSE,
