@@ -592,40 +592,64 @@ shinyUI(dashboardPage(
                      tabsetPanel(
                        tabPanel(
                          "Heatmap",
-                         # Heatmap Analysis Information
+                         
+                         # Row 1: Heatmap Analysis Information
                          fluidRow(
                            column(
                              width = 12,
                              box(
                                width = NULL,
                                title = "Heatmap Analysis",
-                               tags$ul(
-                                 tags$li("Add information regarding Heatmap analysis here."))))
+                               status = "info",
+                               solidHeader = TRUE,
+                               collapsible = FALSE,
+                               tagList(
+                                 tags$ul(
+                                   tags$li("Heatmaps help visualize high-dimensional data and clustering of features."),
+                                   tags$li("Select a dataset and, optionally, specific groups to compare."),
+                                   tags$li("Customize display options to enhance the interpretation of patterns.")
+                                 )
+                               )
+                             )
+                           )
                          ),
-                         # Heatmap Controls and Customizations
+                         
+                         # Row 2: Controls & Customizations (side-by-side)
                          fluidRow(
-                           # Heatmap Controls Box
+                           # Left box: Heatmap Controls
                            column(
                              width = 6,
                              box(
-                               width = NULL,
+                               width = 12,
                                title = "Heatmap Controls",
-                               # Dataset Selection
+                               status = "primary",
+                               solidHeader = TRUE,
+                               collapsible = FALSE,
+                               
                                selectInput(
                                  inputId = "select_heatmap_data",
-                                 label = "Select Dataset for Heatmap",
-                                 choices = NULL,  # To be populated dynamically
+                                 label = "Select Dataset for Heatmap:",
+                                 choices = NULL, 
                                  width = "100%"
                                ),
-                               # Group Selection Checkbox
+                               selectInput(
+                                 inputId = "heatmap_labels",
+                                 label = "Select Label Column:",
+                                 choices = NULL,
+                                 width = "100%"
+                               ),
                                checkboxInput(
-                                 inputId = "select_groups",
-                                 label = "Select Specific Groups",
+                                 inputId = "enable_grouping_heatmap",
+                                 label = "Select column for grouping features: ",
                                  value = FALSE
                                ),
-                               # Dynamic UI for Group Selection (appears when 'select_groups' is TRUE)
+                               uiOutput("grouping_column_ui"),
+                               checkboxInput(
+                                 inputId = "select_groups",
+                                 label = "Select Specific Groups: ",
+                                 value = FALSE
+                               ),
                                uiOutput("group_selection_ui"),
-                               # Top Features Selection
                                numericInput(
                                  inputId = "top_x",
                                  label = "Number of Top Features:",
@@ -633,59 +657,71 @@ shinyUI(dashboardPage(
                                  min = 1,
                                  step = 1
                                ),
-                               # Generate Heatmap Button
-                               actionButton(
-                                 inputId = "run_heatmap",
-                                 label = "Generate Heatmap",
-                                 width = "50%"))
+                               actionButton("run_heatmap", "Generate Heatmap", width = "100%")
+                             )
                            ),
-                           # Heatmap Customization Box
+                           
+                           # Right box: Heatmap Customizations
                            column(
                              width = 6,
                              box(
-                               width = NULL,
+                               width = 12,
                                title = "Heatmap Customizations",
-                               # Customization: Show Column Names
-                               checkboxInput(
-                                 inputId = "show_column_names",
-                                 label = "Show Column Names",
-                                 value = FALSE
-                               ),
+                               status = "primary",
+                               solidHeader = TRUE,
+                               collapsible = FALSE,
+                               
+                               textInput("heatmap_title", "Plot Title:", "My Heatmap"),
+                               
+                               # select input for clustering_distance_rows
+                               selectInput("clustering_distance_rows", "Clustering Distance Metric (Rows):",
+                                           choices = c("euclidean", "maximum", "manhattan", "canberra",
+                                                       "binary", "minkowski","pearson","spearman","kendall"),
+                                           selected = "euclidean"),
+                               selectInput("clustering_method_rows", "Clustering Method (Rows):",
+                                           choices = c("ward.D", "ward.D2", "single", "complete", "average", "mcquitty", "median", "centroid"),
+                                           selected = "ward.D2"),
+                               
+                               checkboxInput("show_column_names", "Show Column Names:", FALSE),
                                helpText("Toggle to display or hide column names."),
-                               # Customization: Show Row Names
-                               checkboxInput(
-                                 inputId = "show_row_names",
-                                 label = "Show Row Names",
-                                 value = FALSE
-                               ),
+                               checkboxInput("show_row_names", "Show Row Names:", FALSE),
                                helpText("Toggle to display or hide row names."),
-                               # Customization: Cluster Rows
-                               checkboxInput(
-                                 inputId = "cluster_rows",
-                                 label = "Cluster Rows",
-                                 value = FALSE
-                               ),
+                               checkboxInput("cluster_rows", "Cluster Rows:", TRUE),
                                helpText("Enable or disable hierarchical clustering of rows."),
-                               # Customization: Show Row Dendrogram
-                               checkboxInput(
-                                 inputId = "show_row_dend",
-                                 label = "Show Row Dendrogram",
-                                 value = FALSE
-                               ),
-                               helpText("Toggle the visibility of the row dendrogram.")))
+                               checkboxInput("show_row_dend", "Show Row Dendrogram:", FALSE),
+                               helpText("Toggle the visibility of the row dendrogram.")
+                             )
+                           )
                          ),
-                         # Heatmap Output
+                         
+                         # Row 3: Heatmap Plot & Results
                          fluidRow(
                            column(
                              width = 12,
                              box(
                                width = NULL,
-                               # Heatmap Plot
-                               plotOutput(
-                                 outputId = "heatmap_plot",
-                                 height = "600px"
-                               ) %>% withSpinner(color="steelblue")
-                             )))
+                               title = "Heatmap Plot",
+                               status = "primary",
+                               solidHeader = TRUE,
+                               collapsible = TRUE,
+                               
+                               plotOutput("heatmap_plot", height = "600px") %>% withSpinner(color = "steelblue"),
+                             )
+                           )
+                         ),
+                         fluidRow(
+                           column(
+                             width = 12,
+                             box(
+                               width = NULL,
+                               title = "Heatmap Results",
+                               status = "primary",
+                               solidHeader = TRUE,
+                               collapsible = TRUE,
+                               DT::dataTableOutput("heatmap_table")
+                             )
+                           )
+                         )
                        ),
                        tabPanel("Wierd circular barplot",
                                 fluidRow(
@@ -958,8 +994,6 @@ shinyUI(dashboardPage(
                        
                        tabPanel(
                          "Volcano Plot",
-                         
-                         # Row 1: Volcano Plot Information
                          fluidRow(
                            column(
                              width = 12,
@@ -979,8 +1013,6 @@ shinyUI(dashboardPage(
                              )
                            )
                          ),
-                         
-                         # Row 2: Two boxes side-by-side: Data/Group Selection (left), Plot Customization (right)
                          fluidRow(
                            # Left box: Data & group selection
                            column(
