@@ -351,6 +351,15 @@ shinyUI(dashboardPage(
             ),
             
             box(
+              column(
+                width = 6,
+                selectInput("name_column_lipids", "Select Lipid Name Column", choices = NULL, width = "100%")
+              ),
+              width = NULL, title = "Clean Lipid Names",
+              actionButton("cleanedLipidGroup", "Clean", width = "50%")
+            ),
+            
+            box(
               width = NULL, title = "Edit data columns",
               actionButton("editColumns", "Edit", width = "50%")
             ),

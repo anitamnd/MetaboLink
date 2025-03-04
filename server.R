@@ -234,13 +234,13 @@ shinyServer(function(session, input, output) {
     sequence <- sequence[, -1]
     rv$sequence[[rv$activeFile]] <- sequence
     
-    if(any(grepl("[^[:alnum:]]", sequence$group))) {
+    if(any(grepl("[^[:alnum:]_]", sequence$group))) {
       showModal(
         modalDialog(
           title = "Invalid group names", size = "m", easyClose = TRUE,
           footer = list(actionButton("group_name_format", "Format names"), modalButton("Dismiss")),
           fluidRow(
-            column(12, p("Invalid group names found. Group names must be alphanumeric and not include spaces."))
+            column(12, p("Invalid group names found. Group names must be alphanumeric and not include spaces. The use of ´_´ has been allowed."))
           )
         )
       )
@@ -493,6 +493,143 @@ shinyServer(function(session, input, output) {
       message(sample(quotes, 1))
     }
   })
+  
+  observeEvent(input$cleanedLipidGroup, {
+    show_modal_spinner(
+      spin = "atom",
+      color = "#0A4F8F",
+      text = "Extracting RefMet information... This may take a few minutes."
+    )
+    
+    if(is.null(rv$activeFile)) {
+      showNotification("No data", type = "error")
+    } else if (sum(rv$sequence[[rv$activeFile]][, 1] %in% "Name") != 1) {
+      showNotification("Data must have exactly 1 \"Name\" column", type = "error")
+    } else {
+      sequence <- rv$sequence[[rv$activeFile]]
+      data <- rv$data[[rv$activeFile]]
+      identifier <- input$name_column_lipids
+      
+      print(identifier)
+      
+      original_colnames <- colnames(data)
+      
+      # Define known abbreviations to ensure complete coverage
+      abbreviations_list <- c(
+        "Hex2Cer", "HexCer", "GlcCer", "GalCer", "LacCer", "C1P", "S1P", "SPH",
+        "PGM", "PIP", "CDCA", "UDCA", "HDCA",
+        "FA", "MG", "DG", "TG", "BMP", "CL", "PA", "PC", "PE", "PG",
+        "PI", "PS", "Cer", "SM", "St", "SE", "FC", "CE", "CA", "CAR", "DCA",
+        "LCA", "GCA", "TCA", "LPE", "LNAPE"
+      )
+      
+      # Extract all valid lipid subclasses from refmet
+      unique_abbre <- sort(unique(refmet$sub_class[grepl("^[A-Z]+$", refmet$sub_class)]))
+      
+      # Ensure abbreviations_list is combined with known refmet subclasses
+      unique_abbre <- sort(unique(c(unique_abbre, abbreviations_list)))
+      
+      # Sort abbreviations by length (LPC before PC)
+      unique_abbre <- unique_abbre[order(nchar(unique_abbre), decreasing = TRUE)]
+      
+      # Create abbreviation mapping table
+      abbreviations <- unique(refmet[refmet$sub_class %in% unique_abbre, c("main_class", "sub_class")])
+      
+      # Add missing manual mappings
+      manual_mappings <- data.frame(
+        main_class = c("Fatty Acid", "Ether Phospholipids","Acylcarnitines", "Ether Glycerophosphocholines", "Ether Diacylglycerols",
+                       "Ether Glycerophosphoethanolamines", "Diacylglycerols", "Phosphatidylserines", "Ether Phosphatidylinositol",
+                       "Triacylglycerols", "Ether Triacylglycerols"),
+        sub_class = c("FA", "O-LPE", "CAR", "O-PC", "O-DG","O-PE", "DG", "O-PS", "O-PI", "TG", "O-TG")
+      )
+      
+      # Combine with abbreviations
+      abbreviations <- bind_rows(abbreviations, manual_mappings)
+      
+      print(abbreviations)
+      
+      # Build regex pattern, ensuring LPC is before PC
+      abbreviation_pattern <- paste0("\\b(", paste(unique_abbre, collapse = "|"), ")(\\(O-)?")
+      
+      message("Cleaning lipid names")
+      
+      # Extract and clean lipid names
+      lipid_names <- data[[identifier]]
+      
+      data <- data %>%
+        mutate(
+          lipid_name = gsub("_\\d+\\.\\d+_\\d+\\.\\d+$", "", lipid_names),  # Remove extra numbers
+          lipid_name = gsub("_\\d+\\.\\d+_\\d+$", "", lipid_name),  # Additional cleanup
+          lipid_abbreviation = str_extract(lipid_name, abbreviation_pattern)  # Extract abbreviation
+        ) %>%
+        relocate(c(lipid_name, lipid_abbreviation), .after = all_of(identifier))
+      
+      # Fix O- notation dynamically
+      data$lipid_abbreviation <- ifelse(
+        grepl("\\(O-", data$lipid_abbreviation),
+        paste0("O-", gsub("\\(O-", "", data$lipid_abbreviation)),
+        data$lipid_abbreviation
+      )
+      
+      # Replace NA values in abbreviations with "None"
+      data$lipid_abbreviation[is.na(data$lipid_abbreviation)] <- "None"
+      
+      # Join with abbreviations to get lipid_class
+      data <- data %>%
+        left_join(abbreviations, by = c("lipid_abbreviation" = "sub_class")) %>% 
+        rename(lipid_class = main_class) %>%
+        relocate(lipid_class, .after = lipid_abbreviation)
+      
+      # Replace NA in lipid_class with "None"
+      data$lipid_class[is.na(data$lipid_class)] <- "None"
+      
+      # Print only the first 100 rows for debugging
+      print(data[1:100, c(identifier, "lipid_name", "lipid_abbreviation", "lipid_class")])
+      
+      # print rows where lipid_class is None but lipid_abbreviation is not none 
+      # print(data[data$lipid_class == "None" & data$lipid_abbreviation != "None",
+      #            c(identifier, "lipid_name", "lipid_abbreviation", "lipid_class")])
+      
+      colnames_cleaned <- setdiff(colnames(data), original_colnames)
+      
+      # Debug
+      print("Are data column names and sequence row names identical?")
+      print(identical(colnames(rv$tmpData),
+                      rownames(rv$tmpSequence)))
+      
+      update_modal_spinner(
+        session = session,
+        text = "Just a second. I'm updating your sequence and data file. Please be patient."
+      )
+      
+      # Update sequence
+      print("Updating sequence...")
+      updated_seq <- updateSequence(sequence, data, colnames_cleaned, "-")
+      
+      # Store temporarily
+      rv$tmpData <- data
+      rv$tmpSequence <- updated_seq
+      
+      # Debug
+      print("Are data column names and sequence row names identical?")
+      print(identical(colnames(rv$tmpData), rownames(rv$tmpSequence)))
+      
+      # Update sequence
+      print("Updating data file...")
+      updateDataAndSequence(
+        notificationMessage = paste("Identifiers gathered from column:", identifier),
+        newFileInput = TRUE,
+        suffix = "_LipCleaned",
+        additionalInfo = NULL
+      )
+      
+    }
+    
+    remove_modal_spinner()
+    sendSweetAlert(session, "Success", "Lipid names have been cleaned to standardization and column with lipid group has been added.", type = "success")
+    message(sample(quotes, 1))
+  })
+  
   
   observeEvent(input$editColumns, {
     showModal(
@@ -1678,6 +1815,12 @@ shinyServer(function(session, input, output) {
       k <- input$num_clusters   # Get the number of clusters (k)
       percentile_threshold <- input$percentile_threshold  # Get the percentile threshold
       
+      # in pca_df remove rows with QC in column group 
+      pca_df <- pca_df[pca_df$group != "QC", ]
+      
+      print(pca_df)
+      print(PC_df)
+      
       # Check if pca_df is a valid data frame
       if (!is.null(pca_df) && is.data.frame(pca_df)) {
         # Call the kmeans_clustering function to get the results
@@ -1727,6 +1870,9 @@ shinyServer(function(session, input, output) {
       pca_df <- pca_data[[1]]   # Extract pca_df from the list
       PC_df <- pca_data[[2]]    # Extract PC_df from the list
       
+      # in pca_df remove rows with QC in column group 
+      pca_df <- pca_df[pca_df$group != "QC", ]
+      
       # Retrieve parameters from the UI
       method <- input$clustering_method   # Clustering method selected
       k <- input$num_clusters_hierarchical  # Number of clusters
@@ -1772,6 +1918,10 @@ shinyServer(function(session, input, output) {
     pca_df <- pca_data[[1]]  # Extract pca_df from the list
     k <- input$knn
     
+    # in pca_df remove rows with QC in column group 
+    pca_df <- pca_df[pca_df$group != "QC", ]
+    
+    
     # Debug print
     # print(paste("Computing kNN distance plot with k =", k))
     
@@ -1784,6 +1934,10 @@ shinyServer(function(session, input, output) {
     req(rv$pca_results[[input$dbscan_pca]])  # Ensure PCA data is loaded
     pca_data <- rv$pca_results[[input$dbscan_pca]]  # Fetch the selected PCA result (list)
     pca_df <- pca_data[[1]]  # Extract pca_df from the list
+    
+    # in pca_df remove rows with QC in column group 
+    pca_df <- pca_df[pca_df$group != "QC", ]
+    
     
     eps <- input$eps
     min_pts <- input$min_pts_dbscan
@@ -1816,6 +1970,9 @@ shinyServer(function(session, input, output) {
     # Fetch the selected PCA result
     pca_data <- rv$pca_results[[input$hdbscan_pca]]
     pca_df <- pca_data[[1]]  # Extract pca_df from the list
+    
+    # in pca_df remove rows with QC in column group 
+    pca_df <- pca_df[pca_df$group != "QC", ]
     
     min_pts <- input$min_pts_hdbscan  # Minimum number of points for HDBSCAN
     threshold <- input$threshold_hdbscan  # Outlier threshold
@@ -1854,6 +2011,9 @@ shinyServer(function(session, input, output) {
     pca_data <- rv$pca_results[[input$optics_pca]]
     pca_df <- pca_data[[1]]  # Extract pca_df from the list
     
+    # in pca_df remove rows with QC in column group 
+    pca_df <- pca_df[pca_df$group != "QC", ]
+    
     # Debugging print
     min_pts <- input$min_pts_optics
     eps <- if (is.na(input$eps_optics)) NULL else input$eps_optics
@@ -1886,6 +2046,9 @@ shinyServer(function(session, input, output) {
     req(rv$pca_results[[input$optics_pca]])
     pca_data <- rv$pca_results[[input$optics_pca]]
     pca_df <- pca_data[[1]]  # Extract pca_df from the list
+    
+    # in pca_df remove rows with QC in column group 
+    pca_df <- pca_df[pca_df$group != "QC", ]
     
     threshold <- input$lof_threshold
     min_pts <- input$lof_k
@@ -4401,6 +4564,7 @@ shinyServer(function(session, input, output) {
       
       columns <- colnames(dat)
       column_inputs <- c("identifier_column_refmet",
+                         "name_column_lipids",
                          "name_column_cirbar",
                          "group_column_cirbar",
                          "group_column_heatmap")
