@@ -3,52 +3,62 @@
 # ------------- #
 
 # Heatmap ----
-plot_heatmap <- function(data, seq, TOP_X = 50, dataset_name = "") {
-  feature_labels <- rownames(data)
+plot_heatmap <- function(data_subset, data, seq, TOP_X = 50, dataset_name = "", 
+                         clustering_distance_rows = "euclidean", clustering_method_rows = "ward.D2",
+                         show_column_names = FALSE, show_row_names = FALSE, cluster_rows = FALSE,
+                         show_row_dend = FALSE, labels = "", enable_groups = FALSE, groups = "") {
   
-  # Make dataset_name more readable
+  # Store original feature labels
+  feature_labels <- rownames(data_subset)
+  
+  # Debug output
+  print(head(data_subset))
+  print(head(data))
+  print(seq)
+  
+  message(paste0("TOP_X: ", TOP_X))
+  message(paste0("Show column names: ", show_column_names))
+  message(paste0("Show row names: ", show_row_names))
+  message(paste0("Cluster rows: ", cluster_rows))
+  message(paste0("Show row dendrogram: ", show_row_dend))
+  message(paste0("labels: ", labels))
+  message(paste0("enable groups: ", enable_groups))
+  message(paste0("groups: ", groups))
+  
+  # Make the dataset name more readable
   dataset_name_readable <- gsub("_", " ", dataset_name)
-  message(paste0("Processing dataset: ", dataset_name_readable))
+  message(paste0("Heatmap title: ", dataset_name_readable))
   
-  # Column annotation
+  # Column annotation for the primary heatmap (using seq$group)
   annotation_col <- data.frame(Group = seq$group)
   rownames(annotation_col) <- rownames(seq)
-  
-  # Factor of group
   group_factor <- factor(annotation_col$Group)
   unique_group <- unique(seq$group)
   
-  # Make all columns numeric
-  data <- apply(data, 2, as.numeric)
-  rownames(data) <- feature_labels
-  
-  # Log base 10 transform
-  data <- log10(data + 1e-6)
-  
-  # Autoscale each feature (row)
-  # Mean-center & SD-scale across samples (columns)
-  data_matrix <- as.matrix(data)
+  # Process data_subset: convert columns to numeric, log-transform and autoscale
+  data_subset <- apply(data_subset, 2, as.numeric)
+  rownames(data_subset) <- feature_labels
+  data_subset <- log10(data_subset + 1e-6)
+  # Save the unscaled log10 data for fold-change calculation
+  data_log <- data_subset
+  data_matrix <- as.matrix(data_subset)
   data_matrix <- t(scale(t(data_matrix)))
   
-  # Omit rows with NA 
+  # Omit rows with NA values
   initial_row_count <- nrow(data_matrix)
   data_matrix <- data_matrix[complete.cases(data_matrix), ]
   final_row_count <- nrow(data_matrix)
   message(paste0("Removed ", initial_row_count - final_row_count, " rows containing NA values."))
   
-  # Optional T-test or ANOVA to select top features
-  # If exactly 2 groups => T-test
-  # If >= 3 groups    => ANOVA
+  # Perform statistical testing (T-test if 2 groups, ANOVA if >=3)
   cat("\n--- Statistical Testing ---\n")
   if (nlevels(group_factor) == 2) {
-    # T-test row by row
     pvals <- apply(data_matrix, 1, function(x_row) {
       t_out <- t.test(x_row ~ group_factor)
       t_out$p.value
     })
     message("Using T-test for 2-group comparison.")
   } else {
-    # ANOVA row by row
     pvals <- apply(data_matrix, 1, function(x_row) {
       df_test <- data.frame(value = x_row, group = group_factor)
       aov_out <- aov(value ~ group, data = df_test)
@@ -57,184 +67,130 @@ plot_heatmap <- function(data, seq, TOP_X = 50, dataset_name = "") {
     message("Using ANOVA for multi-group comparison.")
   }
   
-  stats_df <- data.frame(
-    Feature = rownames(data_matrix),
-    p_value = pvals,
-    stringsAsFactors = FALSE
-  )
-  
-  # Sort by ascending p-value
+  stats_df <- data.frame(Feature = rownames(data_matrix), p_value = pvals, stringsAsFactors = FALSE)
   stats_df <- stats_df[order(stats_df$p_value), ]
   
-  # Pick top X features
+  # Select top X features
   top_features <- head(stats_df$Feature, n = TOP_X)
-  
   data_matrix_top <- data_matrix[top_features, , drop = FALSE]
-  data_matrix_top <- data_matrix_top[, colnames(data_matrix_top)]
   
+  # Compute log2 fold change if exactly 2 groups
+  if (nlevels(group_factor) == 2) {
+    group_levels <- levels(group_factor)
+    data_log_top <- data_log[rownames(data_matrix_top), , drop = FALSE]
+    sample_groups <- annotation_col$Group[match(colnames(data_log_top), rownames(annotation_col))]
+    fc <- sapply(top_features, function(f) {
+      vals <- data_log_top[f, ]
+      mean1 <- mean(vals[sample_groups == group_levels[1]], na.rm = TRUE)
+      mean2 <- mean(vals[sample_groups == group_levels[2]], na.rm = TRUE)
+      log2FC <- (mean1 - mean2) * log2(10)
+      return(log2FC)
+    })
+    top_stats <- stats_df[stats_df$Feature %in% top_features, ]
+    top_stats$log2FC <- fc[match(top_stats$Feature, names(fc))]
+  } else {
+    top_stats <- stats_df[stats_df$Feature %in% top_features, ]
+  }
   
-  # Define abbreviations and pattern
-  abbreviations <- c(
-    "Hex2Cer", "HexCer", "GlcCer", "GalCer", "LacCer", "C1P", "S1P", "SPH",
-    "PGM", "PIP", "CDCA", "UDCA", "HDCA",
-    "FA", "MG", "DG", "TG", "BMP", "CL", "PA", "PC", "PE", "PG",
-    "PI", "PS", "Cer", "SM", "St", "SE", "FC", "CE", "CA", "CAR", "DCA",
-    "LCA", "GCA", "TCA"
-  )
-  abbreviations <- abbreviations[order(-nchar(abbreviations))]  # longer first
-  pattern <- paste0("^(", paste(abbreviations, collapse = "|"), ")(?=_|\\s|\\(|-|$)")
+  # Add the group information if grouping is enabled
+  if (enable_groups) {
+    top_stats$group <- as.character(data[[groups]])[match(top_stats$Feature, rownames(data))]
+  }
   
-  # Feature grouping
-  feature_group <- data.frame(
-    Name       = rownames(data_matrix_top),
-    Clean_name = gsub("_[^_]+_[^_]+$", "", rownames(data_matrix_top)),
-    stringsAsFactors = FALSE
-  ) %>%
-    mutate(
-      abbrevi = str_extract(Name, regex(pattern)),
-      abbrevi = ifelse(is.na(abbrevi), "non-classified", abbrevi)
+  rownames(top_stats) <- 1:nrow(top_stats)
+  
+  # Build the second heatmap using groups if enabled
+  if (enable_groups) {
+    # Extract grouping information from data using the specified column; ensure row names match
+    m <- match(rownames(data_matrix_top), rownames(data))
+    grouping_vector <- as.character(data[[groups]])
+    grouping_vector <- grouping_vector[m]
+    grouping_vector <- factor(grouping_vector)  # Ensure it's a factor
+    unique_groups2 <- levels(grouping_vector)
+    group_colors <- setNames(rainbow(length(unique_groups2)), unique_groups2)
+    
+    second_heatmap <- Heatmap(
+      grouping_vector,
+      name = "Group",
+      col = group_colors,
+      cluster_columns = FALSE,
+      cluster_rows = cluster_rows,
+      show_heatmap_legend = TRUE,
+      width = unit(3, "mm"),
+      border_gp = gpar(col = "black", lty = 1),
+      heatmap_legend_param = list(
+        title = "Group",
+        at = unique_groups2,
+        col = group_colors
+      )
     )
+  } else {
+    second_heatmap <- NULL
+  }
   
-  unique_classes <- unique(feature_group$abbrevi)
-  
-  # Color for "CAR" => green (Note: Original color was "#FFC107", which is amber)
-  fixed_colors <- c("CAR" = "#FFC107")
-  other_classes <- setdiff(unique_classes, names(fixed_colors))
-  colors_other  <- rep(c("black","grey"), length(other_classes))
-  names(colors_other) <- other_classes
-  
-  right_annotation_colors <- c(fixed_colors, colors_other)
-  # Keep the order consistent with the factor levels in feature_group
-  right_annotation_colors <- right_annotation_colors[unique_classes]
-  right_annotation_colors[is.na(right_annotation_colors)] <- "black"
-  
-  
-  # Row annotation labeling CAR
-  right_annotation_2 <- rowAnnotation(
-    # 1. Special marking for CAR
-    CAR = anno_mark(
-      at         = which(feature_group$abbrevi == "CAR"),
-      labels     = feature_group$Clean_name[feature_group$abbrevi == "CAR"],
-      labels_gp  = gpar(fontsize = 8, fontface = "bold"),
-      which      = "row"
-    )
-    # ,
-    # # 2. Another marking for non-CAR
-    # Others = anno_mark(
-    #   at         = which(feature_group$abbrevi != "CAR"),
-    #   labels     = feature_group$abbrevi[feature_group$abbrevi != "CAR"],
-    #   labels_gp  = gpar(fontsize = 8),
-    #   which      = "row"
-    # )
-  )
-  
-  # Prepare left/bottom annotation bars
-  # Left annotation bar with blocks
+  # Prepare left and bottom annotations for the primary heatmap
   left_annotation <- rowAnnotation(
     foo = anno_block(gp = gpar(fill = c("black", "grey"))),
     width = unit(0.40, "mm")
   )
   
-  # Bottom annotation
-  bottom_annotation = HeatmapAnnotation(
-    block = anno_block(gp = gpar(fill = rep("black",
-                                            ncol(data_matrix_top))),
+  bottom_annotation <- HeatmapAnnotation(
+    block = anno_block(gp = gpar(fill = rep("black", ncol(data_matrix_top))),
                        height = unit(0.40, "mm")),
     foo = anno_block(
-      labels    = unique(seq$group),
+      labels = unique(seq$group),
       labels_gp = gpar(col = "black", fontsize = 14, fontface = "bold"),
-      # Set fill and border to transparent/none
       gp = gpar(fill = NA, col = NA, lty = 0)
     )
   )
   
-  # Build color function
   col_fun <- colorRamp2(c(-2, 0, 2), c("#33568a", "#e8e3e0", "#5e0e21"))
   
-  # Hierarchical clustering with Ward + Euclidean:
-  CLUSTER_ROWS <- TRUE
-  CLUSTER_METHOD <- "ward.D2"
-  DIST_METHOD   <- "euclidean"
+  title_txt <- paste0(dataset_name_readable, ": ", paste(unique_group, collapse = " / "))
   
-  # Title
-  title_txt <- paste0(
-    dataset_name_readable, ": ",
-    paste(unique_group, collapse = " / ")
-  )
-
-  # Column order
   column_order <- seq$samples
   column_split <- factor(seq$group, levels = unique(seq$group))
   
-  # Primary Heatmap
-  cat("\n--- Building Heatmap ---\n")
-  hm_list <- Heatmap(
+  hm_primary <- Heatmap(
     data_matrix_top,
-    name                 = "Scaled Log10",
-    column_title         = title_txt,
-    column_title_gp      = gpar(fontsize = 16, fontface = "bold"),
-    row_title            = "cluster %s",  # Title for row clusters if you have splits
-    col                  = col_fun,
-    
-    show_column_names    = FALSE,
-    show_row_names       = FALSE,
-    
-    # Clustering for rows
-    cluster_rows         = CLUSTER_ROWS,
-    clustering_distance_rows = DIST_METHOD,
-    clustering_method_rows   = CLUSTER_METHOD,
-    show_row_dend        = FALSE,
-    row_split            = 2,
-    row_gap              = unit(0, "mm"),
-    
-    # No column clustering
-    cluster_columns      = FALSE,
-    cluster_column_slices= FALSE,
-    
-    column_split         = column_split,
-    column_order         = column_order,
-    column_gap           = unit(0, "mm"),
-    
-    # Annotation bars
-    left_annotation      = left_annotation,
-    bottom_annotation    = bottom_annotation,
-    
-    # Legend and other aesthetics
+    name = "Scaled Log10",
+    column_title = title_txt,
+    column_title_gp = gpar(fontsize = 16, fontface = "bold"),
+    row_title = "cluster %s",
+    col = col_fun,
+    show_column_names = show_column_names,
+    show_row_names = show_row_names,
+    cluster_rows = cluster_rows,
+    clustering_distance_rows = clustering_distance_rows,
+    clustering_method_rows = clustering_method_rows,
+    show_row_dend = show_row_dend,
+    row_split = 2,
+    row_gap = unit(0, "mm"),
+    cluster_columns = FALSE,
+    cluster_column_slices = FALSE,
+    column_split = column_split,
+    column_order = column_order,
+    column_gap = unit(0, "mm"),
+    left_annotation = left_annotation,
+    bottom_annotation = bottom_annotation,
     heatmap_legend_param = list(
-      title     = "Scaled Log10",
+      title = "Scaled Log10",
       direction = "horizontal",
-      title_gp  = gpar(fontsize = 12, fontface = "bold"),
+      title_gp = gpar(fontsize = 12, fontface = "bold"),
       labels_gp = gpar(fontsize = 10)
     ),
     border_gp = gpar(col = "black", lty = 1)
-    
-  ) + 
-    # Second heatmap for feature classes
-    Heatmap(
-      feature_group$abbrevi,
-      name                = "Class",  # Must not be empty
-      col                 = right_annotation_colors,
-      cluster_columns     = FALSE,
-      cluster_rows        = FALSE,
-      show_heatmap_legend = TRUE,
-      width               = unit(3, "mm"),
-      
-      # Label CAR rows
-      right_annotation    = right_annotation_2,
-      
-      heatmap_legend_param = list(
-        title     = "Class",
-        at        = c("CAR", other_classes[order(-nchar(other_classes))]),
-        title_gp  = gpar(fontsize = 12, fontface = "bold"),
-        labels_gp = gpar(fontsize = 10)
-      ),
-      border_gp           = gpar(col = "black", lty = 1)
-    )
+  )
   
-  # Debug: Confirm heatmap creation
+  if (!is.null(second_heatmap)) {
+    hm_list <- hm_primary + second_heatmap
+  } else {
+    hm_list <- hm_primary
+  }
+  
   cat("\n--- Heatmap Created ---\n")
   
-  return(hm_list)
+  return(list(heatmap = hm_list, top_stats = top_stats))
 }
 
 # Volcano ----
