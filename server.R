@@ -2950,8 +2950,6 @@ shinyServer(function(session, input, output) {
       plots$dot
     })
     
-    
-    print(head(kegg_data))
     # TODO 
     # if (input$gene_selected) {
     #   cat("#-----Selected data Gene-----# \n")
