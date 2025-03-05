@@ -1104,7 +1104,45 @@ shinyUI(dashboardPage(
                                ),
                                
                                # Additional toggles, e.g. to show/hide legend
-                               checkboxInput("show_legend", "Show Legend:", TRUE),
+                               checkboxInput("show_legend_volcano", "Show Legend:", TRUE),
+                             )
+                           )
+                         ),
+                         
+                         fluidRow(
+                           column(
+                             width = 6,
+                             box(
+                               width = 12,
+                               title = "Individual Feature Selection",
+                               status = "primary",
+                               solidHeader = TRUE,
+                               collapsible = TRUE,
+                               
+                               # Checkbox to enable/disable individual feature selection
+                               checkboxInput("enable_feature_selection", "Enable Feature Selection", FALSE),
+                               
+                               # Dynamic UI: Feature selection (searchable list appears only if checked)
+                               uiOutput("feature_selection_ui_volcano")
+                             )
+                           ),
+                           
+                           column(
+                             width = 6,
+                             box(
+                               width = 12,
+                               title = "Group Selection",
+                               status = "primary",
+                               solidHeader = TRUE,
+                               collapsible = TRUE,
+                               
+                               # Checkbox to enable/disable group selection
+                               checkboxInput("enable_group_selection", "Enable Group Selection", FALSE),
+                               
+                               # Dynamic UI: Group selection (searchable list appears only if checked)
+                               uiOutput("group_selection_ui_volcano"),
+                               uiOutput("group_color_ui")
+                               
                              )
                            )
                          ),
@@ -1120,7 +1158,7 @@ shinyUI(dashboardPage(
                                solidHeader = TRUE,
                                collapsible = FALSE,
                                
-                               plotlyOutput("volcano_plot", height = "500px") %>% withSpinner(color="steelblue"),
+                               plotlyOutput("volcano_plot", height = "800px") %>% withSpinner(color="steelblue"),
                                br(),
                                DTOutput("volcano_table")
                              )
