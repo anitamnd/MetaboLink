@@ -303,65 +303,158 @@ calculate_stats <- function(data, meta,
   return(final_res)
 }
 
-pretty_volcano_plot <- function(statistical_data, volcano_df_name = "volcano",
+library(ggplot2)
+library(plotly)
+
+# pretty_volcano_plot <- function(data, volcano_df_name = "volcano",
+#                                 log2FC_tresh, pval_tresh,
+#                                 fill_up, outline_up,
+#                                 fill_down, outline_down,
+#                                 fill_ns, outline_ns,
+#                                 enable_feature_selection = FALSE, enable_group_selection = FALSE,
+#                                 available_features = "", available_groups = "") {
+#   
+#   clean_dataset_name <- gsub("_", " ", volcano_df_name) 
+#   
+#   message(paste("Processing:", clean_dataset_name))
+#   print(head(data))
+#   
+#   data$log2FC <- as.numeric(as.character(data$log2FC))
+#   data$p.adj <- as.numeric(as.character(data$p.adj))
+#   
+#   if(any(is.na(data$log2FC)) | any(is.na(data$p.adj))) {
+#     warning(paste("NA values found in numeric columns for", volcano_df_name))
+#     data <- na.omit(data)
+#   }
+#   
+#   data$Significance <- "Non Sig"
+#   data$Significance[data$log2FC > log2FC_tresh & data$p.adj < pval_tresh] <- "Up"
+#   data$Significance[data$log2FC < -log2FC_tresh & data$p.adj < pval_tresh] <- "Down"
+#   data$Significance <- factor(data$Significance, levels = c("Non Sig", "Up", "Down"))
+#   
+#   print("Max values for log2FC:")
+#   print(max(abs(data$log2FC)))
+#   print("Max values for p.adj:")
+#   print(max(-log10(data$p.adj)))
+#   
+#   # Generate hover text for plotly tooltips
+#   data$hover_text <- paste(
+#     "Metabolite:", rownames(data),
+#     "<br>Significance:", data$Significance,
+#     "<br>Log2FC:", round(data$log2FC, 3),
+#     "<br>-Log10(p.adj):", round(-log10(data$p.adj), 3)
+#   )
+#   
+#   # make a df with only significant points
+#   data_sig <- data[data$Significance != "Non Sig", ]
+#   
+#   # Create the volcano plot
+#   p <- ggplot(data, aes(
+#     x = log2FC,
+#     y = -log10(p.adj),
+#     color = Significance,
+#     fill = Significance,
+#     text = hover_text  # This defines tooltip content
+#   )) +
+#     geom_point(shape = 21, size = 3, alpha = 0.8) +
+#     scale_color_manual(values = c(
+#       "Non Sig" = outline_ns,
+#       "Up"      = outline_up,
+#       "Down"    = outline_down
+#     )) +
+#     scale_fill_manual(values = c(
+#       "Non Sig" = fill_ns,
+#       "Up"      = fill_up,
+#       "Down"    = fill_down
+#     )) +
+#     geom_vline(xintercept = c(-log2FC_tresh, log2FC_tresh), 
+#                linetype = "dotted", color = "red") +
+#     geom_hline(yintercept = -log10(pval_tresh), 
+#                linetype = "dotted", color = "red") +
+#     theme_bw() +
+#     labs(
+#       title = paste(clean_dataset_name, ":", gsub("_", " ", unique(data$Contrast))),
+#       x     = "Log2FC",
+#       y     = "-Log10(p-value)"
+#     ) +
+#     theme(
+#       plot.title = element_text(hjust = 0.5),
+#       legend.title = element_blank()
+#     )
+#   
+#   # Convert ggplot to interactive plotly plot
+#   p_interactive <- ggplotly(p, tooltip = "text") 
+#   
+#   return(list(plot = p_interactive,
+#               df = data_sig))
+#   
+# }
+
+pretty_volcano_plot1 <- function(data, volcano_df_name = "volcano", # WORKS
                                 log2FC_tresh, pval_tresh,
                                 fill_up, outline_up,
                                 fill_down, outline_down,
-                                fill_ns, outline_ns) {
+                                fill_ns, outline_ns,
+                                enable_feature_selection = FALSE, enable_group_selection = FALSE,
+                                available_features = "", available_groups = "", group_color_df = NULL) {
   
-  data <- statistical_data
-  clean_dataset_name <- gsub("_", " ", volcano_df_name)
+  library(ggplot2)
+  library(plotly)
+  library(ggrepel)
+  library(dplyr)
   
-  # Print the first few rows to verify the data
-  print(paste("Processing:", clean_dataset_name))
-  
-  # data$Clean_name <- gsub("_[^_]+_[^_]+$", "", rownames(data)) # Adjust based on your actual cleaning logic
-  # Rearrange data
-  data <- data[, c("Contrast",
-                   # "Clean_name", 
-                   "FC", "log2FC", "p.value","p.adj", "AveExpr", "t", "B")]
-  
+  clean_dataset_name <- gsub("_", " ", volcano_df_name) 
+  message(paste("Processing:", clean_dataset_name))
   print(head(data))
   
-  # Convert columns to numeric if necessary
+  if (enable_group_selection) {
+    print("Group color df:")
+    print(group_color_df)
+  }
+  if(enable_feature_selection) {
+    print("Available features:")
+    print(available_features)
+  }
+  # Convert columns to numeric
   data$log2FC <- as.numeric(as.character(data$log2FC))
-  data$p.adj <- as.numeric(as.character(data$p.adj))
+  data$p.adj  <- as.numeric(as.character(data$p.adj))
   
-  # Check for NA values after conversion
   if(any(is.na(data$log2FC)) | any(is.na(data$p.adj))) {
     warning(paste("NA values found in numeric columns for", volcano_df_name))
-    # Optionally, handle NA values (e.g., remove them)
     data <- na.omit(data)
   }
   
-  # Add Significance column based on criteria
-  data$Significance <- "Non Sig"  # Default category
+  # Define significance based on thresholds
+  data$Significance <- "Non Sig"
   data$Significance[data$log2FC > log2FC_tresh & data$p.adj < pval_tresh] <- "Up"
   data$Significance[data$log2FC < -log2FC_tresh & data$p.adj < pval_tresh] <- "Down"
-  
-  # Ensure Significance is a factor with the desired order
   data$Significance <- factor(data$Significance, levels = c("Non Sig", "Up", "Down"))
   
-  # Add Color_Category column: "CAR" overrides Significance
-  # data$Color_Category <- ifelse(grepl("^CAR", data$X, ignore.case = TRUE), "CAR", as.character(data$Significance))
-  
-  # Convert Color_Category to factor with desired levels
-  # data$Color_Category <- factor(data$Color_Category, levels = c("CAR", "Up", "Down", "Non Sig"))
-  
-  # Check the distribution of Color_Category
-  # print(table(data$Color_Category))
-  
-  # Check the maximum values for log2FC and p.adj
   print("Max values for log2FC:")
   print(max(abs(data$log2FC)))
   print("Max values for p.adj:")
   print(max(-log10(data$p.adj)))
   
-  # Create the volcano plot
-  p <- ggplot(data, aes(x = log2FC,
-                        y = -log10(p.adj),
-                        color = Significance,
-                        fill = Significance)) +
+  # Generate hover text for plotly tooltips
+  data$hover_text <- paste(
+    "Feature:", data$Feature_ID,
+    "<br>Group:", data$Group,
+    "<br>Significance:", data$Significance,
+    "<br>Log2FC:", round(data$log2FC, 3),
+    "<br>-Log10(p.adj):", round(-log10(data$p.adj), 3)
+  )
+  
+  # Create a subset with only significant points (if needed later)
+  data_sig <- data[data$Significance != "Non Sig",]
+  
+  # Base volcano plot using Significance for color and fill
+  p <- ggplot(data, aes(
+    x = log2FC,
+    y = -log10(p.adj),
+    color = Significance,
+    fill = Significance,
+    text = hover_text
+  )) +
     geom_point(shape = 21, size = 3, alpha = 0.8) +
     scale_color_manual(values = c(
       "Non Sig" = outline_ns,
@@ -377,28 +470,219 @@ pretty_volcano_plot <- function(statistical_data, volcano_df_name = "volcano",
                linetype = "dotted", color = "red") +
     geom_hline(yintercept = -log10(pval_tresh), 
                linetype = "dotted", color = "red") +
-    # scale_x_continuous(limits = c(-6,6)) + # 9.3 or 6.4 or 6 
-    # scale_y_continuous(limits = c(0, 5)) + # 4 or 5 
     theme_bw() +
     labs(
-      title = paste(clean_dataset_name, ":", unique(data$Contrast)),
+      title = paste(clean_dataset_name, ":", gsub("_", " ", unique(data$Contrast))),
       x     = "Log2FC",
       y     = "-Log10(p-value)"
     ) +
     theme(
       plot.title = element_text(hjust = 0.5),
       legend.title = element_blank()
-    ) 
-  # + 
-  #   geom_text_repel(
-  #     data = subset(data, Color_Category == "CAR"),  # Only label CAR
-  #     aes(label = Clean_name,
-  #         colour = "black"),                # Label text = Clean_name
-  #     size = 3,
-  #     box.padding = 0.5,
-  #     point.padding = 0.3,
-  #     max.overlaps = 50
-  #   )
+    )
   
-  return(p)
+  # TODO: This feature is not available in the current version of ggplot2
+  if(enable_feature_selection && length(available_features) > 0) {
+    p <- p +
+      geom_text_repel(
+        data = subset(data, Feature_ID %in% available_features),
+        aes(x = log2FC, y = -log10(p.adj), label = Feature_ID),
+        size = 3,
+        max.overlaps = Inf
+      )
+  }
+  
+  # Convert ggplot to an interactive plotly object
+  p_interactive <- ggplotly(p, tooltip = "text") 
+  
+  return(list(plot = p_interactive,
+              df = data_sig))
+}
+
+pretty_volcano_plot <- function(data, volcano_df_name = "volcano",
+                                log2FC_tresh, pval_tresh,
+                                fill_up, outline_up,
+                                fill_down, outline_down,
+                                fill_ns, outline_ns,
+                                enable_feature_selection = FALSE, enable_group_selection = FALSE,
+                                available_features = "", available_groups = "", group_color_df = NULL) {
+  
+  library(ggplot2)
+  library(plotly)
+  library(ggrepel)
+  library(dplyr)
+  
+  clean_dataset_name <- gsub("_", " ", volcano_df_name) 
+  message(paste("Processing:", clean_dataset_name))
+
+  if (enable_group_selection) {
+    print("Group color df:")
+    print(group_color_df)
+  }
+  if(enable_feature_selection) {
+    print("Available features:")
+    print(available_features)
+  }
+  # Convert columns to numeric
+  data$log2FC <- as.numeric(as.character(data$log2FC))
+  data$p.adj  <- as.numeric(as.character(data$p.adj))
+  
+  if(any(is.na(data$log2FC)) | any(is.na(data$p.adj))) {
+    warning(paste("NA values found in numeric columns for", volcano_df_name))
+    data <- na.omit(data)
+  }
+  
+  # Define significance based on thresholds
+  data$Significance <- "Non Sig"
+  data$Significance[data$log2FC > log2FC_tresh & data$p.adj < pval_tresh] <- "Up"
+  data$Significance[data$log2FC < -log2FC_tresh & data$p.adj < pval_tresh] <- "Down"
+  data$Significance <- factor(data$Significance, levels = c("Non Sig", "Up", "Down"))
+  
+  print(head(data))
+  
+  print("Max values for log2FC:")
+  print(max(abs(data$log2FC)))
+  print("Max values for p.adj:")
+  print(max(-log10(data$p.adj)))
+  
+  # Generate hover text for plotly tooltips
+  data$hover_text <- paste(
+    "Feature:", data$Feature_ID,
+    "<br>Group:", data$Group,
+    "<br>Significance:", data$Significance,
+    "<br>Log2FC:", round(data$log2FC, 3),
+    "<br>-Log10(p.adj):", round(-log10(data$p.adj), 3)
+  )
+  
+  # Create a subset with only significant points (if needed later)
+  data_sig <- data[data$Significance != "Non Sig",]
+  # round specific columns but keep all columns 
+  data_sig <- data_sig %>% mutate_at(vars(FC, log2FC, AveExpr,t,B), round, 3)
+  
+  if(enable_group_selection && length(available_groups) > 0 && !is.null(group_color_df)) {
+    
+    data <- data %>%
+      mutate(
+        fill = case_when(
+          Significance == "Up"     ~ fill_up,
+          Significance == "Down"   ~ fill_down,
+          Significance == "Non Sig" ~ fill_ns
+        ),
+        outline = case_when(
+          Significance == "Up"     ~ outline_up,
+          Significance == "Down"   ~ outline_down,
+          Significance == "Non Sig" ~ outline_ns
+        )
+      )
+    
+    data <- data %>%
+      left_join(group_color_df, by = "Group") %>%
+      mutate(
+        fill = coalesce(Fill, fill),
+        outline = coalesce(Outline, outline)
+      ) %>%
+      select(-Fill, -Outline)
+    
+    print(head(data))
+    
+    data$Group <- as.factor(data$Group)
+    
+    # Static mappings for groups not defined dynamically
+    static_outline <- c("Up" = outline_up, "Down" = outline_down, "Non Sig" = outline_ns)
+    static_fill <- c("Up" = fill_up, "Down" = fill_down, "Non Sig" = fill_ns)
+    
+    # Create the dynamic mapping vectors from group_color_df
+    fill_values <- setNames(as.character(group_color_df$Fill), group_color_df$Group)
+    outline_values <- setNames(as.character(group_color_df$Outline), group_color_df$Group)
+    
+    # Merge dynamic and static mappings (note the removal of the extra comma)
+    final_outline <- c(static_outline, outline_values)
+    final_fill <- c(static_fill, fill_values)
+    
+    p <- ggplot() + 
+      # First layer: non-selected groups (not in group_color_df)
+      geom_point(
+        data = subset(data, !(Group %in% group_color_df$Group)),
+        aes(x = log2FC, y = -log10(p.adj), color = Significance, fill = Significance, text = hover_text),
+        shape = 21, size = 3, alpha = 0.7
+      ) +
+      # Second layer: selected groups (in group_color_df)
+      geom_point(
+        data = subset(data, Group %in% group_color_df$Group),
+        aes(x = log2FC, y = -log10(p.adj), color = Group, fill = Group, text = hover_text),
+        shape = 21, size = 3, alpha = 0.7
+      ) + 
+      scale_color_manual(values = final_outline) +
+      scale_fill_manual(values = final_fill) + 
+      geom_vline(xintercept = c(-log2FC_tresh, log2FC_tresh), 
+                 linetype = "dotted", color = "red") +
+      geom_hline(yintercept = -log10(pval_tresh), 
+                 linetype = "dotted", color = "red") +
+      theme_bw() +
+      labs(
+        title = paste(clean_dataset_name, ":", gsub("_", " ", unique(data$Contrast))),
+        x     = "Log2FC",
+        y     = "-Log10(p-value)"
+      ) +
+      theme(
+        plot.title = element_text(hjust = 0.5),
+        legend.title = element_blank()
+      )
+    
+    p_interactive <- ggplotly(p, tooltip = "text") 
+    
+    return(list(plot = p_interactive,
+                df = data_sig))
+  }
+  
+  # Base volcano plot using Significance for color and fill
+  p <- ggplot(data, aes(
+    x = log2FC,
+    y = -log10(p.adj),
+    color = Significance,
+    fill = Significance,
+    text = hover_text
+  )) +
+    geom_point(shape = 21, size = 3, alpha = 0.8) +
+    scale_color_manual(values = c(
+      "Non Sig" = outline_ns,
+      "Up"      = outline_up,
+      "Down"    = outline_down
+    )) +
+    scale_fill_manual(values = c(
+      "Non Sig" = fill_ns,
+      "Up"      = fill_up,
+      "Down"    = fill_down
+    )) +
+    geom_vline(xintercept = c(-log2FC_tresh, log2FC_tresh), 
+               linetype = "dotted", color = "red") +
+    geom_hline(yintercept = -log10(pval_tresh), 
+               linetype = "dotted", color = "red") +
+    theme_bw() +
+    labs(
+      title = paste(clean_dataset_name, ":", gsub("_", " ", unique(data$Contrast))),
+      x     = "Log2FC",
+      y     = "-Log10(p-value)"
+    ) +
+    theme(
+      plot.title = element_text(hjust = 0.5),
+      legend.title = element_blank()
+    )
+  
+  # TODO: This feature is not available in the current version of ggplot2
+  if(enable_feature_selection && length(available_features) > 0) {
+    p <- p +
+      geom_text_repel(
+        data = subset(data, Feature_ID %in% available_features),
+        aes(x = log2FC, y = -log10(p.adj), label = Feature_ID),
+        size = 3,
+        max.overlaps = Inf
+      )
+  }
+  
+  # Convert ggplot to an interactive plotly object
+  p_interactive <- ggplotly(p, tooltip = "text") 
+  
+  return(list(plot = p_interactive,
+              df = data_sig))
 }
