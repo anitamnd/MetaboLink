@@ -287,10 +287,25 @@ shinyServer(function(session, input, output) {
       
       data_query <- data %>%
         left_join(
-          query %>% select(InChI, CanonicalSMILES,  InChIKey),
+          query %>% 
+            select(CID, InChI, CanonicalSMILES, IsomericSMILES, InChIKey, IUPACName),
           by = setNames("InChI", identifier),
           relationship = "many-to-many"
         )
+      
+      if ("InChIKey.x" %in% colnames(data_query)) {
+        # Merge InChIKey.x and InChIKey.y into InChIKey
+        data_query <- data_query %>%
+          mutate(InChIKey = coalesce(InChIKey.x, InChIKey.y)) %>%
+          select(-c(InChIKey.x, InChIKey.y))
+      }
+      
+      data_query <- data_query %>%
+        relocate(all_of(c("InChIKey", "CID", "CanonicalSMILES", "IsomericSMILES", "IUPACName")), .after = identifier)
+      
+      
+      # Remove duplicated columns based on InChI 
+      data_query <- data_query %>% distinct(.keep_all = TRUE)
       
       colnames_refmet <- setdiff(names(refmet), "inchi_key")
       
@@ -457,6 +472,12 @@ shinyServer(function(session, input, output) {
         data_final <- data_final[order(data_final$super_class),]
       }
       
+      data_final <- data_final %>%
+        relocate(InChIKey, .after = identifier) %>%
+        relocate(CID, .after = InChIKey) %>%
+        relocate(IsomericSMILES, .after = CanonicalSMILES) %>%
+        relocate(IUPACName, .after = IsomericSMILES)
+      
       # Debug
       print("Are data column names and sequence row names identical?")
       print(identical(colnames(rv$tmpData),
@@ -539,8 +560,10 @@ shinyServer(function(session, input, output) {
       manual_mappings <- data.frame(
         main_class = c("Fatty Acid", "Ether Phospholipids","Acylcarnitines", "Ether Glycerophosphocholines", "Ether Diacylglycerols",
                        "Ether Glycerophosphoethanolamines", "Diacylglycerols", "Phosphatidylserines", "Ether Phosphatidylinositol",
-                       "Triacylglycerols", "Ether Triacylglycerols"),
-        sub_class = c("FA", "O-LPE", "CAR", "O-PC", "O-DG","O-PE", "DG", "O-PS", "O-PI", "TG", "O-TG")
+                       "Triacylglycerols", "Ether Triacylglycerols", "Cholesterol Esters","Sphingoid bases",
+                       "glycosphingolipids","glycosphingolipids","glycosphingolipids"),
+        sub_class = c("FA", "O-LPE", "CAR", "O-PC", "O-DG","O-PE", "DG",
+                      "O-PS", "O-PI", "TG", "O-TG", "CE", "SPB", "HexCer", "Hex2Cer", "Hex3Cer")
       )
       
       # Combine with abbreviations
@@ -564,6 +587,88 @@ shinyServer(function(session, input, output) {
         ) %>%
         relocate(c(lipid_name, lipid_abbreviation), .after = all_of(identifier))
       
+      library(dplyr)
+      library(stringr)
+      
+      calculate_sum_name <- function(lipid_name) {
+        # Extract the head group (assumed to be the first word)
+        head_group <- str_extract(lipid_name, "^[A-Za-z]+")
+        
+        # Define a regex pattern that captures:
+        #   (1) an optional "O-" prefix,
+        #   (2) the carbon count (digits),
+        #   (3) the double bond count (digits),
+        #   (4) an optional oxygen info starting with ";" (if present),
+        #   (5) an optional extra trailing info (e.g. "-SN1")
+        chain_pattern <- "(O-)?(\\d+):(\\d+)(;[^\\s\\)\\/_]+)?(-[A-Za-z0-9]+)?"
+        
+        chains <- str_match_all(lipid_name, chain_pattern)[[1]]
+        
+        # If no matches are found, return NA
+        if(nrow(chains) == 0) return(NA)
+        
+        # According to our pattern:
+        #   Column 2: optional "O-" prefix
+        #   Column 3: carbons
+        #   Column 4: double bonds
+        #   Column 5: oxygen info (e.g. ";O2")
+        #   Column 6: extra trailing info (e.g. "-SN1")
+        carbons <- as.numeric(chains[,3])
+        dblbonds <- as.numeric(chains[,4])
+        
+        total_carbons <- sum(carbons, na.rm = TRUE)
+        total_db <- sum(dblbonds, na.rm = TRUE)
+        
+        # Special case: if there's a fatty acid specification in parentheses and head group is SM,
+        # add extra 2 double bonds.
+        if(grepl("\\(FA", lipid_name) && head_group == "SM") {
+          total_db <- total_db + 2
+        }
+        
+        # Collect extra information from each chain match (using the first non-empty occurrence)
+        extra_info <- ""
+        for(i in 1:nrow(chains)) {
+          prefix    <- ifelse(is.na(chains[i,2]), "", chains[i,2])  # "O-" prefix
+          oxy_info  <- ifelse(is.na(chains[i,5]), "", chains[i,5])   # oxygen info (e.g. ";O2")
+          trailing  <- ifelse(is.na(chains[i,6]), "", chains[i,6])   # trailing extra info (e.g. "-SN1")
+          
+          combined <- paste0(prefix, oxy_info, trailing)
+          if(combined != "") {
+            extra_info <- combined
+            break
+          }
+        }
+        
+        # Adjust placement of extra info:
+        # If the extra info is exactly "O-", we want it to come before the numeric chain.
+        if(extra_info == "O-") {
+          summed_chain <- paste0(extra_info, total_carbons, ":", total_db)
+        } else {
+          summed_chain <- paste0(total_carbons, ":", total_db, extra_info)
+        }
+        
+        # For some lipids (example: when the name contains "/" and head_group is SM),
+        # you may want to force the head group to lowercase.
+        if(grepl("/", lipid_name) && head_group == "SM") {
+          head_group <- tolower(head_group)
+        }
+        
+        sum_name <- paste0(head_group, " ", summed_chain)
+        return(sum_name)
+      }
+      
+      # Now, apply the function only when lipid_abbreviation is not NA:
+      data <- data %>%
+        mutate(sum_name = mapply(function(name, abbr) {
+          if (is.na(abbr)) {
+            NA_character_
+          } else {
+            calculate_sum_name(name)
+          }
+        }, lipid_name, lipid_abbreviation)) %>%
+        relocate(sum_name, .after = lipid_name)
+      
+      
       # Fix O- notation dynamically
       data$lipid_abbreviation <- ifelse(
         grepl("\\(O-", data$lipid_abbreviation),
@@ -583,8 +688,8 @@ shinyServer(function(session, input, output) {
       # Replace NA in lipid_class with "None"
       data$lipid_class[is.na(data$lipid_class)] <- "None"
       
-      # Print only the first 100 rows for debugging
-      print(data[1:100, c(identifier, "lipid_name", "lipid_abbreviation", "lipid_class")])
+      # and now only those columns 
+      print(data %>% filter(lipid_abbreviation != "None" & lipid_class == "None") %>% select(identifier, lipid_name, sum_name, lipid_abbreviation, lipid_class))
       
       # print rows where lipid_class is None but lipid_abbreviation is not none 
       # print(data[data$lipid_class == "None" & data$lipid_abbreviation != "None",
@@ -619,7 +724,7 @@ shinyServer(function(session, input, output) {
       updateDataAndSequence(
         notificationMessage = paste("Identifiers gathered from column:", identifier),
         newFileInput = TRUE,
-        suffix = "_LipCleaned",
+        suffix = "_LipClea",
         additionalInfo = NULL
       )
       
@@ -3570,68 +3675,82 @@ shinyServer(function(session, input, output) {
       return()
     }
     
-    group <- input$group_enrichment
-    top_x <- as.numeric(input$top_x_enrich)
-    data_name <- names(rv$data)[sd]
+    # Extract user-selected values
+    selected_group <- input$group_enrichment
+    top_x_features <- as.numeric(input$top_x_enrich)
+    dataset_name <- names(rv$data)[sd]
     
-    seq_subset <- seq[seq[, "labels"] %in% c("Sample"), ]
-    data_subset <- data[, c("refmet_name", "kegg_id", rownames(seq_subset)), drop = FALSE]
+    # Subset sequence and data based on "Sample" labels
+    filtered_sequence <- seq[seq[, "labels"] %in% c("Sample"), ]
+    filtered_data <- data[, c("refmet_name", "kegg_id", rownames(filtered_sequence)), drop = FALSE]
     
-    unique_groups <- unique(seq_subset$group)
+    # Extract unique groups
+    unique_sample_groups <- unique(filtered_sequence$group)
     
-    data_subset <- data_subset[!is.na(data_subset$kegg_id) &
-                                 data_subset$kegg_id != "" &
-                                 data_subset$kegg_id != " " &
-                                 data_subset$kegg_id != "NA" &
-                                 data_subset$kegg_id != "N/A", ]
+    # Clean KEGG ID column by filtering out empty or invalid values
+    filtered_data <- filtered_data %>%
+      filter(!is.na(kegg_id), kegg_id != "", kegg_id != " ", kegg_id != "NA", kegg_id != "N/A")
     
-    rownames(data_subset) <- make.unique(as.character(data_subset[, "refmet_name"]))
+    # Ensure unique feature names for row names
+    rownames(filtered_data) <- make.unique(as.character(filtered_data[, "refmet_name"]))
     
-    stat_results <- calculate_stats(data_subset, seq_subset)
+    # Perform statistical calculations
+    statistical_results <- calculate_stats(filtered_data, filtered_sequence)
     
-    sig_threshold <- 0.05
-    sig_df <- stat_results[stat_results$p.adj < sig_threshold, ]
+    # Identify significant features (p.adj < 0.05)
+    significance_threshold <- 0.05
+    significant_features_df <- statistical_results[statistical_results$p.adj < significance_threshold, ]
     
-    sig_df$metabolite <- sub("^[^.]+\\.", "", rownames(sig_df))
+    # Extract feature names from row names
+    significant_features_df$feature <- sub("^[^.]+\\.", "", rownames(significant_features_df))
     
-    group_metabolites <- lapply(unique_groups, function(grp) {
-      grp_rows <- sig_df[grepl(grp, sig_df$Contrast), ]
-      unique(grp_rows$metabolite)
+    # Group features by sample group
+    features_by_group <- lapply(unique_sample_groups, function(group) {
+      group_rows <- significant_features_df[grepl(group, significant_features_df$Contrast), ]
+      unique(group_rows$feature)
     })
-    names(group_metabolites) <- unique_groups
+    names(features_by_group) <- unique_sample_groups
     
-    cat("\nSignificant Metabolite Names by Group:\n")
-    print(group_metabolites)
+    message("\nSignificant Feature Names by Group:")
+    print(features_by_group)
     
-    group_sig_info <- lapply(unique_groups, function(grp) {
-      sig_df[grepl(grp, sig_df$Contrast), ]
+    # Store detailed statistical results for each group
+    detailed_significant_results <- lapply(unique_sample_groups, function(group) {
+      significant_features_df[grepl(group, significant_features_df$Contrast), ]
     })
-    names(group_sig_info) <- unique_groups
+    names(detailed_significant_results) <- unique_sample_groups
     
-    cat("\nDetailed Significant Results by Group:\n")
-    for (grp in names(group_sig_info)) {
-      cat(grp, ":\n")
-      print(head(group_sig_info[[grp]]))
-      cat("\n")
-    }
+    # Extract significant features for the selected group
+    selected_group_features <- significant_features_df[grepl(selected_group, significant_features_df$Contrast), ]
     
-    sig_for_group <- sig_df[grepl(group, sig_df$Contrast), ]
-    unique_metabs <- unique(sig_for_group$metabolite)
-    kegg_info <- data_subset[unique_metabs, c("refmet_name", "kegg_id"), drop = FALSE]
-    cat("For group", group, "the significant metabolites and their KEGG IDs are:\n")
-    print(kegg_info)
+    print("selected group features significant ")
+    print(head(selected_group_features))
     
+    unique_selected_features <- unique(selected_group_features$feature)
     
-    group_samples <- rownames(seq[seq$group == group & seq$labels == "Sample",])
+    print(paste0("Significant features for group ", selected_group, ":"))
+    print(unique_selected_features)
     
-    kegg_data <- data %>%
+    # Retrieve KEGG information for significant features
+    kegg_info_df <- filtered_data[unique_selected_features, c("refmet_name", "kegg_id"), drop = FALSE]
+    message("For group ", selected_group, " the significant features and their KEGG IDs are:")
+    print(kegg_info_df)
+    
+    # Extract sample names belonging to the selected group
+    selected_group_samples <- rownames(seq[seq$group == selected_group & seq$labels == "Sample",])
+    
+    # Filter KEGG data based on group samples
+    filtered_kegg_data <- data %>%
       filter(!is.na(kegg_id), kegg_id != "", kegg_id != " ") %>%
       distinct(kegg_id, .keep_all = TRUE) %>%
-      select(refmet_name, kegg_id,super_class,main_class, sub_class, all_of(group_samples))
+      select(refmet_name, kegg_id, super_class, main_class, sub_class, all_of(selected_group_samples))
     
-    all_kegg_ids <- unique(kegg_data$kegg_id)
+    # Extract unique KEGG IDs
+    unique_kegg_ids <- unique(filtered_kegg_data$kegg_id)
     
-    # print(all_kegg_ids)
+    message("All KEGG IDs:")
+    print(head(unique_kegg_ids))
+    
     
     # Run enrichment analysis based on selection
     if (input$gene_selected) {
@@ -3659,7 +3778,7 @@ shinyServer(function(session, input, output) {
       plots$dot
     })
     
-    # TODO 
+    # TODO  
     # if (input$gene_selected) {
     #   cat("#-----Selected data Gene-----# \n")
     #   cnet <- plot_cnetplot_subcat(enrichment_result, kegg_data, top_x)

@@ -312,17 +312,40 @@ insertColumn <- function(df, column_name, new_column_name, new_column) {
 }
 
 # Function to perform GO term enrichment analysis
-run_gene_enrichment <- function(data, all_kegg) {
+run_gene_enrichment <- function(kegg_info, all_kegg_ids) {
+  
+  
+  # gce_enrich_result <- new(
+  #   "enrichResult",
+  #   readable = FALSE,
+  #   result = 
+  # )
   
   # gene-centric enrichment analysis.
-  gce_enrich_result <- enrichKEGG(
-    data[,"kegg_id"],
-    # universe = all_kegg,
-    keyType = "kegg",
-    organism = "cpd",
-    pvalueCutoff = 0.05,
-    pAdjustMethod = "fdr",
-    minGSSize=1)
+  # gce_enrich_result <- enrichKEGG(
+  #   data[,"kegg_id"],
+  #   universe = all_kegg,
+  #   keyType = "kegg",
+  #   organism = "cpd",
+  #   pvalueCutoff = 0.05,
+  #   pAdjustMethod = "fdr",
+  #   minGSSize=1)
+  
+  # gene-centric enrichment analysis.
+  # gce_enrich_result <- enrichKEGG(
+  #   gene = kegg_info[,"kegg_id"],
+  #   organism = "cpd", # let the user choose 
+  #   keyType = "kegg",
+  #   pvalueCutoff = 0.05, # let the user choose 
+  #   pAdjustMethod = "BH", # let the user choose
+  #   universe = all_kegg_ids,
+  #   minGSSize = 10, # let the user choose
+  #   maxGSSize = 500, # let the user choose
+  #   qvalueCutoff = 0.2, # let the user choose
+  #   use_internal_data = FALSE
+  # )
+  
+  
   # gce_enrich_result_df <- as.data.frame(gce_enrich_result)
   # gce_enrich_result_df$GeneRatio <- sapply(strsplit(gce_enrich_result_df$GeneRatio, "/"), 
   #                                          function(x) as.numeric(x[1]) / as.numeric(x[2]))
