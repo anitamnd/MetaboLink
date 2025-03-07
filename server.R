@@ -1771,6 +1771,63 @@ shinyServer(function(session, input, output) {
     })
   })
   
+  # TODO delete at somepoint. 
+  # output$group_selection_ui_kmeans <- renderUI({
+  #   if (is.null(rv$activeFile)) {
+  #     showNotification("No data", type = "error")
+  #   } else {
+  #     data <- rv$data[[rv$activeFile]]
+  #     sequence <- rv$sequence[[rv$activeFile]]
+  #     
+  #     seq <- sequence[sequence$labels %in% c("Sample", "QC"), ]
+  #     data <- data[,rownames(seq), drop = FALSE]
+  #     
+  #     if (input$select_groups_kmeans) {  # Only render if the checkbox is checked
+  #       selectInput(
+  #         "selected_groups_heatmap", 
+  #         "Select Groups:", 
+  #         choices = seq$group, 
+  #         selected = seq$group[1],  # Default to the first group
+  #         multiple = TRUE,          # Allow multiple selections
+  #         width = "100%"
+  #       )
+  #     }}
+  # })
+  
+  # Function to generate selectInput UI for a given input ID
+  create_group_selection_ui <- function(input_id) {
+    renderUI({
+      if (is.null(rv$activeFile)) {
+        showNotification("No data", type = "error")
+        return(NULL)
+      }
+      
+      data <- rv$data[[rv$activeFile]]
+      sequence <- rv$sequence[[rv$activeFile]]
+      seq <- sequence[sequence$labels %in% c("Sample", "QC"), ]
+      data <- data[, rownames(seq), drop = FALSE]
+      
+      if (input[[paste0("select_groups_", input_id)]]) {  # Check if the checkbox is selected
+        selectInput(
+          inputId = paste0("selected_groups_", input_id),  # Unique inputId per method
+          label = paste("Select Groups for", input_id),
+          choices = seq$group, 
+          selected = seq$group[1],  # Default to first group
+          multiple = TRUE, 
+          width = "100%"
+        )
+      }
+    })
+  }
+  
+  # Create separate UI outputs for each tab
+  output$group_selection_ui_kmeans <- create_group_selection_ui("kmeans")
+  output$group_selection_ui_hierarchical <- create_group_selection_ui("hierarchical")
+  output$group_selection_ui_dbscan <- create_group_selection_ui("dbscan")
+  output$group_selection_ui_hdbscan <- create_group_selection_ui("hdbscan")
+  output$group_selection_ui_optics <- create_group_selection_ui("optics")
+  output$group_selection_ui_lof <- create_group_selection_ui("lof")
+  
   # kmeans
   observeEvent(input$compute_kmeans_eval, {
     # Fetch the PCA data from the reactive values
@@ -1787,13 +1844,13 @@ shinyServer(function(session, input, output) {
       if (!is.null(method)) {
         # Use the selected evaluation method to create the plot
         eval_plot <- switch(method,
-                            "wss" = fviz_nbclust(pca_df[, c("PC1", "PC2")], kmeans, method = "wss", k.max = nrow(pca_df) - 1) +
-                              scale_x_discrete(breaks = seq(1, nrow(pca_df) - 1, by = 5)) +  # Reduce number of x-axis ticks
-                              labs(title = "Optimal number of clusters (Elbow Method)") +
-                              theme_bw(),
                             "silhouette" = fviz_nbclust(pca_df[, c("PC1", "PC2")], kmeans, method = "silhouette", k.max = nrow(pca_df) - 1) + 
                               scale_x_discrete(breaks = seq(1, nrow(pca_df) - 1, by = 5)) +  # Reduce number of x-axis ticks
                               labs(title = "Optimal number of clusters (Silhouette Method)") +
+                              theme_bw(),
+                            "wss" = fviz_nbclust(pca_df[, c("PC1", "PC2")], kmeans, method = "wss", k.max = nrow(pca_df) - 1) +
+                              scale_x_discrete(breaks = seq(1, nrow(pca_df) - 1, by = 5)) +  # Reduce number of x-axis ticks
+                              labs(title = "Optimal number of clusters (Elbow Method)") +
                               theme_bw(),
                             "gap_stat" = fviz_nbclust(pca_df[, c("PC1", "PC2")], kmeans, method = "gap_stat", k.max = nrow(pca_df) - 1) +
                               scale_x_discrete(breaks = seq(1, nrow(pca_df) - 1, by = 5)) +  # Reduce number of x-axis ticks
@@ -1815,11 +1872,24 @@ shinyServer(function(session, input, output) {
       k <- input$num_clusters   # Get the number of clusters (k)
       percentile_threshold <- input$percentile_threshold  # Get the percentile threshold
       
-      # in pca_df remove rows with QC in column group 
-      pca_df <- pca_df[pca_df$group != "QC", ]
+      pca_df$group <- as.character(pca_df$group)
       
-      print(pca_df)
-      print(PC_df)
+      if (input$select_groups_kmeans) {
+        message(paste0("Enable grouping for groups: ", input$select_groups_kmeans))
+        if (is.null(input$selected_groups_kmeans) || length(input$selected_groups_kmeans) < 1) {
+          showNotification("Select at least one groups for the heatmap.", type = "error")
+          return()  # Stop execution
+        }
+        # Filter seq_subset and data_subset by selected groups
+        selected_groups_kmeans <- input$selected_groups_kmeans
+        message(paste0("Selected groups: ", paste(selected_groups_kmeans, collapse = ", ")))
+        pca_df <- pca_df[pca_df$group %in% selected_groups_kmeans, ]
+      }
+      
+      pca_df$group <- as.factor(pca_df$group)
+      
+      print(head(pca_df))
+      print(head(PC_df))
       
       # Check if pca_df is a valid data frame
       if (!is.null(pca_df) && is.data.frame(pca_df)) {
@@ -1870,13 +1940,26 @@ shinyServer(function(session, input, output) {
       pca_df <- pca_data[[1]]   # Extract pca_df from the list
       PC_df <- pca_data[[2]]    # Extract PC_df from the list
       
-      # in pca_df remove rows with QC in column group 
-      pca_df <- pca_df[pca_df$group != "QC", ]
-      
       # Retrieve parameters from the UI
       method <- input$clustering_method   # Clustering method selected
       k <- input$num_clusters_hierarchical  # Number of clusters
       threshold <- input$threshold  # Dendrogram threshold
+      
+      pca_df$group <- as.character(pca_df$group)
+      
+      if (input$select_groups_hierarchical) {
+        message(paste0("Enable grouping for groups: ", input$select_groups_hierarchical))
+        if (is.null(input$selected_groups_hierarchical) || length(input$selected_groups_hierarchical) < 1) {
+          showNotification("Select at least one groups for the hierarchical.", type = "error")
+          return()  # Stop execution
+        }
+        # Filter seq_subset and data_subset by selected groups
+        selected_groups_hierarchical <- input$selected_groups_hierarchical
+        message(paste0("Selected groups: ", paste(selected_groups_hierarchical, collapse = ", ")))
+        pca_df <- pca_df[pca_df$group %in% selected_groups_hierarchical, ]
+      }
+      
+      pca_df$group <- as.factor(pca_df$group)
       
       # Debugging to show the parameters 
       # cat("Clustering method: ", method, "\n")
@@ -1892,10 +1975,12 @@ shinyServer(function(session, input, output) {
         hierarchical_results$hclust_plot  # Pass the plotly object to renderPlotly
       })
       
+      # conf_matrix_plot <- perform_confusion_matrix(pca_df, seq_subset, method, k)
+      
       # Render the confusion matrix plot
-      output$conf_matrix_plot <- renderPlotly({
-        hierarchical_results$conf_matrix_plot  # Pass the plotly object to renderPlotly
-      })
+      # output$conf_matrix_plot <- renderPlotly({
+      #   conf_matrix_plot  # Pass the plotly object to renderPlotly
+      # })
       
       # Render the dendrogram plot
       output$dendrogram_plot <- renderPlotly({
@@ -1911,16 +1996,13 @@ shinyServer(function(session, input, output) {
       cat("No PCA results selected or available.\n")
     }
   })
+  # Run DBSCAN
   # DBSCAN Clustering
   observeEvent(input$compute_knn, {
     req(rv$pca_results[[input$dbscan_pca]])  # Ensure PCA data is loaded
     pca_data <- rv$pca_results[[input$dbscan_pca]]  # Fetch the selected PCA result (list)
     pca_df <- pca_data[[1]]  # Extract pca_df from the list
     k <- input$knn
-    
-    # in pca_df remove rows with QC in column group 
-    pca_df <- pca_df[pca_df$group != "QC", ]
-    
     
     # Debug print
     # print(paste("Computing kNN distance plot with k =", k))
@@ -1929,15 +2011,26 @@ shinyServer(function(session, input, output) {
       perform_kNN_dist_plot(pca_df, k)
     })
   })
-  # Run DBSCAN
   observeEvent(input$run_dbscan, {
     req(rv$pca_results[[input$dbscan_pca]])  # Ensure PCA data is loaded
     pca_data <- rv$pca_results[[input$dbscan_pca]]  # Fetch the selected PCA result (list)
     pca_df <- pca_data[[1]]  # Extract pca_df from the list
     
-    # in pca_df remove rows with QC in column group 
-    pca_df <- pca_df[pca_df$group != "QC", ]
+    pca_df$group <- as.character(pca_df$group)
     
+    if (input$select_groups_hdbscan) {
+      message(paste0("Enable grouping for groups: ", input$select_groups_hdbscan))
+      if (is.null(input$selected_groups_hdbscan) || length(input$selected_groups_hdbscan) < 1) {
+        showNotification("Select at least one groups for the hdbscan.", type = "error")
+        return()  # Stop execution
+      }
+      # Filter seq_subset and data_subset by selected groups
+      selected_groups_hdbscan <- input$selected_groups_hdbscan
+      message(paste0("Selected groups: ", paste(selected_groups_hdbscan, collapse = ", ")))
+      pca_df <- pca_df[pca_df$group %in% selected_groups_hdbscan, ]
+    }
+    
+    pca_df$group <- as.factor(pca_df$group)
     
     eps <- input$eps
     min_pts <- input$min_pts_dbscan
@@ -1971,11 +2064,24 @@ shinyServer(function(session, input, output) {
     pca_data <- rv$pca_results[[input$hdbscan_pca]]
     pca_df <- pca_data[[1]]  # Extract pca_df from the list
     
-    # in pca_df remove rows with QC in column group 
-    pca_df <- pca_df[pca_df$group != "QC", ]
-    
     min_pts <- input$min_pts_hdbscan  # Minimum number of points for HDBSCAN
     threshold <- input$threshold_hdbscan  # Outlier threshold
+    
+    pca_df$group <- as.character(pca_df$group)
+    
+    if (input$select_groups_hdbscan) {
+      message(paste0("Enable grouping for groups: ", input$select_groups_hdbscan))
+      if (is.null(input$selected_groups_hdbscan) || length(input$selected_groups_hdbscan) < 1) {
+        showNotification("Select at least one groups for the hdbscan.", type = "error")
+        return()  # Stop execution
+      }
+      # Filter seq_subset and data_subset by selected groups
+      selected_groups_hdbscan <- input$selected_groups_hdbscan
+      message(paste0("Selected groups: ", paste(selected_groups_hdbscan, collapse = ", ")))
+      pca_df <- pca_df[pca_df$group %in% selected_groups_hdbscan, ]
+    }
+    
+    pca_df$group <- as.factor(pca_df$group)
     
     # Debug print
     # print(paste("Running HDBSCAN with minPts =", min_pts))
@@ -2011,13 +2117,26 @@ shinyServer(function(session, input, output) {
     pca_data <- rv$pca_results[[input$optics_pca]]
     pca_df <- pca_data[[1]]  # Extract pca_df from the list
     
-    # in pca_df remove rows with QC in column group 
-    pca_df <- pca_df[pca_df$group != "QC", ]
-    
     # Debugging print
     min_pts <- input$min_pts_optics
     eps <- if (is.na(input$eps_optics)) NULL else input$eps_optics
     eps_cl <- input$eps_cl_optics
+    
+    pca_df$group <- as.character(pca_df$group)
+    
+    if (input$select_groups_optics) {
+      message(paste0("Enable grouping for groups: ", input$select_groups_optics))
+      if (is.null(input$selected_groups_optics) || length(input$selected_groups_optics) < 1) {
+        showNotification("Select at least one groups for the optics.", type = "error")
+        return()  # Stop execution
+      }
+      # Filter seq_subset and data_subset by selected groups
+      selected_groups_optics <- input$selected_groups_optics
+      message(paste0("Selected groups: ", paste(selected_groups_optics, collapse = ", ")))
+      pca_df <- pca_df[pca_df$group %in% selected_groups_optics, ]
+    }
+    
+    pca_df$group <- as.factor(pca_df$group)
     
     # print(paste("Running OPTICS with minPts =", min_pts, ", eps =", eps, ", and eps_cl =", eps_cl))
     
@@ -2047,11 +2166,24 @@ shinyServer(function(session, input, output) {
     pca_data <- rv$pca_results[[input$optics_pca]]
     pca_df <- pca_data[[1]]  # Extract pca_df from the list
     
-    # in pca_df remove rows with QC in column group 
-    pca_df <- pca_df[pca_df$group != "QC", ]
-    
     threshold <- input$lof_threshold
     min_pts <- input$lof_k
+    
+    pca_df$group <- as.character(pca_df$group)
+    
+    if (input$select_groups_lof) {
+      message(paste0("Enable grouping for groups: ", input$select_groups_lof))
+      if (is.null(input$selected_groups_lof) || length(input$selected_groups_lof) < 1) {
+        showNotification("Select at least one groups for the lof. ", type = "error")
+        return()  # Stop execution
+      }
+      # Filter seq_subset and data_subset by selected groups
+      selected_groups_lof <- input$selected_groups_lof
+      message(paste0("Selected groups: ", paste(selected_groups_lof, collapse = ", ")))
+      pca_df <- pca_df[pca_df$group %in% selected_groups_lof, ]
+    }
+    
+    pca_df$group <- as.factor(pca_df$group)
     
     lof_res <- calculate_and_plot_lof(pca_df, threshold = threshold, minPts = min_pts)
     
@@ -2076,7 +2208,7 @@ shinyServer(function(session, input, output) {
   # Heatmap #
   ###########
   # Generate Heatmap
-  output$group_selection_ui <- renderUI({
+  output$group_selection_ui_heatmap <- renderUI({
     
     if (!is.null(rv$activeFile)) {
       if (input$select_heatmap_data == "Unsaved data") {
@@ -2089,11 +2221,9 @@ shinyServer(function(session, input, output) {
         seq <- rv$sequence[[sd]]  # Retrieve the selected sequence
       }
       
-      seq <- seq[seq[, "labels"] %in% c("Sample", "QC"), ]  # Restrict rows to "Sample" and "QC"
-      
-      if (input$select_groups) {  # Only render if the checkbox is checked
+      if (input$select_groups_heatmap) {  # Only render if the checkbox is checked
         selectInput(
-          "selected_groups", 
+          "selected_groups_heatmap", 
           "Select Groups:", 
           choices = seq$group, 
           selected = seq$group[1],  # Default to the first group
@@ -2198,16 +2328,14 @@ shinyServer(function(session, input, output) {
       data_subset <- data[, rownames(seq_subset), drop = FALSE]  # Use row names of seq_subset to filter columns
       
       # Check group selection
-      if (input$select_groups) {
-        message(paste0("Enable grouping for groups: ", input$select_groups))
-        if (is.null(input$selected_groups) || length(input$selected_groups) < 2) {
-          showNotification("Select at least two groups for the heatmap.", type = "error")
+      if (input$select_groups_heatmap) {
+        if (is.null(input$selected_groups_heatmap) || length(input$selected_groups_heatmap) < 2) {
+          showNotification("Please select at least two groups for the heatmap.", type = "error")
           return()  # Stop execution
         }
         # Filter seq_subset and data_subset by selected groups
-        selected_groups <- input$selected_groups
-        message(paste0("Selected groups: ", paste(selected_groups, collapse = ", ")))
-        seq_subset <- seq_subset[seq_subset$group %in% selected_groups, ]
+        selected_groups_heatmap <- input$selected_groups_heatmap
+        seq_subset <- seq_subset[seq_subset$group %in% selected_groups_heatmap, ]
         data_subset <- data[, rownames(seq_subset), drop = FALSE]  # Subset columns by rownames of seq_subset
       }
       
@@ -4542,7 +4670,7 @@ shinyServer(function(session, input, output) {
       })
       
       # Shows which groups is selected for the logFC calculation in the 'Heatmap visualization' tab.
-      output$selected_groups_text <- renderUI({
+      output$selected_groups_heatmap_text <- renderUI({
         req(input$selected_group_for_numerator, input$selected_group_for_denominator)
         withMathJax(HTML(paste0(
           "<p>Data being compared is:</p>",
