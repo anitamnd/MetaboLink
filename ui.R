@@ -1595,8 +1595,14 @@ shinyUI(dashboardPage(
                     status = "primary",
                     solidHeader = TRUE,
                     collapsible = TRUE,
-                    plotOutput("enrichment_barplot") %>% withSpinner(color="steelblue"),
-                    plotOutput("enrichment_dotplot") %>% withSpinner(color="steelblue")
+                    column(
+                      width = 6,
+                      plotOutput("enrichment_barplot", height = "500px") %>% withSpinner(color="steelblue")
+                    ),
+                    column(
+                      width = 6,
+                      plotOutput("enrichment_dotplot", height = "500px") %>% withSpinner(color="steelblue")
+                    )
                   )
                 ),
                 column(
@@ -1607,7 +1613,7 @@ shinyUI(dashboardPage(
                     status = "primary",             # Sets a color style (requires shinydashboard)
                     solidHeader = TRUE,             # Gives the header a solid background
                     collapsible = TRUE,             # Allows the user to collapse the box if needed
-                    plotOutput("enrichment_cnetplot", height = "500px") %>% withSpinner(color="steelblue"  # Sets a fixed height
+                    plotOutput("enrichment_cnetplot", height = "600px") %>% withSpinner(color="steelblue"  # Sets a fixed height
                     )
                   )), 
                 fluidRow(
@@ -1641,15 +1647,15 @@ shinyUI(dashboardPage(
                           width = 9,
                           conditionalPanel(
                             condition = "input.classChoice == 'super'",
-                            plotlyOutput("super_class_plot") %>% withSpinner(color = "steelblue")
+                            plotlyOutput("super_class_plot", height = "500px") %>% withSpinner(color = "steelblue")
                           ),
                           conditionalPanel(
                             condition = "input.classChoice == 'main'",
-                            plotlyOutput("main_class_plot") %>% withSpinner(color = "steelblue")
+                            plotlyOutput("main_class_plot", height = "500px") %>% withSpinner(color = "steelblue")
                           ),
                           conditionalPanel(
                             condition = "input.classChoice == 'sub'",
-                            plotlyOutput("sub_class_plot") %>% withSpinner(color = "steelblue")
+                            plotlyOutput("sub_class_plot", height = "500px") %>% withSpinner(color = "steelblue")
                           )
                         )
                       )
