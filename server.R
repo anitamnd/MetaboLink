@@ -494,6 +494,143 @@ shinyServer(function(session, input, output) {
     }
   })
   
+  observeEvent(input$cleanedLipidGroup, {
+    show_modal_spinner(
+      spin = "atom",
+      color = "#0A4F8F",
+      text = "Extracting RefMet information... This may take a few minutes."
+    )
+    
+    if(is.null(rv$activeFile)) {
+      showNotification("No data", type = "error")
+    } else if (sum(rv$sequence[[rv$activeFile]][, 1] %in% "Name") != 1) {
+      showNotification("Data must have exactly 1 \"Name\" column", type = "error")
+    } else {
+      sequence <- rv$sequence[[rv$activeFile]]
+      data <- rv$data[[rv$activeFile]]
+      identifier <- input$name_column_lipids
+      
+      print(identifier)
+      
+      original_colnames <- colnames(data)
+      
+      # Define known abbreviations to ensure complete coverage
+      abbreviations_list <- c(
+        "Hex2Cer", "HexCer", "GlcCer", "GalCer", "LacCer", "C1P", "S1P", "SPH",
+        "PGM", "PIP", "CDCA", "UDCA", "HDCA",
+        "FA", "MG", "DG", "TG", "BMP", "CL", "PA", "PC", "PE", "PG",
+        "PI", "PS", "Cer", "SM", "St", "SE", "FC", "CE", "CA", "CAR", "DCA",
+        "LCA", "GCA", "TCA", "LPE", "LNAPE"
+      )
+      
+      # Extract all valid lipid subclasses from refmet
+      unique_abbre <- sort(unique(refmet$sub_class[grepl("^[A-Z]+$", refmet$sub_class)]))
+      
+      # Ensure abbreviations_list is combined with known refmet subclasses
+      unique_abbre <- sort(unique(c(unique_abbre, abbreviations_list)))
+      
+      # Sort abbreviations by length (LPC before PC)
+      unique_abbre <- unique_abbre[order(nchar(unique_abbre), decreasing = TRUE)]
+      
+      # Create abbreviation mapping table
+      abbreviations <- unique(refmet[refmet$sub_class %in% unique_abbre, c("main_class", "sub_class")])
+      
+      # Add missing manual mappings
+      manual_mappings <- data.frame(
+        main_class = c("Fatty Acid", "Ether Phospholipids","Acylcarnitines", "Ether Glycerophosphocholines", "Ether Diacylglycerols",
+                       "Ether Glycerophosphoethanolamines", "Diacylglycerols", "Phosphatidylserines", "Ether Phosphatidylinositol",
+                       "Triacylglycerols", "Ether Triacylglycerols"),
+        sub_class = c("FA", "O-LPE", "CAR", "O-PC", "O-DG","O-PE", "DG", "O-PS", "O-PI", "TG", "O-TG")
+      )
+      
+      # Combine with abbreviations
+      abbreviations <- bind_rows(abbreviations, manual_mappings)
+      
+      print(abbreviations)
+      
+      # Build regex pattern, ensuring LPC is before PC
+      abbreviation_pattern <- paste0("\\b(", paste(unique_abbre, collapse = "|"), ")(\\(O-)?")
+      
+      message("Cleaning lipid names")
+      
+      # Extract and clean lipid names
+      lipid_names <- data[[identifier]]
+      
+      data <- data %>%
+        mutate(
+          lipid_name = gsub("_\\d+\\.\\d+_\\d+\\.\\d+$", "", lipid_names),  # Remove extra numbers
+          lipid_name = gsub("_\\d+\\.\\d+_\\d+$", "", lipid_name),  # Additional cleanup
+          lipid_abbreviation = str_extract(lipid_name, abbreviation_pattern)  # Extract abbreviation
+        ) %>%
+        relocate(c(lipid_name, lipid_abbreviation), .after = all_of(identifier))
+      
+      # Fix O- notation dynamically
+      data$lipid_abbreviation <- ifelse(
+        grepl("\\(O-", data$lipid_abbreviation),
+        paste0("O-", gsub("\\(O-", "", data$lipid_abbreviation)),
+        data$lipid_abbreviation
+      )
+      
+      # Replace NA values in abbreviations with "None"
+      data$lipid_abbreviation[is.na(data$lipid_abbreviation)] <- "None"
+      
+      # Join with abbreviations to get lipid_class
+      data <- data %>%
+        left_join(abbreviations, by = c("lipid_abbreviation" = "sub_class")) %>% 
+        rename(lipid_class = main_class) %>%
+        relocate(lipid_class, .after = lipid_abbreviation)
+      
+      # Replace NA in lipid_class with "None"
+      data$lipid_class[is.na(data$lipid_class)] <- "None"
+      
+      # Print only the first 100 rows for debugging
+      print(data[1:100, c(identifier, "lipid_name", "lipid_abbreviation", "lipid_class")])
+      
+      # print rows where lipid_class is None but lipid_abbreviation is not none 
+      # print(data[data$lipid_class == "None" & data$lipid_abbreviation != "None",
+      #            c(identifier, "lipid_name", "lipid_abbreviation", "lipid_class")])
+      
+      colnames_cleaned <- setdiff(colnames(data), original_colnames)
+      
+      # Debug
+      print("Are data column names and sequence row names identical?")
+      print(identical(colnames(rv$tmpData),
+                      rownames(rv$tmpSequence)))
+      
+      update_modal_spinner(
+        session = session,
+        text = "Just a second. I'm updating your sequence and data file. Please be patient."
+      )
+      
+      # Update sequence
+      print("Updating sequence...")
+      updated_seq <- updateSequence(sequence, data, colnames_cleaned, "-")
+      
+      # Store temporarily
+      rv$tmpData <- data
+      rv$tmpSequence <- updated_seq
+      
+      # Debug
+      print("Are data column names and sequence row names identical?")
+      print(identical(colnames(rv$tmpData), rownames(rv$tmpSequence)))
+      
+      # Update sequence
+      print("Updating data file...")
+      updateDataAndSequence(
+        notificationMessage = paste("Identifiers gathered from column:", identifier),
+        newFileInput = TRUE,
+        suffix = "_LipCleaned",
+        additionalInfo = NULL
+      )
+      
+    }
+    
+    remove_modal_spinner()
+    sendSweetAlert(session, "Success", "Lipid names have been cleaned to standardization and column with lipid group has been added.", type = "success")
+    message(sample(quotes, 1))
+  })
+  
+  
   observeEvent(input$editColumns, {
     showModal(
       modalDialog(
@@ -1634,6 +1771,63 @@ shinyServer(function(session, input, output) {
     })
   })
   
+  # TODO delete at somepoint. 
+  # output$group_selection_ui_kmeans <- renderUI({
+  #   if (is.null(rv$activeFile)) {
+  #     showNotification("No data", type = "error")
+  #   } else {
+  #     data <- rv$data[[rv$activeFile]]
+  #     sequence <- rv$sequence[[rv$activeFile]]
+  #     
+  #     seq <- sequence[sequence$labels %in% c("Sample", "QC"), ]
+  #     data <- data[,rownames(seq), drop = FALSE]
+  #     
+  #     if (input$select_groups_kmeans) {  # Only render if the checkbox is checked
+  #       selectInput(
+  #         "selected_groups_heatmap", 
+  #         "Select Groups:", 
+  #         choices = seq$group, 
+  #         selected = seq$group[1],  # Default to the first group
+  #         multiple = TRUE,          # Allow multiple selections
+  #         width = "100%"
+  #       )
+  #     }}
+  # })
+  
+  # Function to generate selectInput UI for a given input ID
+  create_group_selection_ui <- function(input_id) {
+    renderUI({
+      if (is.null(rv$activeFile)) {
+        showNotification("No data", type = "error")
+        return(NULL)
+      }
+      
+      data <- rv$data[[rv$activeFile]]
+      sequence <- rv$sequence[[rv$activeFile]]
+      seq <- sequence[sequence$labels %in% c("Sample", "QC"), ]
+      data <- data[, rownames(seq), drop = FALSE]
+      
+      if (input[[paste0("select_groups_", input_id)]]) {  # Check if the checkbox is selected
+        selectInput(
+          inputId = paste0("selected_groups_", input_id),  # Unique inputId per method
+          label = paste("Select Groups for", input_id),
+          choices = seq$group, 
+          selected = seq$group[1],  # Default to first group
+          multiple = TRUE, 
+          width = "100%"
+        )
+      }
+    })
+  }
+  
+  # Create separate UI outputs for each tab
+  output$group_selection_ui_kmeans <- create_group_selection_ui("kmeans")
+  output$group_selection_ui_hierarchical <- create_group_selection_ui("hierarchical")
+  output$group_selection_ui_dbscan <- create_group_selection_ui("dbscan")
+  output$group_selection_ui_hdbscan <- create_group_selection_ui("hdbscan")
+  output$group_selection_ui_optics <- create_group_selection_ui("optics")
+  output$group_selection_ui_lof <- create_group_selection_ui("lof")
+  
   # kmeans
   observeEvent(input$compute_kmeans_eval, {
     # Fetch the PCA data from the reactive values
@@ -1650,13 +1844,13 @@ shinyServer(function(session, input, output) {
       if (!is.null(method)) {
         # Use the selected evaluation method to create the plot
         eval_plot <- switch(method,
-                            "wss" = fviz_nbclust(pca_df[, c("PC1", "PC2")], kmeans, method = "wss", k.max = nrow(pca_df) - 1) +
-                              scale_x_discrete(breaks = seq(1, nrow(pca_df) - 1, by = 5)) +  # Reduce number of x-axis ticks
-                              labs(title = "Optimal number of clusters (Elbow Method)") +
-                              theme_bw(),
                             "silhouette" = fviz_nbclust(pca_df[, c("PC1", "PC2")], kmeans, method = "silhouette", k.max = nrow(pca_df) - 1) + 
                               scale_x_discrete(breaks = seq(1, nrow(pca_df) - 1, by = 5)) +  # Reduce number of x-axis ticks
                               labs(title = "Optimal number of clusters (Silhouette Method)") +
+                              theme_bw(),
+                            "wss" = fviz_nbclust(pca_df[, c("PC1", "PC2")], kmeans, method = "wss", k.max = nrow(pca_df) - 1) +
+                              scale_x_discrete(breaks = seq(1, nrow(pca_df) - 1, by = 5)) +  # Reduce number of x-axis ticks
+                              labs(title = "Optimal number of clusters (Elbow Method)") +
                               theme_bw(),
                             "gap_stat" = fviz_nbclust(pca_df[, c("PC1", "PC2")], kmeans, method = "gap_stat", k.max = nrow(pca_df) - 1) +
                               scale_x_discrete(breaks = seq(1, nrow(pca_df) - 1, by = 5)) +  # Reduce number of x-axis ticks
@@ -1683,7 +1877,25 @@ shinyServer(function(session, input, output) {
       
       print(pca_df)
       print(PC_df)
+      pca_df$group <- as.character(pca_df$group)
       
+      if (input$select_groups_kmeans) {
+        message(paste0("Enable grouping for groups: ", input$select_groups_kmeans))
+        if (is.null(input$selected_groups_kmeans) || length(input$selected_groups_kmeans) < 1) {
+          showNotification("Select at least one groups for the heatmap.", type = "error")
+          return()  # Stop execution
+        }
+        # Filter seq_subset and data_subset by selected groups
+        selected_groups_kmeans <- input$selected_groups_kmeans
+        message(paste0("Selected groups: ", paste(selected_groups_kmeans, collapse = ", ")))
+        pca_df <- pca_df[pca_df$group %in% selected_groups_kmeans, ]
+      }
+      
+      pca_df$group <- as.factor(pca_df$group)
+      
+      print(head(pca_df))
+      print(head(PC_df))
+
       # Check if pca_df is a valid data frame
       if (!is.null(pca_df) && is.data.frame(pca_df)) {
         # Call the kmeans_clustering function to get the results
@@ -1741,6 +1953,22 @@ shinyServer(function(session, input, output) {
       k <- input$num_clusters_hierarchical  # Number of clusters
       threshold <- input$threshold  # Dendrogram threshold
       
+      pca_df$group <- as.character(pca_df$group)
+      
+      if (input$select_groups_hierarchical) {
+        message(paste0("Enable grouping for groups: ", input$select_groups_hierarchical))
+        if (is.null(input$selected_groups_hierarchical) || length(input$selected_groups_hierarchical) < 1) {
+          showNotification("Select at least one groups for the hierarchical.", type = "error")
+          return()  # Stop execution
+        }
+        # Filter seq_subset and data_subset by selected groups
+        selected_groups_hierarchical <- input$selected_groups_hierarchical
+        message(paste0("Selected groups: ", paste(selected_groups_hierarchical, collapse = ", ")))
+        pca_df <- pca_df[pca_df$group %in% selected_groups_hierarchical, ]
+      }
+      
+      pca_df$group <- as.factor(pca_df$group)
+      
       # Debugging to show the parameters 
       # cat("Clustering method: ", method, "\n")
       # cat("Number of clusters: ", k, "\n")
@@ -1755,10 +1983,12 @@ shinyServer(function(session, input, output) {
         hierarchical_results$hclust_plot  # Pass the plotly object to renderPlotly
       })
       
+      # conf_matrix_plot <- perform_confusion_matrix(pca_df, seq_subset, method, k)
+      
       # Render the confusion matrix plot
-      output$conf_matrix_plot <- renderPlotly({
-        hierarchical_results$conf_matrix_plot  # Pass the plotly object to renderPlotly
-      })
+      # output$conf_matrix_plot <- renderPlotly({
+      #   conf_matrix_plot  # Pass the plotly object to renderPlotly
+      # })
       
       # Render the dendrogram plot
       output$dendrogram_plot <- renderPlotly({
@@ -1774,6 +2004,7 @@ shinyServer(function(session, input, output) {
       cat("No PCA results selected or available.\n")
     }
   })
+  # Run DBSCAN
   # DBSCAN Clustering
   observeEvent(input$compute_knn, {
     req(rv$pca_results[[input$dbscan_pca]])  # Ensure PCA data is loaded
@@ -1792,7 +2023,6 @@ shinyServer(function(session, input, output) {
       perform_kNN_dist_plot(pca_df, k)
     })
   })
-  # Run DBSCAN
   observeEvent(input$run_dbscan, {
     req(rv$pca_results[[input$dbscan_pca]])  # Ensure PCA data is loaded
     pca_data <- rv$pca_results[[input$dbscan_pca]]  # Fetch the selected PCA result (list)
@@ -1801,7 +2031,22 @@ shinyServer(function(session, input, output) {
     # in pca_df remove rows with QC in column group 
     pca_df <- pca_df[pca_df$group != "QC", ]
     
+    pca_df$group <- as.character(pca_df$group)
     
+    if (input$select_groups_hdbscan) {
+      message(paste0("Enable grouping for groups: ", input$select_groups_hdbscan))
+      if (is.null(input$selected_groups_hdbscan) || length(input$selected_groups_hdbscan) < 1) {
+        showNotification("Select at least one groups for the hdbscan.", type = "error")
+        return()  # Stop execution
+      }
+      # Filter seq_subset and data_subset by selected groups
+      selected_groups_hdbscan <- input$selected_groups_hdbscan
+      message(paste0("Selected groups: ", paste(selected_groups_hdbscan, collapse = ", ")))
+      pca_df <- pca_df[pca_df$group %in% selected_groups_hdbscan, ]
+    }
+    
+    pca_df$group <- as.factor(pca_df$group)
+
     eps <- input$eps
     min_pts <- input$min_pts_dbscan
     
@@ -1839,6 +2084,22 @@ shinyServer(function(session, input, output) {
     
     min_pts <- input$min_pts_hdbscan  # Minimum number of points for HDBSCAN
     threshold <- input$threshold_hdbscan  # Outlier threshold
+    
+    pca_df$group <- as.character(pca_df$group)
+    
+    if (input$select_groups_hdbscan) {
+      message(paste0("Enable grouping for groups: ", input$select_groups_hdbscan))
+      if (is.null(input$selected_groups_hdbscan) || length(input$selected_groups_hdbscan) < 1) {
+        showNotification("Select at least one groups for the hdbscan.", type = "error")
+        return()  # Stop execution
+      }
+      # Filter seq_subset and data_subset by selected groups
+      selected_groups_hdbscan <- input$selected_groups_hdbscan
+      message(paste0("Selected groups: ", paste(selected_groups_hdbscan, collapse = ", ")))
+      pca_df <- pca_df[pca_df$group %in% selected_groups_hdbscan, ]
+    }
+    
+    pca_df$group <- as.factor(pca_df$group)
     
     # Debug print
     # print(paste("Running HDBSCAN with minPts =", min_pts))
@@ -1882,6 +2143,22 @@ shinyServer(function(session, input, output) {
     eps <- if (is.na(input$eps_optics)) NULL else input$eps_optics
     eps_cl <- input$eps_cl_optics
     
+    pca_df$group <- as.character(pca_df$group)
+    
+    if (input$select_groups_optics) {
+      message(paste0("Enable grouping for groups: ", input$select_groups_optics))
+      if (is.null(input$selected_groups_optics) || length(input$selected_groups_optics) < 1) {
+        showNotification("Select at least one groups for the optics.", type = "error")
+        return()  # Stop execution
+      }
+      # Filter seq_subset and data_subset by selected groups
+      selected_groups_optics <- input$selected_groups_optics
+      message(paste0("Selected groups: ", paste(selected_groups_optics, collapse = ", ")))
+      pca_df <- pca_df[pca_df$group %in% selected_groups_optics, ]
+    }
+    
+    pca_df$group <- as.factor(pca_df$group)
+    
     # print(paste("Running OPTICS with minPts =", min_pts, ", eps =", eps, ", and eps_cl =", eps_cl))
     
     optics_res <- perform_optics_analysis(pca_df, eps, min_pts, eps_cl)
@@ -1916,6 +2193,22 @@ shinyServer(function(session, input, output) {
     threshold <- input$lof_threshold
     min_pts <- input$lof_k
     
+    pca_df$group <- as.character(pca_df$group)
+    
+    if (input$select_groups_lof) {
+      message(paste0("Enable grouping for groups: ", input$select_groups_lof))
+      if (is.null(input$selected_groups_lof) || length(input$selected_groups_lof) < 1) {
+        showNotification("Select at least one groups for the lof. ", type = "error")
+        return()  # Stop execution
+      }
+      # Filter seq_subset and data_subset by selected groups
+      selected_groups_lof <- input$selected_groups_lof
+      message(paste0("Selected groups: ", paste(selected_groups_lof, collapse = ", ")))
+      pca_df <- pca_df[pca_df$group %in% selected_groups_lof, ]
+    }
+    
+    pca_df$group <- as.factor(pca_df$group)
+    
     lof_res <- calculate_and_plot_lof(pca_df, threshold = threshold, minPts = min_pts)
     
     lof_plot <- lof_res$lof_plotly
@@ -1939,7 +2232,7 @@ shinyServer(function(session, input, output) {
   # Heatmap #
   ###########
   # Generate Heatmap
-  output$group_selection_ui <- renderUI({
+  output$group_selection_ui_heatmap <- renderUI({
     
     if (!is.null(rv$activeFile)) {
       if (input$select_heatmap_data == "Unsaved data") {
@@ -1952,20 +2245,95 @@ shinyServer(function(session, input, output) {
         seq <- rv$sequence[[sd]]  # Retrieve the selected sequence
       }
       
-      if (input$select_groups) {  # Only render if the checkbox is checked
+      if (input$select_groups_heatmap) {  # Only render if the checkbox is checked
         selectInput(
-          "selected_groups", 
+          "selected_groups_heatmap", 
           "Select Groups:", 
           choices = seq$group, 
           selected = seq$group[1],  # Default to the first group
           multiple = TRUE,          # Allow multiple selections
           width = "100%"
         )
-      }}
+      }
+    }
   })
+  output$grouping_column_ui <- renderUI({
+    if (!is.null(rv$activeFile)) {
+      if (input$select_heatmap_data == "Unsaved data") {
+        data <- rv$tmpData  # Use the temporary data
+        seq <- rv$tmpSequence  # Use the temporary sequence
+      } else {
+        # Get the index of the selected dataset
+        sd <- which(rv$choices %in% input$select_heatmap_data)
+        data <- rv$data[[sd]]  # Retrieve the selected dataset
+        seq <- rv$sequence[[sd]]  # Retrieve the selected sequence
+      }
+      
+      seq <- seq[!seq[, "labels"] %in% c("Sample", "QC"), ]  # Restrict rows to "Sample" and "QC"
+      data <- data[, rownames(seq), drop = FALSE]  # Use row names of seq to filter columns
+      
+      columns <- colnames(data)
+      
+      if ("super_class" %in% columns) {
+        default_column <- "super_class"
+      } else {
+        default_column <- columns[1]
+      }
+      
+      if (input$enable_grouping_heatmap) {  # Only render if the checkbox is checked
+        selectInput(
+          inputId = "group_column_heatmap",
+          label = "Select grouping column",
+          choices = columns,
+          selected = default_column, 
+          width = "100%"
+        )
+      }
+    }
+  })
+  
+  # Define the reactive value at the top of the server so it persists
+  savedDatasetNameHeatmap <- reactiveVal("My Heatmap")
+  # Observe the input for the heatmap title and update the reactive value
+  observe({
+    savedDatasetNameHeatmap(input$heatmap_title)
+    
+    output$displayName <- renderText({
+      paste("Current Heatmap Title:", savedDatasetNameHeatmap())
+    })
+    
+  })
+  
+  observeEvent({input$select_heatmap_data}, {
+    if (!is.null(rv$activeFile)) {
+      if (input$select_heatmap_data == "Unsaved data") {
+        data <- rv$tmpData  # Use the temporary data
+        seq <- rv$tmpSequence  # Use the temporary sequence
+      } else {
+        # Get the index of the selected dataset
+        sd <- which(rv$choices %in% input$select_heatmap_data)
+        data <- rv$data[[sd]]  # Retrieve the selected dataset
+        seq <- rv$sequence[[sd]]  # Retrieve the selected sequence
+      }
+      
+      # TODO crazes the example file
+      # seq <- seq[!seq[, "labels"] %in% c("Sample", "QC"), ] 
+      # data_sub <- data[, rownames(seq), drop = FALSE]  # Use row names of seq to filter columns
+      
+      # # Extract column names from the selected dataset
+      data_colnames <- colnames(data) # Substitude with data_sub
+      columns <- c("heatmap_labels")
+      for (column in columns) {
+        # Update the 'identifier_column' select input with the new choices
+        updateSelectInput(session, column, choices = data_colnames)
+      }
+    }
+  })
+  
   observeEvent(input$run_heatmap, {
     # Ensure a dataset is selected
-    req(input$select_heatmap_data)
+    req(input$select_heatmap_data,
+        input$heatmap_labels)
     
     if (!is.null(rv$activeFile)) {
       if (input$select_heatmap_data == "Unsaved data") {
@@ -1976,7 +2344,7 @@ shinyServer(function(session, input, output) {
         sd <- which(rv$choices %in% input$select_heatmap_data)
         data <- rv$data[[sd]]  # Retrieve the selected dataset
         seq <- rv$sequence[[sd]]  # Retrieve the selected sequence
-        dataset_name <- names(rv$data)[sd]  # Retrieve dataset name
+        # dataset_name <- names(rv$data)[sd]  # Retrieve dataset name
       }
       
       # Subset data for "Sample" labels
@@ -1984,20 +2352,52 @@ shinyServer(function(session, input, output) {
       data_subset <- data[, rownames(seq_subset), drop = FALSE]  # Use row names of seq_subset to filter columns
       
       # Check group selection
-      if (input$select_groups) {
-        if (is.null(input$selected_groups) || length(input$selected_groups) < 2) {
+      if (input$select_groups_heatmap) {
+        if (is.null(input$selected_groups_heatmap) || length(input$selected_groups_heatmap) < 2) {
           showNotification("Please select at least two groups for the heatmap.", type = "error")
           return()  # Stop execution
         }
         # Filter seq_subset and data_subset by selected groups
-        selected_groups <- input$selected_groups
-        seq_subset <- seq_subset[seq_subset$group %in% selected_groups, ]
+        selected_groups_heatmap <- input$selected_groups_heatmap
+        seq_subset <- seq_subset[seq_subset$group %in% selected_groups_heatmap, ]
         data_subset <- data[, rownames(seq_subset), drop = FALSE]  # Subset columns by rownames of seq_subset
       }
       
-      # check if the data$Name names are unique else append "(1), (2), ..." to duplicated name
-      data$Name <- make.unique(data$Name)
-      rownames(data_subset) <- data$Name  # Assign row names for data_subset
+      
+      enable_groups <- input$enable_grouping_heatmap
+      groups <- input$group_column_heatmap
+      show_column_names <- input$show_column_names
+      show_row_names <- input$show_row_names
+      cluster_rows <- input$cluster_rows
+      show_row_dend <- input$show_row_dend
+      labels <- input$heatmap_labels
+      clustering_distance_rows <- input$clustering_distance_rows
+      clustering_method_rows <- input$clustering_method_rows
+      
+      message(paste0("Heatmap labels column: ", labels))
+      
+      message(paste0("Enable grouping: ", enable_groups))
+      if (enable_groups) {
+        message(paste0("Grouping column selected: ", groups))
+      }
+      
+      
+      selected_labels <- as.character(data[[labels]])
+      fallback <- if ("Name" %in% colnames(data)) {
+        as.character(data[["Name"]])
+      } else if ("name" %in% colnames(data)) {
+        as.character(data[["name"]])
+      } else {
+        NULL
+      }
+      if (is.null(fallback)) {
+        showNotification("No fallback column ('Name' or 'name') available.", type = "error")
+        return()
+      }
+      missing <- is.na(selected_labels) | selected_labels == ""
+      selected_labels[missing] <- fallback[missing]
+      rownames(data_subset) <- make.unique(selected_labels)
+      rownames(data) <- make.unique(selected_labels) 
       
       TOP_X <- as.numeric(input$top_x)
       if (is.na(TOP_X) || TOP_X < 1) {
@@ -2010,25 +2410,26 @@ shinyServer(function(session, input, output) {
         return()
       }
       
-      show_column_names <- input$show_column_names
-      show_row_names <- input$show_row_names
-      cluster_rows <- input$cluster_rows
-      show_row_dend <- input$show_row_dend
-      
-      # Log selected groups for debugging
-      print(paste("Selected groups:", paste(unique(seq_subset$group), collapse = ", ")))
-      print(head(seq_subset))
-      print(head(data_subset, 1))
-      
       # Generate the heatmap
-      heatmap_plot <- plot_heatmap(data_subset, seq_subset, TOP_X, dataset_name)
+      result <- plot_heatmap(data_subset, data, seq_subset, TOP_X, savedDatasetNameHeatmap(),
+                                   clustering_distance_rows, clustering_method_rows, 
+                                   show_column_names, show_row_names, cluster_rows,
+                                   show_row_dend, labels, enable_groups, groups)
       
-      # Render the heatmap plot using renderPlot and draw()
+      heatmap_plot <- result$heatmap
+      top_stats <- result$top_stats
+      
+      # Render the heatmap
       output$heatmap_plot <- renderPlot({
         if (!is.null(heatmap_plot)) {
           draw(heatmap_plot)
         }
       }, height = 600)
+      
+      # Render the table of top features
+      output$heatmap_table <- DT::renderDataTable({
+        DT::datatable(top_stats, options = list(pageLength = 10))
+      })
       
       
       message(sample(quotes, 1))
@@ -2040,6 +2441,7 @@ shinyServer(function(session, input, output) {
   # Volcano #
   ###########
   # Generate Volcano Plot
+  
   observeEvent(input$select_volcano_data, {
     req(input$select_volcano_data) # Ensure a dataset is selected
     
@@ -2063,6 +2465,198 @@ shinyServer(function(session, input, output) {
       }
     }
   })
+  # Define the reactive value at the top of the server so it persists
+  savedDatasetNameVolcano <- reactiveVal("My Volcano Plot")
+  # Observe the input for the volcano title and update the reactive value
+  observe({
+    savedDatasetNameVolcano(input$volcano_title)
+    
+    output$displayName <- renderText({
+      paste("Current Heatmap Title:", savedDatasetNameVolcano())
+    })
+  })
+  
+  output$feature_selection_ui_volcano <- renderUI({
+    if (!input$enable_feature_selection) return(NULL)  # Only show if checkbox is checked
+    req(input$select_volcano_data)  # Ensure a dataset is selected
+    
+    if (!is.null(rv$activeFile)) {
+      if (input$select_volcano_data == "Unsaved data") {
+        data <- rv$tmpData  # Use the temporary data
+        seq <- rv$tmpSequence  # Use the temporary sequence
+      } else {
+        # Get the index of the selected dataset
+        sd <- which(rv$choices %in% input$select_volcano_data)
+        data <- rv$data[[sd]]  # Retrieve the selected dataset
+        seq <- rv$sequence[[sd]]  # Retrieve the selected sequence
+      }
+      
+      # Filter sequence to include only "Sample" rows
+      seq <- seq[!seq[, "labels"] %in% c("Sample", "QC"), ]
+      data <- data[, rownames(seq), drop = FALSE]  # Filter data based on seq row names
+      
+      columns <- colnames(data)  # Extract column names
+      
+      default_val <- if ("refmet_name" %in% columns) {
+        "refmet_name"
+      } else {
+        columns[1]  # Default to first column if "refmet_name" is not found
+      }
+      
+      # **Fix: Wrap in `tagList()` so both UI elements render correctly**
+      tagList(
+        selectInput(
+          "volcano_feature_column",  # Input ID for selecting feature column
+          "Select Feature Column:",
+          choices = columns,
+          selected = default_val,
+          width = "100%"
+        ),
+        
+        selectizeInput(
+          "selected_features_volcano",
+          "Select Features:",
+          choices = NULL,  # Choices will be updated dynamically
+          multiple = TRUE,
+          options = list(
+            placeholder = "Search & Select Features",
+            maxOptions = 100  # Show only 100 at a time
+          )
+        )
+      )
+    }
+  })
+  observeEvent(input$volcano_feature_column, {
+    req(input$volcano_feature_column, input$select_volcano_data)  # Ensure valid inputs
+    
+    if (!is.null(rv$activeFile)) {
+      if (input$select_volcano_data == "Unsaved data") {
+        data <- rv$tmpData
+      } else {
+        sd <- which(rv$choices %in% input$select_volcano_data)
+        data <- rv$data[[sd]]
+      }
+      
+      # Get the unique feature names from the selected column
+      feature_choices <- unique(data[[input$volcano_feature_column]])
+      
+      updateSelectizeInput(
+        session,
+        "selected_features_volcano",
+        choices = feature_choices,
+        selected = NULL,  # Reset selection
+        server = TRUE  # **Enable Server-Side Processing**
+      )
+    }
+  })
+  
+  output$group_selection_ui_volcano <- renderUI({
+    if (!input$enable_group_selection) return(NULL)
+    req(input$select_volcano_data)
+    
+    # Retrieve data (this example is based on your existing code)
+    if (!is.null(rv$activeFile)) {
+      if (input$select_volcano_data == "Unsaved data") {
+        data <- rv$tmpData  
+        seq <- rv$tmpSequence  
+      } else {
+        sd <- which(rv$choices %in% input$select_volcano_data)
+        data <- rv$data[[sd]]
+        seq <- rv$sequence[[sd]]
+      }
+      
+      seq <- seq[!seq[, "labels"] %in% c("Sample", "QC"), ]
+      data <- data[, rownames(seq), drop = FALSE]
+      columns <- colnames(data)
+      
+      default_val <- if ("sub_class" %in% columns) {
+        "sub_class"
+      } else if ("lipid_group" %in% columns) {
+        "lipid_group"
+      } else {
+        columns[1]
+      }
+    }
+    
+    tagList(
+      selectInput(
+        "volcano_group_column",
+        "Select Group Column:",
+        choices = columns,
+        selected = default_val,
+        width = "100%"
+      ),
+      selectizeInput(
+        "selected_group_volcano",
+        "Select Group:",
+        choices = NULL,
+        multiple = TRUE,
+        options = list(placeholder = "Search & Select Groups")
+      )
+    )
+  })
+  output$group_color_ui <- renderUI({
+    # Only show if group selection is enabled and at least one group is selected
+    if (!input$enable_group_selection) return(NULL)
+    req(input$selected_group_volcano)
+    
+    selected_groups <- input$selected_group_volcano
+    
+    # For each selected group, create two colourInput widgets:
+    ui_list <- lapply(seq_along(selected_groups), function(i) {
+      grp <- selected_groups[i]
+      tagList(
+        h4(paste("Group:", grp)),
+        fluidRow(
+          column(
+            width = 6,
+            colourInput(
+              inputId = paste0("color_", grp, "_fill"),
+              label = "Fill:",
+              value = "green"  # Default fill color
+            )
+          ),
+          column(
+            width = 6,
+            colourInput(
+              inputId = paste0("color_", grp, "_outline"),
+              label = "Outline:",
+              value = "darkgreen"  # Default outline color
+            )
+          )
+        )
+      )
+    })
+    
+    tagList(ui_list)
+  })
+  observeEvent(input$volcano_group_column, {
+    req(input$volcano_group_column, input$select_volcano_data)  # Ensure valid inputs
+    
+    if (!is.null(rv$activeFile)) {
+      if (input$select_volcano_data == "Unsaved data") {
+        data <- rv$tmpData
+      } else {
+        sd <- which(rv$choices %in% input$select_volcano_data)
+        data <- rv$data[[sd]]
+      }
+      
+      # Ensure the selected column exists in data before accessing it
+      if (!input$volcano_group_column %in% colnames(data)) return()
+      
+      unique_groups <- unique(data[[input$volcano_group_column]])
+      
+      updateSelectizeInput(
+        session,
+        "selected_group_volcano",
+        choices = unique_groups,
+        selected = NULL,  # Reset selection
+        server = TRUE  # Enable server-side processing for large lists
+      )
+      
+    }
+  })
+  
   observeEvent(input$run_volcano_plot, {
     req(
       input$select_volcano_data,
@@ -2096,6 +2690,15 @@ shinyServer(function(session, input, output) {
       numerator <- input$group1_vol
       denominator <- input$group2_vol
       
+      # make an error check that numerator and denominator are not the same
+      if (numerator == denominator) {
+        showNotification(
+          "The numerator and denominator groups must be different!",
+          type = "warning"
+        )
+        return(NULL) # return from the function/observe and don't proceed
+      }
+      
       log2FC_tresh <- input$log2fc_threshold
       pval_tresh <- input$pval_threshold
       
@@ -2106,6 +2709,8 @@ shinyServer(function(session, input, output) {
       fill_ns <- input$color_ns_fill
       outline_ns <- input$color_ns_outline
       
+      show_legend <- input$show_legend_volcano
+      
       
       print(paste0("dataset_name: ", dataset_name))
       print(paste0("label column: ", label_column))
@@ -2113,22 +2718,105 @@ shinyServer(function(session, input, output) {
       print(paste0("denominator: ", denominator))
       print(paste0("log2FC_tresh: ", log2FC_tresh))
       print(paste0("pval_tresh: ", pval_tresh))
+      print(paste0("show legend: ", show_legend))
+      
+      enable_feature_selection <- input$enable_feature_selection
+      print("Feature Selection Enabled:")
+      print(enable_feature_selection)
+      available_features <- input$selected_features_volcano
+      print("Available Features:")
+      print(available_features)
+      
+      enable_group_selection <- input$enable_group_selection
+      print("Group Selection Enabled:")
+      print(enable_group_selection)
+      available_groups <- input$selected_group_volcano
+      print("Available Groups:")
+      print(available_groups)
+      
+      if (input$enable_group_selection && !is.null(input$selected_group_volcano)) {
+        selected_groups <- input$selected_group_volcano
+        group_color_df <- do.call(rbind, lapply(selected_groups, function(grp) {
+          data.frame(
+            Group   = grp,
+            Fill    = input[[paste0("color_", grp, "_fill")]],
+            Outline = input[[paste0("color_", grp, "_outline")]],
+            stringsAsFactors = FALSE
+          )
+        }))
+        
+        # Now you have a data frame mapping each group to its fill and outline colors.
+        print(group_color_df)
+      }
+      
+      if (enable_feature_selection) {
+        if (length(available_features) == 0) {
+          showNotification(
+            "Select at least one feature for the volcano plot.",
+            type = "warning"
+          )
+          return(NULL)  # Stop execution if no features are selected
+        }
+        
+        showNotification("This feature is of limited use and may not work as expected. ",
+                 "As of 5/3-2025 this feature is still under development.", type = "message")
+        
+        # **Check if feature column exists**
+        if (input$volcano_feature_column %in% colnames(data)) {
+          # **Filter data to include only selected features**
+          feature_sub <- data[data[[input$volcano_feature_column]] %in% available_features, , drop = FALSE]
+          
+          # **Print only the first few rows of the selected feature subset**
+          print("Subset of Selected Features:")
+          print(head(feature_sub,2))
+        } else {
+          showNotification("Feature column not found in dataset.", type = "error")
+        }
+      }
+      
+      if (enable_group_selection) {
+        if (length(available_groups) == 0) {
+          showNotification(
+            "Select at least one group for the volcano plot.",
+            type = "warning"
+          )
+          return(NULL)  # Stop execution if no groups are selected
+        }
+        
+        # **Check if group column exists**
+        if (input$volcano_group_column %in% colnames(data)) {
+          # **Filter data to include only selected groups**
+          group_sub <- data[data[[input$volcano_group_column]] %in% available_groups, , drop = FALSE]
+          
+          # **Print only the first few rows of the selected group subset**
+          print("Subset of Selected Groups:")
+          print(head(group_sub,2))
+        } else {
+          showNotification("Group column not found in dataset.", type = "error")
+        }
+      }
       
       seq_subset <- seq[seq[, "labels"] %in% c("Sample"), ]  # Restrict to "Sample" rows
       data_subset <- data[, c(rownames(seq_subset)), drop = FALSE]  # Use row names of seq_subset to filter columns
       
-      # make a check that data[,label_column] are unique else return error
-      # if (length(unique(data[, label_column])) != length(data[, label_column])) {
-      #   showNotification(
-      #     paste0("The column selected (", label_column , ") for feature labels is not unique!"),
-      #     type = "warning",   # "message", "warning", or "error"
-      #     duration = NULL     # or a specific number of seconds to show
-      #   )
-      #   return(NULL) # return from the function/observe and don't proceed
-      # }
+      selected_labels <- as.character(data[[label_column]])
+      fallback <- if ("Name" %in% colnames(data)) {
+        as.character(data[["Name"]])
+      } else if ("name" %in% colnames(data)) {
+        as.character(data[["name"]])
+      } else {
+        NULL
+      }
+      if (is.null(fallback)) {
+        showNotification("No fallback column ('Name' or 'name') available.", type = "error")
+        return()
+      }
+      missing <- is.na(selected_labels) | selected_labels == ""
+      selected_labels[missing] <- fallback[missing]
+      rownames(data_subset) <- make.unique(selected_labels)
+      rownames(data) <- make.unique(selected_labels)
       
-      
-      rownames(data_subset) <- make.unique(as.character(data[, label_column])) # Make the rownames unique
+      # print(head(data_subset[,1:5]))
       
       stat_results <- calculate_stats(data_subset, seq_subset)
       
@@ -2156,36 +2844,57 @@ shinyServer(function(session, input, output) {
         sub_df <- data.frame()
       }
       
+      data <- data %>%
+        rownames_to_column("Feature_ID")
+      
+      sub_df <- sub_df %>%
+        rownames_to_column("Feature_ID") %>%
+        relocate(Feature_ID, .before = "Contrast")
+      
+      # make the rownames as the rownames of the sub_df
+      rownames(sub_df) <- sub_df$Feature_ID
+      sub_df$Feature_ID <- gsub("^[^.]+\\.", "", sub_df$Feature_ID)
+      
+      if (input$enable_group_selection) {
+        sub_df <- sub_df %>%
+          left_join(
+            data %>% select(Feature_ID, !!sym(input$volcano_group_column)),
+            by = "Feature_ID"
+          ) %>%
+          rename(Group = !!sym(input$volcano_group_column)) %>%
+          relocate(Group, .before = "Contrast")
+      }
+      
       print(head(sub_df))
       
       # assign the sub_df a name for debugging
       volcano_df_name <- paste0(dataset_name, "_volcano_df")
       assign(volcano_df_name, sub_df)
       
-      vlcn <- pretty_volcano_plot(sub_df,volcano_df_name,
+      vlcn <- pretty_volcano_plot(sub_df,savedDatasetNameVolcano(),
                                   log2FC_tresh, pval_tresh,
                                   fill_up, outline_up,
                                   fill_down, outline_down,
-                                  fill_ns, outline_ns)
+                                  fill_ns, outline_ns,
+                                  enable_feature_selection, enable_group_selection,
+                                  available_features, available_groups,
+                                  group_color_df)
       
       output$volcano_plot <- renderPlotly({
-        vlcn
+        vlcn$plot
+      })
+      
+      # Render the table of top features
+      output$volcano_table <- DT::renderDataTable({
+        DT::datatable(vlcn$df, 
+                      rownames = FALSE,
+                      options = list(scrollX = TRUE,
+                                     pageLength = 20,
+                                     autoWidth = TRUE))
       })
       
       message(sample(quotes, 1))
-      # Output the data table of upregulated/downregulated features
-      # output$volcano_table <- renderDT({
-      #   up_down_regulated <- volcano_df %>%
-      #     filter(
-      #       (`p adj` < pval_threshold & Log2FC > log2fc_threshold) |
-      #         (`p adj` < pval_threshold & Log2FC < -log2fc_threshold)
-      #     ) %>%
-      #     select(Metabolite, Comparison, `p adj`, Log2FC) 
-      #   
-      #   datatable(up_down_regulated, options = list(pageLength = 20, autoWidth = TRUE))
-      # })
     }
-    
   })
   
   ######################
@@ -3990,7 +4699,7 @@ shinyServer(function(session, input, output) {
       })
       
       # Shows which groups is selected for the logFC calculation in the 'Heatmap visualization' tab.
-      output$selected_groups_text <- renderUI({
+      output$selected_groups_heatmap_text <- renderUI({
         req(input$selected_group_for_numerator, input$selected_group_for_denominator)
         withMathJax(HTML(paste0(
           "<p>Data being compared is:</p>",
@@ -4321,8 +5030,10 @@ shinyServer(function(session, input, output) {
       
       columns <- colnames(dat)
       column_inputs <- c("identifier_column_refmet",
+                         "name_column_lipids",
                          "name_column_cirbar",
-                         "group_column_cirbar")
+                         "group_column_cirbar",
+                         "group_column_heatmap")
       
       for (x in column_inputs) {
         if (grepl("identifier_column_refmet", x)) {
@@ -4331,6 +5042,9 @@ shinyServer(function(session, input, output) {
         } else if (grepl("group_column_cirbar", x)) {
           default_val <- if ("super_class" %in% columns) "super_class" else ""
           updateSelectInput(session, x, label = NULL, choices = columns, selected = default_val)
+        # } else if (grepl("group_column_heatmap", x)) {
+        #   default_val <- if ("super_class" %in% columns) "super_class" else ""
+        #   updateSelectInput(session, x, label = NULL, choices = columns, selected = default_val)
         } else {
           default_val <- if ("Original annotation" %in% columns) "Original annotation" else ""
           updateSelectInput(session, x, label = NULL, choices = columns, selected = default_val)

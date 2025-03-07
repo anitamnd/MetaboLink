@@ -7,7 +7,7 @@
 # library(fpc)
 # library(plotly)
 # library(factoextra)
-# library(caret)
+library(caret)
 # library(ggdendro)
 # library(reshape2)
 # library(car)
@@ -79,34 +79,52 @@ kmeans_clustering <- function(pca_df, k, percentile_threshold, PC_df) {
     Cluster = factor(cluster_labels),
     Category = ifelse(distances > threshold_value, "Outlier", "Inlier"))
   
-  # print(head(kmeans_df))
+  # Correctly define ClusterCategory without duplicate concatenation
+  kmeans_df$ClusterCategory <- paste0("Cluster ", kmeans_df$Cluster, ":", kmeans_df$Category)
   
-  col <- colorRampPalette(RColorBrewer::brewer.pal(8, "Set1"))(length(unique(kmeans_df$Cluster)))
+  col <- colorRampPalette(RColorBrewer::brewer.pal(8, "Set1"))(length(unique(kmeans_df$ClusterCategory)))
   
+  print(head(kmeans_df))
   # Plot with hover text including rownames
   # Creating the kmeans_plot with hover text
-  kmeans_plot <- ggplot(kmeans_df, aes(x = PC1, y = PC2, color = Cluster, shape = Category)) +
-    geom_point(aes(text = paste("Sample: ", rownames(kmeans_df),
+  kmeans_plot <- ggplot() +
+    geom_point(data = kmeans_df,  # ✅ Explicitly define data
+               aes(x = PC1,
+                   y = PC2,
+                   color = ClusterCategory,
+                   shape = Category,
+                   text = paste("Sample: ", rownames(kmeans_df),
                                 "<br>Cluster: ", Cluster,
                                 "<br>Category: ", Category,
                                 "<br>PC1: ", round(PC1, 2),
-                                "<br>PC2: ", round(PC2, 2))), size = 2) +
+                                "<br>PC2: ", round(PC2, 2))),
+               size = 2) +
+    
+    # Centroid points (DO NOT add to legend)
     geom_point(data = as.data.frame(centroids),
-               aes(text = paste("Cluster centroid: ", 1:k,
-                                "<br>Centroid PC1: ", round(PC1, 2),
-                                "<br>Centroid PC2: ", round(PC2, 2)),
-                   x = PC1, y = PC2), color = col, size = 2, shape = 4) +
+               aes(x = PC1, y = PC2),
+               color = "black", size = 3, shape = 4, 
+               show.legend = FALSE) +  # ✅ Remove centroids from legend
+    
+    # Fix legend label issues
     labs(title = "K-means Clustering with Outlier Detection",
          x = paste0("PC1 (", round(PC_df[1,2], 2), "% explained var.)"),
-         y = paste0("PC2 (", round(PC_df[1,2], 2), "% explained var.)")) +
+         y = paste0("PC2 (", round(PC_df[1,2], 2), "% explained var.)"),
+         color = "Cluster Groups") +  # Custom legend title
+    
     theme_bw() +
-    scale_color_manual(values = col) +
+    
+    # Prevent ggplot from merging legend labels
+    scale_color_manual(values = col, breaks = levels(kmeans_df$ClusterCategory)) +
+    
     scale_shape_manual(values = c("Inlier" = 16, "Outlier" = 17))
+  
   # Convert ggplot to plotly for interactive hover tooltips
   kmeans_plot_plotly <- ggplotly(kmeans_plot, tooltip = "text")
   
   return(list(kmeans_df = kmeans_df,
               kmeans_plotly = kmeans_plot_plotly))
+  
 }
 
 #### Hierarchical clustering ----
@@ -157,7 +175,8 @@ perform_hierarchical_clustering <- function(pca_df, sequence, method = "complete
   
   # Create hierarchical clustering dendrogram plot
   hc_plot <- ggplot(dendro_data$segments) +
-    geom_segment(aes(x = x, y = y, xend = xend, yend = yend)) +
+    geom_segment(aes(x = x, y = y, xend = xend, yend = yend)) +  # Draw dendrogram
+    geom_hline(yintercept = threshold, linetype = "dashed", color = "red", size = 1) +  # 🔥 Add horizontal line
     theme_bw() +
     labs(title = paste("Hierarchical Clustering -", method, "method"),
          x = "Data Points", 
@@ -195,7 +214,6 @@ perform_hierarchical_clustering <- function(pca_df, sequence, method = "complete
     hierarchical_outliers = hc_outliers))
 }
 
-
 # Function for confusion matrix plot
 perform_confusion_matrix <- function(pca_df, sequence, method = "complete", k = 3) {
   data_dist <- dist(pca_df[, c("PC1", "PC2")])
@@ -231,7 +249,6 @@ perform_confusion_matrix <- function(pca_df, sequence, method = "complete", k = 
   ggplotly(cm_plot)
 }
 
-
 # Dendrogram Function
 perform_dendrogram <- function(pca_df, sequence, method = "complete", threshold) {
   data_dist <- dist(pca_df[, c("PC1", "PC2")])
@@ -246,7 +263,7 @@ perform_dendrogram <- function(pca_df, sequence, method = "complete", threshold)
   dend_plot <- ggplot() + 
     geom_segment(data = dendro_data$segments, aes(x = x, y = y, xend = xend, yend = yend, color = highlight)) +
     scale_color_manual(values = c("TRUE" = "red", "FALSE" = "black"), guide = "none") +  # Red color for outliers
-    geom_text(data = dendro_data$labels, aes(x = x, y = y, label = label), hjust = 1, angle = 45, size = 3) +
+    geom_text(data = dendro_data$labels, aes(x = x, y = y, label = label), hjust = 1, angle = 45, linewidth = 3) +
     scale_x_continuous(breaks = NULL) + # Remove numeric x-axis values
     theme_bw() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1),
@@ -446,15 +463,20 @@ perform_optics_analysis <- function(pca_df, eps, min_pts, eps_cl, custom_colors)
 calculate_and_plot_lof <- function(pca_df, threshold = 1, minPts = 4) {
   
   pca_df$LOF <- lof(pca_df[, c("PC1", "PC2")], minPts = minPts)
-  lof_plot <- ggplot(pca_df, aes(x = reorder(sample, LOF), y = LOF)) +
-    geom_line() +
-    geom_point(shape = 19, col = "steelblue") +
+  # Categorize points based on LOF threshold
+  pca_df$Category <- ifelse(pca_df$LOF > threshold, "Outlier", "Inlier")
+  
+  # Plot LOF scores with category-based coloring
+  lof_plot <- ggplot(pca_df, aes(x = reorder(sample, LOF), y = LOF, color = Category)) +
+    geom_line(color = "black") +  # Keep lines black
+    geom_point(shape = 19, size = 3) +  # Use category-based coloring
+    scale_color_manual(values = c("Inlier" = "steelblue", "Outlier" = "red")) +
     labs(x = "Sample", y = "LOF", title = "Local Outlier Factor (LOF) Scores") +
+    geom_hline(yintercept = threshold, linetype = "dotdash", color = "green") +  # Threshold line
+    geom_hline(yintercept = 1, linetype = "dashed", color = "red") +  # Baseline at LOF=1
     theme_bw() +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
   lof_plotly <- ggplotly(lof_plot)
-  
-  pca_df$Category <- ifelse(pca_df$LOF > threshold, "Outlier", "Inlier")
   lof_od_plot <- ggplot(pca_df, aes(x = PC1, y = PC2, text = sample, color = Category)) +
     geom_point() +
     scale_color_manual(values = c("Inlier" = "blue", "Outlier" = "red")) +

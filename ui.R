@@ -351,6 +351,15 @@ shinyUI(dashboardPage(
             ),
             
             box(
+              column(
+                width = 6,
+                selectInput("name_column_lipids", "Select Lipid Name Column", choices = NULL, width = "100%")
+              ),
+              width = NULL, title = "Clean Lipid Names",
+              actionButton("cleanedLipidGroup", "Clean", width = "50%")
+            ),
+            
+            box(
               width = NULL, title = "Edit data columns",
               actionButton("editColumns", "Edit", width = "50%")
             ),
@@ -482,149 +491,516 @@ shinyUI(dashboardPage(
             ),
             tabPanel("Outlier Detection",
                      tabsetPanel(
+                       # K-means Tab
                        tabPanel("K-means",
+                                # Row 1: Information
                                 fluidRow(
-                                  column(12, box(width = NULL, title = "K-means Analysis",
-                                                 tagList(
-                                                   list(
-                                                     tags$li("Add information regarding K-means analysis here.")))))),
-                                # Make a dropdown to select the PCA results from the reactive values 
-                                selectInput("kmeans_pca", "Choose PCA Results:", choices = NULL),
-                                # With the selected PCA results, make a drowdown to select the evaluation method
-                                selectInput("kmeans_eval_method", "Choose Evaluation Method:",  # Dropdown to select evaluation method for K-means
-                                            choices = c("Within Sum of Square (WSS)" = "wss",
-                                                        "Silhouette" = "silhouette",
-                                                        "Gap Statistic" = "gap_stat")),
-                                actionButton("compute_kmeans_eval", "Compute Evaluation"),      # Button to compute K-means evaluation
-                                plotlyOutput("kmeans_eval_plot"),                                # Output for K-means evaluation plot
-                                numericInput("num_clusters", "Number of Clusters (k):", value = 3, min = 1, step = 1),  # Input for number of clusters
-                                numericInput("percentile_threshold", "Percentile Threshold:", value = 95, min = 0, max = 100, step = 1), # Input for percentile threshold
-                                actionButton("run_kmeans", "Run K-means"),                      # Button to run K-means
-                                plotlyOutput("kmeans_plot"),                                    # Output for K-means plot
-                                DTOutput("kmeans_outliers")                                    # Output for K-means outliers table
+                                  column(
+                                    width = 12,
+                                    box(
+                                      width = NULL,
+                                      title = "K-means Analysis Information",
+                                      status = "info",
+                                      solidHeader = TRUE,
+                                      collapsible = FALSE,
+                                      tagList(
+                                        tags$ul(
+                                          tags$li("Add information regarding K-means analysis here.")
+                                        )
+                                      )
+                                    )
+                                  )
+                                ),
+                                # Row 2: Selection and Parameters
+                                fluidRow(
+                                  column(
+                                    width = 6,
+                                    box(
+                                      width = 12,
+                                      title = "Data & Evaluation Selection",
+                                      status = "primary",
+                                      solidHeader = TRUE,
+                                      collapsible = FALSE,
+                                      selectInput("kmeans_pca", "Choose PCA Results:", choices = NULL),
+                                      # Group Selection Checkbox
+                                      checkboxInput(
+                                        inputId = "select_groups_kmeans",
+                                        label = "Select Specific Groups",
+                                        value = FALSE
+                                      ),
+                                      uiOutput("group_selection_ui_kmeans"),
+                                      selectInput("kmeans_eval_method", "Choose Evaluation Method:",
+                                                  choices = c("Within Sum of Square (WSS)" = "wss",
+                                                              "Silhouette" = "silhouette",
+                                                              "Gap Statistic" = "gap_stat")),
+                                      actionButton("compute_kmeans_eval", "Compute Evaluation", width = "100%")
+                                    )
+                                  ),
+                                  column(
+                                    width = 6,
+                                    box(
+                                      width = 12,
+                                      title = "K-means Parameters",
+                                      status = "primary",
+                                      solidHeader = TRUE,
+                                      collapsible = FALSE,
+                                      numericInput("num_clusters", "Number of Clusters (k):", value = 3, min = 1, step = 1),
+                                      numericInput("percentile_threshold", "Percentile Threshold:", value = 95, min = 0, max = 100, step = 1),
+                                      actionButton("run_kmeans", "Run K-means", width = "100%")
+                                    )
+                                  )
+                                ),
+                                # Row 3: Results
+                                fluidRow(
+                                  column(
+                                    width = 12,
+                                    box(
+                                      width = NULL,
+                                      title = "K-means Results",
+                                      status = "primary",
+                                      solidHeader = TRUE,
+                                      collapsible = FALSE,
+                                      plotlyOutput("kmeans_eval_plot") %>% withSpinner(color="steelblue"),
+                                      br(),
+                                      plotlyOutput("kmeans_plot") %>% withSpinner(color="steelblue"),
+                                      DTOutput("kmeans_outliers") %>% withSpinner(color="steelblue")
+                                    )
+                                  )
+                                )
                        ),
+                       
+                       # Hierarchical Clustering Tab
                        tabPanel("Hierarchical",
+                                # Row 1: Information
                                 fluidRow(
-                                  column(12, box(width = NULL, title = "Hierarchical Clustering Analysis",
-                                                 tagList(
-                                                   list(
-                                                     tags$li("Add information regarding Hierarchical analysis here.")))))),
-                                # Make a dropdown to select the PCA results from the reactive values 
-                                selectInput("hierarchical_pca", "Choose PCA Results:", choices = NULL),
-                                selectInput("clustering_method", "Select Clustering Method:",  # Dropdown to select clustering method
-                                            choices = c("Single" = "single",
-                                                        "Complete" = "complete",
-                                                        "Average" = "average",
-                                                        "Ward's D2" = "ward.D2")),
-                                numericInput("num_clusters_hierarchical", "Number of Clusters (k):", value = 3, min = 1),  # Input for number of clusters
-                                numericInput("threshold", "Dendrogram Threshold (Distance):", value = 5, min = 0),  # Input for dendrogram threshold
-                                actionButton("run_hierarchical", "Run Hierarchical Clustering"),  # Button to run hierarchical clustering
-                                plotlyOutput("hclust_plot"),                                      # Output for hierarchical clustering plot
-                                plotlyOutput("conf_matrix_plot"),                                 # Output for confusion matrix plot
-                                plotlyOutput("dendrogram_plot"),                                  # Output for dendrogram plot
-                                DTOutput("hierarchical_outliers")                                # Output for hierarchical outliers table
+                                  column(
+                                    width = 12,
+                                    box(
+                                      width = NULL,
+                                      title = "Hierarchical Clustering Analysis Information",
+                                      status = "info",
+                                      solidHeader = TRUE,
+                                      collapsible = FALSE,
+                                      tagList(
+                                        tags$ul(
+                                          tags$li("Add information regarding Hierarchical analysis here.")
+                                        )
+                                      )
+                                    )
+                                  )
+                                ),
+                                # Row 2: Data and Parameters
+                                fluidRow(
+                                  column(
+                                    width = 6,
+                                    box(
+                                      width = 12,
+                                      title = "Data Selection",
+                                      status = "primary",
+                                      solidHeader = TRUE,
+                                      collapsible = FALSE,
+                                      selectInput("hierarchical_pca", "Choose PCA Results:", choices = NULL),
+                                      # Group Selection Checkbox
+                                      checkboxInput(
+                                        inputId = "select_groups_hierarchical",
+                                        label = "Select Specific Groups",
+                                        value = FALSE
+                                      ),
+                                      uiOutput("group_selection_ui_hierarchical")
+                                    )
+                                  ),
+                                  column(
+                                    width = 6,
+                                    box(
+                                      width = 12,
+                                      title = "Clustering Parameters",
+                                      status = "primary",
+                                      solidHeader = TRUE,
+                                      collapsible = FALSE,
+                                      selectInput("clustering_method", "Select Clustering Method:",
+                                                  choices = c("Single" = "single",
+                                                              "Complete" = "complete",
+                                                              "Average" = "average",
+                                                              "Ward's D2" = "ward.D2")),
+                                      numericInput("num_clusters_hierarchical", "Number of Clusters (k):", value = 3, min = 1),
+                                      numericInput("threshold", "Dendrogram Threshold (Distance):", value = 5, min = 0),
+                                      actionButton("run_hierarchical", "Run Hierarchical Clustering", width = "100%")
+                                    )
+                                  )
+                                ),
+                                # Row 3: Results
+                                fluidRow(
+                                  column(
+                                    width = 12,
+                                    box(
+                                      width = NULL,
+                                      title = "Hierarchical Results",
+                                      status = "primary",
+                                      solidHeader = TRUE,
+                                      collapsible = FALSE,
+                                      plotlyOutput("hclust_plot") %>% withSpinner(color="steelblue"),
+                                      # plotlyOutput("conf_matrix_plot") %>% withSpinner(color="steelblue"),
+                                      plotlyOutput("dendrogram_plot") %>% withSpinner(color="steelblue"),
+                                      DTOutput("hierarchical_outliers") %>% withSpinner(color="steelblue")
+                                    )
+                                  )
+                                )
                        ),
+                       
+                       # DBSCAN Tab
                        tabPanel("DBSCAN",
+                                # Row 1: Information
                                 fluidRow(
-                                  column(12, box(width = NULL, title = "Density-Based Spatial Clustering of Applications with Noise Analysis",
-                                                 tagList(
-                                                   list(
-                                                     tags$li("Add information regarding DBSCAN analysis here.")))))),
-                                # Make a dropdown to select the PCA results from the reactive values 
-                                selectInput("dbscan_pca", "Choose PCA Results:", choices = NULL),
-                                numericInput("knn", "Choose k for kNN Distance Plot:", value = 5, min = 1, step = 1),  # Input for k in kNN
-                                actionButton("compute_knn", "Compute kNN Distance Plot"),                   # Button to compute kNN distance plot
-                                plotlyOutput("knn_plot"),                                                    # Output for kNN plot
-                                numericInput("eps", "Choose epsilon for DBSCAN:", value = 3, min = 0.01, step = 0.1),  # Input for epsilon in DBSCAN
-                                numericInput("min_pts_dbscan", "Choose minPts for DBSCAN:", value = 5, min = 1),  # Input for minPts in DBSCAN
-                                actionButton("run_dbscan", "Run DBSCAN"),                                   # Button to run DBSCAN
-                                plotlyOutput("dbscan_plot"),                                                # Output for DBSCAN plot
-                                DTOutput("dbscan_outliers")                                                # Output for DBSCAN outliers table
+                                  column(
+                                    width = 12,
+                                    box(
+                                      width = NULL,
+                                      title = "DBSCAN Analysis Information",
+                                      status = "info",
+                                      solidHeader = TRUE,
+                                      collapsible = FALSE,
+                                      tagList(
+                                        tags$ul(
+                                          tags$li("Add information regarding DBSCAN analysis here.")
+                                        )
+                                      )
+                                    )
+                                  )
+                                ),
+                                # Row 2: Data and Parameters
+                                fluidRow(
+                                  column(
+                                    width = 6,
+                                    box(
+                                      width = 12,
+                                      title = "Data Selection",
+                                      status = "primary",
+                                      solidHeader = TRUE,
+                                      collapsible = FALSE,
+                                      selectInput("dbscan_pca", "Choose PCA Results:", choices = NULL),
+                                      # Group Selection Checkbox
+                                      checkboxInput(
+                                        inputId = "select_groups_dbscan",
+                                        label = "Select Specific Groups",
+                                        value = FALSE
+                                      ),
+                                      uiOutput("group_selection_ui_dbscan"),
+                                      numericInput("knn", "Choose k for kNN Distance Plot:", value = 5, min = 1, step = 1),
+                                      actionButton("compute_knn", "Compute kNN Distance Plot", width = "100%")
+                                    )
+                                  ),
+                                  column(
+                                    width = 6,
+                                    box(
+                                      width = 12,
+                                      title = "DBSCAN Parameters",
+                                      status = "primary",
+                                      solidHeader = TRUE,
+                                      collapsible = FALSE,
+                                      numericInput("eps", "Choose epsilon for DBSCAN:", value = 3, min = 0.01, step = 0.1),
+                                      numericInput("min_pts_dbscan", "Choose minPts for DBSCAN:", value = 5, min = 1),
+                                      actionButton("run_dbscan", "Run DBSCAN", width = "100%")
+                                    )
+                                  )
+                                ),
+                                # Row 3: Results
+                                fluidRow(
+                                  column(
+                                    width = 12,
+                                    box(
+                                      width = NULL,
+                                      title = "DBSCAN Results",
+                                      status = "primary",
+                                      solidHeader = TRUE,
+                                      collapsible = FALSE,
+                                      plotlyOutput("knn_plot") %>% withSpinner(color="steelblue"),
+                                      plotlyOutput("dbscan_plot") %>% withSpinner(color="steelblue"),
+                                      DTOutput("dbscan_outliers") %>% withSpinner(color="steelblue")
+                                    )
+                                  )
+                                )
                        ),
+                       
+                       # HDBSCAN Tab
                        tabPanel("HDBSCAN",
+                                # Row 1: Information
                                 fluidRow(
-                                  column(12, box(width = NULL, title = "Hierarchical Density-Based Spatial Clustering of Applications with Noise (HDBSCAN)",
-                                                 tagList(
-                                                   list(
-                                                     tags$li("Add information regarding HDBSCAN analysis here.")))))),
-                                # Make a dropdown to select the PCA results from the reactive values 
-                                selectInput("hdbscan_pca", "Choose PCA Results:", choices = NULL),
-                                numericInput("min_pts_hdbscan", "Choose minPts for HDBSCAN:", value = 5, min = 1),  # Input for minPts in HDBSCAN
-                                numericInput("threshold_hdbscan", "Outlier Threshold for HDBSCAN:", value = 0.85, min = 0.01, max = 1),  # Input for outlier threshold in HDBSCAN
-                                actionButton("run_hdbscan", "Run HDBSCAN"),                                          # Button to run HDBSCAN
-                                plotlyOutput("hdbscan_plot"),                                                        # Output for HDBSCAN plot
-                                DTOutput("hdbscan_outliers")                                                        # Output for HDBSCAN outliers table
+                                  column(
+                                    width = 12,
+                                    box(
+                                      width = NULL,
+                                      title = "HDBSCAN Analysis Information",
+                                      status = "info",
+                                      solidHeader = TRUE,
+                                      collapsible = FALSE,
+                                      tagList(
+                                        tags$ul(
+                                          tags$li("Add information regarding HDBSCAN analysis here.")
+                                        )
+                                      )
+                                    )
+                                  )
+                                ),
+                                # Row 2: Data and Parameters
+                                fluidRow(
+                                  column(
+                                    width = 6,
+                                    box(
+                                      width = 12,
+                                      title = "Data Selection",
+                                      status = "primary",
+                                      solidHeader = TRUE,
+                                      collapsible = FALSE,
+                                      selectInput("hdbscan_pca", "Choose PCA Results:", choices = NULL),
+                                      # Group Selection Checkbox
+                                      checkboxInput(
+                                        inputId = "select_groups_hdbscan",
+                                        label = "Select Specific Groups",
+                                        value = FALSE
+                                      ),
+                                      uiOutput("group_selection_ui_hdbscan")
+                                    )
+                                  ),
+                                  column(
+                                    width = 6,
+                                    box(
+                                      width = 12,
+                                      title = "HDBSCAN Parameters",
+                                      status = "primary",
+                                      solidHeader = TRUE,
+                                      collapsible = FALSE,
+                                      numericInput("min_pts_hdbscan", "Choose minPts for HDBSCAN:", value = 5, min = 1),
+                                      numericInput("threshold_hdbscan", "Outlier Threshold for HDBSCAN:", value = 0.85, min = 0.01, max = 1),
+                                      actionButton("run_hdbscan", "Run HDBSCAN", width = "100%")
+                                    )
+                                  )
+                                ),
+                                # Row 3: Results
+                                fluidRow(
+                                  column(
+                                    width = 12,
+                                    box(
+                                      width = NULL,
+                                      title = "HDBSCAN Results",
+                                      status = "primary",
+                                      solidHeader = TRUE,
+                                      collapsible = FALSE,
+                                      plotlyOutput("hdbscan_plot") %>% withSpinner(color="steelblue"),
+                                      DTOutput("hdbscan_outliers") %>% withSpinner(color="steelblue")
+                                    )
+                                  )
+                                )
                        ),
+                       
+                       # OPTICS Tab
                        tabPanel("OPTICS",
+                                # Row 1: Information
                                 fluidRow(
-                                  column(12, box(width = NULL, title = "Ordering Points To Identify the Clustering Structure",
-                                                 tagList(
-                                                   list(
-                                                     tags$li("Add information regarding OPTICS analysis here.")))))),
-                                # Make a dropdown to select the PCA results from the reactive values 
-                                selectInput("optics_pca", "Choose PCA Results:", choices = NULL),
-                                numericInput("min_pts_optics", "Choose minPts for OPTICS:", value = 5, min = 1),  # Input for minPts in OPTICS
-                                numericInput("eps_optics", "Choose eps for OPTICS (optional):", value = NA, min = 0.1, step = 0.1),  # Input for eps in OPTICS
-                                numericInput("eps_cl_optics", "Choose cutoff (eps_cl) for OPTICS:", value = 0.5, min = 0.1, step = 0.1),  # Input for eps_cl in OPTICS
-                                # actionButton("run_optics", "Run OPTICS"),                                     # Button to run OPTICS
-                                plotOutput("optics_reachability_plot"),                                      # Output for OPTICS reachability plot
-                                plotOutput("reachability_plot_threshold"),                                   # Output for reachability plot threshold
-                                plotlyOutput("cluster_plot"),                                                # Output for cluster plot
-                                DTOutput("optics_outliers")                                                 # Output for OPTICS outliers table
+                                  column(
+                                    width = 12,
+                                    box(
+                                      width = NULL,
+                                      title = "OPTICS Analysis Information",
+                                      status = "info",
+                                      solidHeader = TRUE,
+                                      collapsible = FALSE,
+                                      tagList(
+                                        tags$ul(
+                                          tags$li("Add information regarding OPTICS analysis here.")
+                                        )
+                                      )
+                                    )
+                                  )
+                                ),
+                                # Row 2: Data and Parameters
+                                fluidRow(
+                                  column(
+                                    width = 6,
+                                    box(
+                                      width = 12,
+                                      title = "Data Selection",
+                                      status = "primary",
+                                      solidHeader = TRUE,
+                                      collapsible = FALSE,
+                                      selectInput("optics_pca", "Choose PCA Results:", choices = NULL),
+                                      # Group Selection Checkbox
+                                      checkboxInput(
+                                        inputId = "select_groups_optics",
+                                        label = "Select Specific Groups",
+                                        value = FALSE
+                                      ),
+                                      uiOutput("group_selection_ui_optics"),
+                                    )
+                                  ),
+                                  column(
+                                    width = 6,
+                                    box(
+                                      width = 12,
+                                      title = "OPTICS Parameters",
+                                      status = "primary",
+                                      solidHeader = TRUE,
+                                      collapsible = FALSE,
+                                      numericInput("min_pts_optics", "Choose minPts for OPTICS:", value = 5, min = 1),
+                                      numericInput("eps_optics", "Choose eps for OPTICS (optional):", value = NA, min = 0.1, step = 0.1),
+                                      numericInput("eps_cl_optics", "Choose cutoff (eps_cl) for OPTICS:", value = 0.5, min = 0.1, step = 0.1)
+                                    )
+                                  )
+                                ),
+                                # Row 3: Results
+                                fluidRow(
+                                  column(
+                                    width = 12,
+                                    box(
+                                      width = NULL,
+                                      title = "OPTICS Results",
+                                      status = "primary",
+                                      solidHeader = TRUE,
+                                      collapsible = FALSE,
+                                      plotOutput("optics_reachability_plot") %>% withSpinner(color="steelblue"),
+                                      plotOutput("reachability_plot_threshold") %>% withSpinner(color="steelblue"),
+                                      plotlyOutput("cluster_plot") %>% withSpinner(color="steelblue"),
+                                      DTOutput("optics_outliers") %>% withSpinner(color="steelblue")
+                                    )
+                                  )
+                                )
                        ),
+                       
+                       # LOF Tab
                        tabPanel("LOF",
+                                # Row 1: Information
                                 fluidRow(
-                                  column(12, box(width = NULL, title = "Local Outlier Factor (LOF) Analysis",
-                                                 tagList(
-                                                   list(
-                                                     tags$li("Add information regarding LOF analysis here.")))))),
-                                # Make a dropdown to select the PCA results from the reactive values 
-                                selectInput("lof_pca", "Choose PCA Results:", choices = NULL),
-                                numericInput("lof_threshold", "Threshold for LOF:", value = 1.5, min = 0, step = 0.1),  # Input for threshold in LOF
-                                numericInput("lof_k", "k for LOF:", value = 4, min = 1),                                 # Input for k in LOF
-                                actionButton("run_lof", "Run LOF"),                                                    # Button to run LOF
-                                plotlyOutput("lof_plot"),                                                             # Output for LOF plot
-                                plotlyOutput("lof_od_plot"),                                                          # Output for LOF outlier detection plot
-                                DTOutput("lof_outliers")                                                             # Output for LOF outliers table
+                                  column(
+                                    width = 12,
+                                    box(
+                                      width = NULL,
+                                      title = "LOF Analysis Information",
+                                      status = "info",
+                                      solidHeader = TRUE,
+                                      collapsible = FALSE,
+                                      tagList(
+                                        tags$ul(
+                                          tags$li("Add information regarding LOF analysis here.")
+                                        )
+                                      )
+                                    )
+                                  )
+                                ),
+                                # Row 2: Data and Parameters
+                                fluidRow(
+                                  column(
+                                    width = 6,
+                                    box(
+                                      width = 12,
+                                      title = "Data Selection",
+                                      status = "primary",
+                                      solidHeader = TRUE,
+                                      collapsible = FALSE,
+                                      selectInput("lof_pca", "Choose PCA Results:", choices = NULL),
+                                      # Group Selection Checkbox
+                                      checkboxInput(
+                                        inputId = "select_groups_lof",
+                                        label = "Select Specific Groups",
+                                        value = FALSE
+                                      ),
+                                      uiOutput("group_selection_ui_lof")
+                                    )
+                                  ),
+                                  column(
+                                    width = 6,
+                                    box(
+                                      width = 12,
+                                      title = "LOF Parameters",
+                                      status = "primary",
+                                      solidHeader = TRUE,
+                                      collapsible = FALSE,
+                                      numericInput("lof_threshold", "Threshold for LOF:", value = 1.5, min = 0, step = 0.1),
+                                      numericInput("lof_k", "k for LOF:", value = 4, min = 1),
+                                      actionButton("run_lof", "Run LOF", width = "100%")
+                                    )
+                                  )
+                                ),
+                                # Row 3: Results
+                                fluidRow(
+                                  column(
+                                    width = 12,
+                                    box(
+                                      width = NULL,
+                                      title = "LOF Results",
+                                      status = "primary",
+                                      solidHeader = TRUE,
+                                      collapsible = FALSE,
+                                      plotlyOutput("lof_plot") %>% withSpinner(color="steelblue"),
+                                      plotlyOutput("lof_od_plot") %>% withSpinner(color="steelblue"),
+                                      DTOutput("lof_outliers") %>% withSpinner(color="steelblue")
+                                    )
+                                  )
+                                )
                        )
-                     )),
+                     )
+            ),
             tabPanel("Visualization",
                      tabsetPanel(
                        tabPanel(
                          "Heatmap",
-                         # Heatmap Analysis Information
+                         
+                         # Row 1: Heatmap Analysis Information
                          fluidRow(
                            column(
                              width = 12,
                              box(
                                width = NULL,
                                title = "Heatmap Analysis",
-                               tags$ul(
-                                 tags$li("Add information regarding Heatmap analysis here."))))
+                               status = "info",
+                               solidHeader = TRUE,
+                               collapsible = FALSE,
+                               tagList(
+                                 tags$ul(
+                                   tags$li("Heatmaps help visualize high-dimensional data and clustering of features."),
+                                   tags$li("Select a dataset and, optionally, specific groups to compare."),
+                                   tags$li("Customize display options to enhance the interpretation of patterns.")
+                                 )
+                               )
+                             )
+                           )
                          ),
-                         # Heatmap Controls and Customizations
+                         
+                         # Row 2: Controls & Customizations (side-by-side)
                          fluidRow(
-                           # Heatmap Controls Box
+                           # Left box: Heatmap Controls
                            column(
                              width = 6,
                              box(
-                               width = NULL,
+                               width = 12,
                                title = "Heatmap Controls",
-                               # Dataset Selection
+                               status = "primary",
+                               solidHeader = TRUE,
+                               collapsible = FALSE,
+                               
                                selectInput(
                                  inputId = "select_heatmap_data",
-                                 label = "Select Dataset for Heatmap",
-                                 choices = NULL,  # To be populated dynamically
+                                 label = "Select Dataset for Heatmap:",
+                                 choices = NULL, 
                                  width = "100%"
                                ),
-                               # Group Selection Checkbox
+                               selectInput(
+                                 inputId = "heatmap_labels",
+                                 label = "Select Label Column:",
+                                 choices = NULL,
+                                 width = "100%"
+                               ),
                                checkboxInput(
-                                 inputId = "select_groups",
+                                 inputId = "enable_grouping_heatmap",
+                                 label = "Select column for grouping features: ",
+                                 value = FALSE
+                               ),
+                               uiOutput("grouping_column_ui"),
+                               checkboxInput(
+                                 inputId = "select_groups_heatmap",
                                  label = "Select Specific Groups",
                                  value = FALSE
                                ),
-                               # Dynamic UI for Group Selection (appears when 'select_groups' is TRUE)
-                               uiOutput("group_selection_ui"),
+                               # Dynamic UI for Group Selection (appears when 'select_groups_heatmap' is TRUE)
+                               uiOutput("group_selection_ui_heatmap"),
                                # Top Features Selection
                                numericInput(
                                  inputId = "top_x",
@@ -633,59 +1009,71 @@ shinyUI(dashboardPage(
                                  min = 1,
                                  step = 1
                                ),
-                               # Generate Heatmap Button
-                               actionButton(
-                                 inputId = "run_heatmap",
-                                 label = "Generate Heatmap",
-                                 width = "50%"))
+                               actionButton("run_heatmap", "Generate Heatmap", width = "100%")
+                             )
                            ),
-                           # Heatmap Customization Box
+                           
+                           # Right box: Heatmap Customizations
                            column(
                              width = 6,
                              box(
-                               width = NULL,
+                               width = 12,
                                title = "Heatmap Customizations",
-                               # Customization: Show Column Names
-                               checkboxInput(
-                                 inputId = "show_column_names",
-                                 label = "Show Column Names",
-                                 value = FALSE
-                               ),
+                               status = "primary",
+                               solidHeader = TRUE,
+                               collapsible = FALSE,
+                               
+                               textInput("heatmap_title", "Plot Title:", "My Heatmap"),
+                               
+                               # select input for clustering_distance_rows
+                               selectInput("clustering_distance_rows", "Clustering Distance Metric (Rows):",
+                                           choices = c("euclidean", "maximum", "manhattan", "canberra",
+                                                       "binary", "minkowski","pearson","spearman","kendall"),
+                                           selected = "euclidean"),
+                               selectInput("clustering_method_rows", "Clustering Method (Rows):",
+                                           choices = c("ward.D", "ward.D2", "single", "complete", "average", "mcquitty", "median", "centroid"),
+                                           selected = "ward.D2"),
+                               
+                               checkboxInput("show_column_names", "Show Column Names:", FALSE),
                                helpText("Toggle to display or hide column names."),
-                               # Customization: Show Row Names
-                               checkboxInput(
-                                 inputId = "show_row_names",
-                                 label = "Show Row Names",
-                                 value = FALSE
-                               ),
+                               checkboxInput("show_row_names", "Show Row Names:", FALSE),
                                helpText("Toggle to display or hide row names."),
-                               # Customization: Cluster Rows
-                               checkboxInput(
-                                 inputId = "cluster_rows",
-                                 label = "Cluster Rows",
-                                 value = FALSE
-                               ),
+                               checkboxInput("cluster_rows", "Cluster Rows:", TRUE),
                                helpText("Enable or disable hierarchical clustering of rows."),
-                               # Customization: Show Row Dendrogram
-                               checkboxInput(
-                                 inputId = "show_row_dend",
-                                 label = "Show Row Dendrogram",
-                                 value = FALSE
-                               ),
-                               helpText("Toggle the visibility of the row dendrogram.")))
+                               checkboxInput("show_row_dend", "Show Row Dendrogram:", FALSE),
+                               helpText("Toggle the visibility of the row dendrogram.")
+                             )
+                           )
                          ),
-                         # Heatmap Output
+                         
+                         # Row 3: Heatmap Plot & Results
                          fluidRow(
                            column(
                              width = 12,
                              box(
                                width = NULL,
-                               # Heatmap Plot
-                               plotOutput(
-                                 outputId = "heatmap_plot",
-                                 height = "600px"
-                               ) %>% withSpinner(color="steelblue")
-                             )))
+                               title = "Heatmap Plot",
+                               status = "primary",
+                               solidHeader = TRUE,
+                               collapsible = TRUE,
+                               
+                               plotOutput("heatmap_plot", height = "600px") %>% withSpinner(color = "steelblue"),
+                             )
+                           )
+                         ),
+                         fluidRow(
+                           column(
+                             width = 12,
+                             box(
+                               width = NULL,
+                               title = "Heatmap Results",
+                               status = "primary",
+                               solidHeader = TRUE,
+                               collapsible = TRUE,
+                               DT::dataTableOutput("heatmap_table")
+                             )
+                           )
+                         )
                        ),
                        tabPanel("Wierd circular barplot",
                                 fluidRow(
@@ -912,7 +1300,7 @@ shinyUI(dashboardPage(
                                    Adjust the 'logFC scale bar input' to change this."
                                               )
                                             ),
-                                            uiOutput("selected_groups_text"),
+                                            uiOutput("selected_groups_heatmap_text"),
                                           )
                                         )
                                         
@@ -958,8 +1346,6 @@ shinyUI(dashboardPage(
                        
                        tabPanel(
                          "Volcano Plot",
-                         
-                         # Row 1: Volcano Plot Information
                          fluidRow(
                            column(
                              width = 12,
@@ -979,8 +1365,6 @@ shinyUI(dashboardPage(
                              )
                            )
                          ),
-                         
-                         # Row 2: Two boxes side-by-side: Data/Group Selection (left), Plot Customization (right)
                          fluidRow(
                            # Left box: Data & group selection
                            column(
@@ -1072,7 +1456,45 @@ shinyUI(dashboardPage(
                                ),
                                
                                # Additional toggles, e.g. to show/hide legend
-                               checkboxInput("show_legend", "Show Legend:", TRUE),
+                               checkboxInput("show_legend_volcano", "Show Legend:", TRUE),
+                             )
+                           )
+                         ),
+                         
+                         fluidRow(
+                           column(
+                             width = 6,
+                             box(
+                               width = 12,
+                               title = "Individual Feature Selection",
+                               status = "primary",
+                               solidHeader = TRUE,
+                               collapsible = TRUE,
+                               
+                               # Checkbox to enable/disable individual feature selection
+                               checkboxInput("enable_feature_selection", "Enable Feature Selection", FALSE),
+                               
+                               # Dynamic UI: Feature selection (searchable list appears only if checked)
+                               uiOutput("feature_selection_ui_volcano")
+                             )
+                           ),
+                           
+                           column(
+                             width = 6,
+                             box(
+                               width = 12,
+                               title = "Group Selection",
+                               status = "primary",
+                               solidHeader = TRUE,
+                               collapsible = TRUE,
+                               
+                               # Checkbox to enable/disable group selection
+                               checkboxInput("enable_group_selection", "Enable Group Selection", FALSE),
+                               
+                               # Dynamic UI: Group selection (searchable list appears only if checked)
+                               uiOutput("group_selection_ui_volcano"),
+                               uiOutput("group_color_ui")
+                               
                              )
                            )
                          ),
@@ -1088,7 +1510,7 @@ shinyUI(dashboardPage(
                                solidHeader = TRUE,
                                collapsible = FALSE,
                                
-                               plotlyOutput("volcano_plot", height = "500px") %>% withSpinner(color="steelblue"),
+                               plotlyOutput("volcano_plot", height = "800px") %>% withSpinner(color="steelblue"),
                                br(),
                                DTOutput("volcano_table")
                              )
