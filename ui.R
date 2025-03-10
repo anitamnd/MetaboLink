@@ -1522,13 +1522,19 @@ shinyUI(dashboardPage(
             # UI for Pathway Enrichment Analysis
             tabPanel(
               "Pathway Enrichment",
+              
+              # Information Box
               fluidRow(
                 column(
-                  12,
+                  width = 12,
                   box(
-                    width = NULL, title = "Pathway Enrichment Analysis",
+                    width = NULL,
+                    title = "Pathway Enrichment Information",
+                    status = "info",
+                    solidHeader = TRUE,
+                    collapsible = FALSE,
                     tagList(
-                      list(
+                      tags$ul(
                         tags$li("Select a dataset and the column containing compound identifiers. Click 'Run Gather Identifiers' to first update InChI from cached or online sources, then gather chemical identifiers for enrichment analysis."),
                         tags$li("Once identifiers are gathered, click 'Run Enrichment Analysis' to perform the pathway enrichment.")
                       )
@@ -1536,12 +1542,19 @@ shinyUI(dashboardPage(
                   )
                 )
               ),
+              
+              # Data & Selection UI
               fluidRow(
                 column(
                   width = 6,
                   box(
                     width = 12,
-                    selectInput("select_data_for_enrichment", "Select Dataset for Identifier gathering", choices = NULL, width = "100%"),
+                    title = "Data & Identifier Selection",
+                    status = "primary",
+                    solidHeader = TRUE,
+                    collapsible = FALSE,
+                    
+                    selectInput("select_data_for_enrichment", "Select Dataset for Identifier Gathering", choices = NULL, width = "100%"),
                     
                     fluidRow(
                       column(
@@ -1554,20 +1567,37 @@ shinyUI(dashboardPage(
                       )
                     ),
                     
-                    actionButton("run_gather_identifiers", "Gather Identifiers", width = "50%"),
+                    actionButton("run_gather_identifiers", "Gather Identifiers", width = "100%"),
                     
                     checkboxInput("showDT", "Display Data Table", value = FALSE),
                     
-                    # Only show search bar and DT if checkbox is checked
                     conditionalPanel(
                       condition = "input.showDT == true",
                       DTOutput("dt_table_path")
                     ),
                     
-                    checkboxInput("gene_selected", "Run Gene Enrichment", TRUE),
-                    checkboxInput("module_selected", "Run Module Enrichment", FALSE),
-                    # select group for enrichment analysis 
-                    selectInput("group_enrichment", "Select Group for Enrichment Analysis", choices = NULL, width = "100%"),
+                    fluidRow(
+                      column(
+                        width = 6,
+                        checkboxInput("gene_selected", "Gene Enrichment", TRUE)
+                      ),
+                      column(
+                        width = 6,
+                        checkboxInput("module_selected", "Module Enrichment", FALSE)
+                      )
+                    ),
+                    
+                    fluidRow(
+                      column(
+                        width = 6,
+                        selectInput("group1_enrichment", "Group for Enrichment Analysis", choices = NULL, width = "100%")
+                      ),
+                      column(
+                        width = 6,
+                        selectInput("group2_enrichment", "Group to Compare Against", choices = NULL, width = "100%")
+                      )
+                    ),
+                    
                     numericInput(
                       inputId = "top_x_enrich",
                       label = "Number of Top Features:",
@@ -1575,98 +1605,130 @@ shinyUI(dashboardPage(
                       min = 1,
                       step = 1
                     ),
-                    actionButton("run_enrichment_analysis", "Enrichment Analysis", width = "50%")
+                    
+                    actionButton("run_enrichment_analysis", "Run Enrichment Analysis", width = "100%")
                   )
                 ),
+                
+                # Identifiers Count
                 column(
-                  6,
+                  width = 6,
                   box(
-                    width = NULL,
-                    h4("Number of Identifiers Gathered"),
+                    width = 12,
+                    title = "Number of Identifiers Gathered",
+                    status = "primary",
+                    solidHeader = TRUE,
+                    collapsible = FALSE,
+                    
                     textOutput("identifier_count_text"),
                     uiOutput("identifier_count_table")
                   )
-                ),
+                )
+              ),
+              
+              # Enrichment Plots
+              fluidRow(
                 column(
-                  12,
+                  width = 12,
                   box(
                     title = "Enrichment Barplot and Dotplot",
                     width = NULL,
                     status = "primary",
                     solidHeader = TRUE,
                     collapsible = TRUE,
-                    column(
-                      width = 6,
-                      plotOutput("enrichment_barplot", height = "500px") %>% withSpinner(color="steelblue")
-                    ),
-                    column(
-                      width = 6,
-                      plotOutput("enrichment_dotplot", height = "500px") %>% withSpinner(color="steelblue")
+                    fluidRow(
+                      column(
+                        width = 6,
+                        plotOutput("enrichment_barplot", height = "800px") %>% withSpinner(color = "steelblue")
+                      ),
+                      column(
+                        width = 6,
+                        plotOutput("enrichment_dotplot", height = "800px") %>% withSpinner(color = "steelblue")
+                      )
                     )
                   )
-                ),
+                )
+              ),
+              
+              # Enrichment Network Graph
+              fluidRow(
                 column(
-                  12,
+                  width = 12,
                   box(
-                    title = "Enrichment Cnetplot",  # Adds a title to the box
+                    title = "Enrichment Network Graph",
                     width = NULL,
-                    status = "primary",             # Sets a color style (requires shinydashboard)
-                    solidHeader = TRUE,             # Gives the header a solid background
-                    collapsible = TRUE,             # Allows the user to collapse the box if needed
-                    plotOutput("enrichment_cnetplot", height = "600px") %>% withSpinner(color="steelblue"  # Sets a fixed height
+                    status = "primary",
+                    solidHeader = TRUE,
+                    collapsible = TRUE,
+                    fluidRow(
+                      column(
+                        width = 6,
+                        plotOutput("enrichment_cnetplot_down", height = "600px") %>% withSpinner(color = "steelblue")
+                      ),
+                      column(
+                        width = 6,
+                        plotOutput("enrichment_cnetplot_up", height = "600px") %>% withSpinner(color = "steelblue")
+                      )
                     )
-                  )), 
-                fluidRow(
-                  # Left column with radio buttons (width = 3)
-                  column(
-                    12,
-                    box(
-                      title = "Enrichment Class Plot",  # Title for the class plot section
-                      width = NULL,
-                      status = "primary",               # Sets a primary color style (requires shinydashboard)
-                      solidHeader = TRUE,               # Gives the header a solid background
-                      collapsible = TRUE,               # Allows the user to collapse the box if needed
-                      fluidRow(
-                        # Left column for the radio buttons (width = 3)
-                        column(
-                          width = 3,
-                          wellPanel(
-                            h4("Select which class plot to display:"),
-                            radioButtons(
-                              inputId  = "classChoice",
-                              label    = NULL,  # Using the h4 above for a title
-                              choices  = c("Super Class" = "super",
-                                           "Main Class"  = "main",
-                                           "Sub Class"   = "sub"),
-                              selected = "super"  # Default selection
-                            )
+                  )
+                )
+              ),
+              
+              # Class Plot Selection
+              fluidRow(
+                column(
+                  width = 12,
+                  box(
+                    title = "Class Plot",
+                    width = NULL,
+                    status = "primary",
+                    solidHeader = TRUE,
+                    collapsible = TRUE,
+                    fluidRow(
+                      column(
+                        width = 3,
+                        wellPanel(
+                          h4("Select which class plot to display:"),
+                          radioButtons(
+                            inputId  = "classChoice",
+                            label    = NULL,  
+                            choices  = c("Super Class" = "super",
+                                         "Main Class"  = "main",
+                                         "Sub Class"   = "sub"),
+                            selected = "super"
                           )
+                        )
+                      ),
+                      column(
+                        width = 9,
+                        conditionalPanel(
+                          condition = "input.classChoice == 'super'",
+                          plotlyOutput("super_class_plot", height = "500px") %>% withSpinner(color = "steelblue")
                         ),
-                        # Right column for the plots (width = 9)
-                        column(
-                          width = 9,
-                          conditionalPanel(
-                            condition = "input.classChoice == 'super'",
-                            plotlyOutput("super_class_plot", height = "500px") %>% withSpinner(color = "steelblue")
-                          ),
-                          conditionalPanel(
-                            condition = "input.classChoice == 'main'",
-                            plotlyOutput("main_class_plot", height = "500px") %>% withSpinner(color = "steelblue")
-                          ),
-                          conditionalPanel(
-                            condition = "input.classChoice == 'sub'",
-                            plotlyOutput("sub_class_plot", height = "500px") %>% withSpinner(color = "steelblue")
-                          )
+                        conditionalPanel(
+                          condition = "input.classChoice == 'main'",
+                          plotlyOutput("main_class_plot", height = "500px") %>% withSpinner(color = "steelblue")
+                        ),
+                        conditionalPanel(
+                          condition = "input.classChoice == 'sub'",
+                          plotlyOutput("sub_class_plot", height = "500px") %>% withSpinner(color = "steelblue")
                         )
                       )
                     )
                   )
                 )
-                ,
+              ),
+              
+              # Identifier Table
+              fluidRow(
                 column(
-                  12,
+                  width = 12,
                   box(
                     width = NULL,
+                    title = "Identifier Table",
+                    status = "primary",
+                    solidHeader = TRUE,
+                    collapsible = TRUE,
                     DTOutput("identifier_table")
                   )
                 )

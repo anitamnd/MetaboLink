@@ -3632,19 +3632,16 @@ shinyServer(function(session, input, output) {
   
   observeEvent(input$run_enrichment_analysis, {
     req(input$select_data_for_enrichment,
-        input$group_enrichment,
+        input$group1_enrichment,
+        input$group1_enrichment,
         input$top_x_enrich)
     
-    # if input$group_enrichment is NA or empty, send an error alert and exit
-    if (is.null(input$group_enrichment) || input$group_enrichment == "NA") {
-      sendSweetAlert(
-        session,
-        title = "Error",
-        text = "Please select a group for enrichment analysis.",
-        type = "error"
-      )
-      return(NULL)  # Stop further execution of the observeEvent block.
+    # Make sure group1_enrichment and group2_enrichment is not the same 
+    if (input$group1_enrichment == input$group2_enrichment) {
+      sendSweetAlert(session, "Error", "Select different groups for comparison.", type = "error")
+      return()
     }
+    
     
     # Ensure only one of gene/module is selected
     if (input$gene_selected && input$module_selected) {
@@ -3676,13 +3673,279 @@ shinyServer(function(session, input, output) {
     }
     
     # Extract user-selected values
-    selected_group <- input$group_enrichment
+    group_of_interest <- input$group1_enrichment
+    comparison_group <- input$group2_enrichment
     top_x_features <- as.numeric(input$top_x_enrich)
     dataset_name <- names(rv$data)[sd]
+    
+    message("Running pathway enrichment analysis...")
+    message("Selected dataset: ", dataset_name)
+    message("Group of interest: ", group_of_interest)
+    message("Comparison group: ", comparison_group)
+    message("Top X features: ", top_x_features)
     
     # Subset sequence and data based on "Sample" labels
     filtered_sequence <- seq[seq[, "labels"] %in% c("Sample"), ]
     filtered_data <- data[, c("refmet_name", "kegg_id", rownames(filtered_sequence)), drop = FALSE]
+    
+    filtered_data <- filtered_data %>%
+      filter(!is.na(kegg_id), kegg_id != "", kegg_id != " ", kegg_id != "NA", kegg_id != "N/A")
+    
+    message("Filtered data:")
+    print(head(filtered_data))
+    message("Filtered sequence:")
+    print(head(filtered_sequence))
+    
+    selected_labels <- as.character(filtered_data[["kegg_id"]])
+    fallback <- if ("Name" %in% colnames(data)) {
+      as.character(data[["Name"]])
+    } else if ("name" %in% colnames(data)) {
+      as.character(data[["name"]])
+    } else {
+      NULL
+    }
+    if (is.null(fallback)) {
+      showNotification("No fallback column ('Name' or 'name') available.", type = "error")
+      return()
+    }
+    missing <- is.na(selected_labels) | selected_labels == ""
+    selected_labels[missing] <- fallback[missing]
+    rownames(filtered_data) <- make.unique(selected_labels)
+
+    stat_results <- calculate_stats(filtered_data, filtered_sequence)
+    
+    target_contrast   <- paste0(group_of_interest, "_vs_", comparison_group)
+    reversed_contrast <- paste0(comparison_group, "_vs_", group_of_interest)
+    
+    # If  contrast is present in stat_results:
+    if (target_contrast %in% stat_results$Contrast) {
+      # Just subset
+      stats_df <- subset(stat_results, Contrast == target_contrast)
+    } else if (reversed_contrast %in% stat_results$Contrast) {
+      # Subset, then flip the log2FC & FC
+      stats_df <- subset(stat_results, Contrast == reversed_contrast)
+      stats_df$log2FC <- -stats_df$log2FC
+      stats_df$FC     <- 1 / stats_df$FC
+      
+      # Rename the contrast column to reflect the new direction
+      stats_df$Contrast <- target_contrast
+    } else {
+      # No matching contrast found; handle how you like (warn user, or return empty)
+      warning(
+        paste0("No matching contrast found for '", numerator, " vs ", denominator, "'. ",
+               "Available contrasts are: ", paste(unique(stat_results$Contrast), collapse=", "))
+      )
+      stats_df <- data.frame()
+    }
+    
+    stats_df <- stats_df %>%
+      rownames_to_column("kegg_id") %>%
+      relocate(kegg_id, .before = "Contrast")
+    
+    # make the rownames as the rownames of the sub_df
+    rownames(stats_df) <- stats_df$kegg_id
+    stats_df$kegg_id <- gsub("^[^.]+\\.", "", stats_df$kegg_id)
+    
+    stats_df <- stats_df %>%
+      mutate(diffexpressed = case_when(
+        log2FC > 0 & p.adj < 0.05 ~ "Upregulated",
+        log2FC < 0 & p.adj < 0.05 ~ "Downregulated",
+        p.adj > 0.05 ~ "Non-Significant"
+      ))
+    
+    # remove .X from the kegg_id
+    stats_df$kegg_id <- gsub("\\.\\d+$", "", stats_df$kegg_id)
+    
+    # message("Stats df: ")
+    # print(head(stats_df))
+    
+    stat_df_signi <- stats_df[stats_df$diffexpressed != "Non-Significant",]
+    
+    def_results_list <- split(stat_df_signi, stat_df_signi$diffexpressed)
+    
+    # from the def_results_list print the head of each df in the list 
+    for (i in names(def_results_list)) {
+      print(paste0("Head of ", i, " dataframe:"))
+      print(head(def_results_list[[i]]))
+    }
+    
+    bg_genes <- as.data.frame(unique(data$kegg_id))
+    colnames(bg_genes) <- "unique_kegg_id"
+    # remove rows where NA, "", " " or "NA". This will give the number of identifiers
+    universe <- bg_genes[!is.na(bg_genes$unique_kegg_id) & bg_genes$unique_kegg_id != "" & bg_genes$unique_kegg_id != " " & bg_genes$unique_kegg_id != "NA" & bg_genes$unique_kegg_id != "N/A", ]
+    
+    # Run enrichment analysis based on selection
+    if (input$gene_selected) {
+      title_name <- "Gene Enrichment Analysis"
+      print(paste0("#---", title_name, " ", dataset_name, "---#"))
+      
+      res_geneCentric <- lapply(names(def_results_list),
+                                function(x) enrichKEGG(
+                                  gene = def_results_list[[x]]$kegg_id,
+                                  organism = "cpd",
+                                  keyType = "kegg",
+                                  pvalueCutoff = 0.05,
+                                  pAdjustMethod = "fdr",
+                                  universe,
+                                  minGSSize = 1,
+                                  maxGSSize = 500,
+                                  qvalueCutoff = 0.05,
+                                  use_internal_data = FALSE
+                                )
+      )
+      names(res_geneCentric) <- names(def_results_list)
+      
+      # print("Enrichment results:")
+      # print(head(res_geneCentric))
+      
+      res_df_gene <- lapply(names(res_geneCentric), function(x) rbind(res_geneCentric[[x]]@result))
+      names(res_df_gene) <- names(res_geneCentric)
+      res_df_gene <- do.call(rbind, res_df_gene)
+
+      # Convert rownames to a column
+      res_df_gene <- res_df_gene %>%
+        tibble::rownames_to_column(var = "Pathway_ID")
+      
+      # Extract the "Upregulated"/"Downregulated" status and store in a new column
+      res_df_gene <- res_df_gene %>%
+        mutate(Regulation = ifelse(grepl("^Upregulated", Pathway_ID), "Upregulated", "Downregulated"),
+               Pathway_ID = gsub("^(Upregulated|Downregulated)\\.", "", Pathway_ID)) %>% # Remove label from Pathway_ID
+        select(-Pathway_ID) %>%
+        relocate(Regulation, .after = "Count")
+
+      # Check the updated dataframe
+      print("Enrichment results:")
+      print(head(res_df_gene))
+      
+      # geneSets <- list()
+      
+      # Define the new enrichResult object
+      enrichres <- new("enrichResult",
+                       result = res_df_gene,  # The data frame of enrichment results
+                       organism = "cpd",  # If analyzing KEGG compounds
+                       keytype = "kegg",
+                       ontology = "UNKNOWN",
+                       gene = universe,
+                       pAdjustMethod = "BH",
+                       qvalueCutoff = 0.2,
+                       readable = FALSE)
+      print(class(enrichres))
+      
+      
+      plots <- bar_dot_plot(enrichres, title_name, top_x_features)
+      
+      # output$enrichment_cnetplot <- renderPlot({
+      #   NetGraphPlotWithGgraph(enrichres, data)  # Directly call the function
+      # })
+      
+      # output$enrichment_cnetplot <- renderPlot({
+      #   cnetplot(enrichres)
+      # })
+      
+    } else {
+      
+      title_name <- "Module Enrichment Analysis"
+      print(paste0("#---", title_name, " ", dataset_name, "---#"))
+      
+      res_moduleCentric <- lapply(names(def_results_list),
+                                  function(x) enrichMKEGG(
+                                    gene = def_results_list[[x]]$kegg_id,
+                                    organism = "cpd",
+                                    keyType = "kegg",
+                                    pvalueCutoff = 0.05,
+                                    pAdjustMethod = "fdr",
+                                    universe,
+                                    minGSSize = 1,
+                                    qvalueCutoff = 1
+                                  )
+      )
+      names(res_moduleCentric) <- names(def_results_list)
+      
+      print("Enrich results:")
+      print(head(res_moduleCentric))
+      
+      res_df_module <- lapply(names(res_moduleCentric), function(x) rbind(res_moduleCentric[[x]]@result))
+      names(res_df_module) <- names(res_moduleCentric)
+      res_df_module <- do.call(rbind, res_df_module)
+      
+      # Convert rownames to a column
+      res_df_module <- res_df_module %>%
+        tibble::rownames_to_column(var = "Pathway_ID")
+      
+      # Extract the "Upregulated"/"Downregulated" status and store in a new column
+      res_df_module <- res_df_module %>%
+        mutate(Regulation = ifelse(grepl("^Upregulated", Pathway_ID), "Upregulated", "Downregulated"),
+               Pathway_ID = gsub("^(Upregulated|Downregulated)\\.", "", Pathway_ID)) %>% # Remove label from Pathway_ID
+        select(-Pathway_ID) %>%
+        relocate(Regulation, .after = "ID")
+      
+      # Check the updated dataframe
+      print("Enrichment results DF:")
+      print(head(res_df_module))
+      
+      # geneSets <- list()
+      
+      # Define the new enrichResult object
+      enrichres <- new("enrichResult",
+                       result = res_df_module,  # The data frame of enrichment results
+                       organism = "cpd",  # If analyzing KEGG compounds
+                       keytype = "kegg",
+                       ontology = "UNKNOWN",
+                       gene = universe,
+                       pAdjustMethod = "BH",
+                       qvalueCutoff = 0.2,
+                       readable = FALSE)
+      
+      print("Enrichment results after new object:")
+      print(head(enrichres))
+      
+      plots <- bar_dot_plot(enrichres, title_name, top_x_features)
+      
+      # make two enrich objects based on the Regulation 
+      # enrichres_up <- enrichres$Regulation[["Upregulated"]]
+      # enrichres_down <- enrichres$Regulation[["Downregulated"]]
+      # 
+      # print(head(enrichres_up))
+      # print(head(enrichres_down))
+
+    }
+    
+    
+    output$enrichment_barplot <- renderPlot({
+      plots$bar
+    })
+
+    output$enrichment_dotplot <- renderPlot({
+      plots$dot
+    })
+    
+    # Extract sample names belonging to the selected group
+    selected_group_samples <- rownames(seq[seq$group == group_of_interest & seq$labels == "Sample",])
+    
+    # Filter KEGG data based on group samples
+    filtered_kegg_data <- data %>%
+      filter(!is.na(kegg_id), kegg_id != "", kegg_id != " ") %>%
+      distinct(kegg_id, .keep_all = TRUE) %>%
+      select(refmet_name, kegg_id, super_class, main_class, sub_class, all_of(selected_group_samples))
+    
+    enrichres <- as.data.frame(enrichres)
+    
+    enrichres_down <- enrichres[enrichres$Regulation == "Downregulated",]
+    enrichres_up <- enrichres[enrichres$Regulation == "Upregulated",]
+    
+    title_down <- paste0(title_name," ", dataset_name, " Downregulated")
+    title_up <- paste0(title_name," ", dataset_name, " Upregulated")
+    
+    
+    output$enrichment_cnetplot_down <- renderPlot({
+      NetGraphPlotWithGgraph(enrichres_down, filtered_kegg_data, title = title_down)  # Directly call the function
+    })
+    
+    output$enrichment_cnetplot_up <- renderPlot({
+      NetGraphPlotWithGgraph(enrichres_up, filtered_kegg_data, title = title_up)  # Directly call the function
+    })
+    
+    return(NULL)
     
     # Extract unique groups
     unique_sample_groups <- unique(filtered_sequence$group)
@@ -3711,8 +3974,8 @@ shinyServer(function(session, input, output) {
     })
     names(features_by_group) <- unique_sample_groups
     
-    message("\nSignificant Feature Names by Group:")
-    print(features_by_group)
+    # message("\nSignificant Feature Names by Group:")
+    # print(features_by_group)
     
     # Store detailed statistical results for each group
     detailed_significant_results <- lapply(unique_sample_groups, function(group) {
@@ -3721,23 +3984,35 @@ shinyServer(function(session, input, output) {
     names(detailed_significant_results) <- unique_sample_groups
     
     # Extract significant features for the selected group
-    selected_group_features <- significant_features_df[grepl(selected_group, significant_features_df$Contrast), ]
+    selected_group_features <- significant_features_df[grepl(group_of_interest, significant_features_df$Contrast), ]
     
-    print("selected group features significant ")
+    message("selected group features significant ")
     print(head(selected_group_features))
     
     unique_selected_features <- unique(selected_group_features$feature)
     
-    print(paste0("Significant features for group ", selected_group, ":"))
+    print(paste0("Significant features for group ", group_of_interest, ":"))
     print(unique_selected_features)
     
     # Retrieve KEGG information for significant features
     kegg_info_df <- filtered_data[unique_selected_features, c("refmet_name", "kegg_id"), drop = FALSE]
-    message("For group ", selected_group, " the significant features and their KEGG IDs are:")
-    print(kegg_info_df)
+    message("For group ", group_of_interest, " the significant features and their KEGG IDs are:")
+    
+    kegg_info_df <- kegg_info_df %>%
+      rownames_to_column(var = "feature")
+    
+    # merge selected_group_features and  kegg_info_df by feature
+    kegg_info_df <- merge(kegg_info_df,
+                          selected_group_features,
+                          by = "feature")
+    
+    kegg_info_df$Significance <- ifelse(kegg_info_df$p.adj < 0.05, "Significant", "Not Significant")
+    kegg_info_df$diffexpressed <- ifelse(kegg_info_df$log2FC > 0, "Up", "Down")
+    
+    print(head(kegg_info_df))
     
     # Extract sample names belonging to the selected group
-    selected_group_samples <- rownames(seq[seq$group == selected_group & seq$labels == "Sample",])
+    selected_group_samples <- rownames(seq[seq$group == group_of_interest & seq$labels == "Sample",])
     
     # Filter KEGG data based on group samples
     filtered_kegg_data <- data %>%
@@ -3747,24 +4022,26 @@ shinyServer(function(session, input, output) {
     
     # Extract unique KEGG IDs
     unique_kegg_ids <- unique(filtered_kegg_data$kegg_id)
+    bg_features <- as.data.frame(unique_kegg_ids)
     
     message("All KEGG IDs:")
-    print(head(unique_kegg_ids))
+    
+    print(head(bg_features))
     
     
     # Run enrichment analysis based on selection
     if (input$gene_selected) {
       title_name <- "Gene Enrichment Analysis"
-      print(paste0("#---", title_name, " ", data_name, "---#"))
+      print(paste0("#---", title_name, " ", dataset_name, "---#"))
       
-      enrichment_result <- run_gene_enrichment(kegg_info, all_kegg_ids)
+      enrichment_result <- run_gene_enrichment(kegg_info_df, bg_features)
       print(head(enrichment_result))
       
     } else {
       title_name <- "Module Enrichment Analysis"
-      print(paste0("#---", title_name, " ", data_name, "---#"))
+      print(paste0("#---", title_name, " ", dataset_name, "---#"))
       
-      enrichment_result <- run_module_enrichment(kegg_info, all_kegg_ids)
+      enrichment_result <- run_module_enrichment(kegg_info_df, bg_features)
       print(head(enrichment_result))
     }
     
@@ -5115,7 +5392,7 @@ shinyServer(function(session, input, output) {
       group_inputs <- c("group1", "group2",
                         "group1_time", "group2_time",
                         "group1_polystest", "group2_polystest",
-                        "group_enrichment",
+                        "group1_enrichment","group2_enrichment",
                         "group1_cirbar", "group2_cirbar",
                         "group1_vol", "group2_vol")
       
