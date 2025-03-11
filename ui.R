@@ -1075,60 +1075,105 @@ shinyUI(dashboardPage(
                            )
                          )
                        ),
-                       tabPanel("Wierd circular barplot",
-                                fluidRow(
-                                  column(12, box(width = NULL, title = "Wierd circular barplot",
-                                                 tagList(
-                                                   list(
-                                                     tags$li("Add information regarding Wierd circular barplot analysis here.")
-                                                   )
-                                                 )
-                                  ))
-                                ),
-                                fluidRow(
-                                  column(12, box(width = NULL, title = "Wierd circular barplot",
-                                                 selectInput(
-                                                   inputId = "select_data_circular_barplot",
-                                                   label = "Select Dataset for circular barplot",
-                                                   choices = NULL,  # To be populated dynamically
-                                                   width = "100%"
-                                                 ),
-                                                 fluidRow(
-                                                   column(
-                                                     width = 6,
-                                                     selectInput("name_column_cirbar", "Select nameing column", choices = NULL, width = "100%")
-                                                   ),
-                                                   column(
-                                                     width = 6,
-                                                     selectInput("group_column_cirbar", "Select grouping column", choices = NULL, width = "100%")
-                                                   ),
-                                                   column(
-                                                     width = 6,
-                                                     numericInput("top_x_cirbar", "Select top features:", value = 100, min = 1, step = 1, width = "100%")
-                                                   ),
-                                                   column(
-                                                     width = 6,
-                                                     selectInput("feature_cirbar", "Select plotting feature:", choices = NULL, width = "100%")
-                                                   ),
-                                                   column(
-                                                     width = 6,
-                                                     selectInput("group1_cirbar", "Numerator (group):", choices = NULL)
-                                                   ),
-                                                   column(
-                                                     width = 6,
-                                                     selectInput("group2_cirbar", "Denominator (group):", choices = NULL)
-                                                   )
-                                                 ),
-                                                 # Added action button to run the plot
-                                                 actionButton(
-                                                   inputId = "run_circular_barplot",
-                                                   label = "Run Plot",
-                                                   class = "btn-primary"
-                                                 ),
-                                                 plotOutput("circular_barplot", width = "800px", height = "800px") %>% withSpinner(color="steelblue")
-                                  ))
-                                )
-                       ),
+                       tabPanel(
+                         "Weird Circular Barplot",
+                         
+                         # Information Box
+                         fluidRow(
+                           column(
+                             width = 12,
+                             box(
+                               width = NULL,
+                               title = "Weird Circular Barplot Information",
+                               status = "info",
+                               solidHeader = TRUE,
+                               collapsible = FALSE,
+                               tagList(
+                                 tags$ul(
+                                   tags$li("Add information regarding Weird Circular Barplot analysis here.")
+                                 )
+                               )
+                             )
+                           )
+                         ),
+                         
+                         # Data & Selection UI
+                         fluidRow(
+                           column(
+                             width = 12,
+                             box(
+                               width = NULL,
+                               title = "Weird Circular Barplot Settings",
+                               status = "primary",
+                               solidHeader = TRUE,
+                               collapsible = FALSE,
+                               
+                               selectInput(
+                                 inputId = "select_data_circular_barplot",
+                                 label = "Select Dataset for Circular Barplot",
+                                 choices = NULL,  
+                                 width = "100%"
+                               ),
+                               
+                               fluidRow(
+                                 column(
+                                   width = 6,
+                                   selectInput("name_column_cirbar", "Select Naming Column", choices = NULL, width = "100%")
+                                 ),
+                                 column(
+                                   width = 6,
+                                   selectInput("group_column_cirbar", "Select Grouping Column", choices = NULL, width = "100%")
+                                 )
+                               ),
+                               
+                               fluidRow(
+                                 column(
+                                   width = 6,
+                                   numericInput("top_x_cirbar", "Select Top Features:", value = 100, min = 1, step = 1, width = "100%")
+                                 ),
+                                 column(
+                                   width = 6,
+                                   selectInput("feature_cirbar", "Select Plotting Feature:", choices = NULL, width = "100%")
+                                 )
+                               ),
+                               
+                               fluidRow(
+                                 column(
+                                   width = 6,
+                                   selectInput("group1_cirbar", "Numerator (Group):", choices = NULL, width = "100%")
+                                 ),
+                                 column(
+                                   width = 6,
+                                   selectInput("group2_cirbar", "Denominator (Group):", choices = NULL, width = "100%")
+                                 )
+                               ),
+                               
+                               # Run Plot Button
+                               actionButton(
+                                 inputId = "run_circular_barplot",
+                                 label = "Run Plot",
+                                 width = "100%"
+                               )
+                             )
+                           )
+                         ),
+                         
+                         # Circular Barplot Output
+                         fluidRow(
+                           column(
+                             width = 12,
+                             box(
+                               width = NULL,
+                               title = "Circular Barplot",
+                               status = "primary",
+                               solidHeader = TRUE,
+                               collapsible = TRUE,
+                               plotOutput("circular_barplot", width = "800px", height = "800px") %>% withSpinner(color = "steelblue")
+                             )
+                           )
+                         )
+                       )
+                       ,
                        
                        tabPanel("Lipid Heatmap",
                                 useShinyjs(),
@@ -1669,7 +1714,8 @@ shinyUI(dashboardPage(
                         width = 6,
                         plotOutput("enrichment_cnetplot_up", height = "600px") %>% withSpinner(color = "steelblue")
                       )
-                    )
+                    ),
+                    plotOutput("enrichment_cnetplot", height = "600px") %>% withSpinner(color = "steelblue")
                   )
                 )
               ),

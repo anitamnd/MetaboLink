@@ -3714,8 +3714,16 @@ shinyServer(function(session, input, output) {
 
     stat_results <- calculate_stats(filtered_data, filtered_sequence)
     
+    message("Stat results:")
+    print(head(stat_results))
+    
     target_contrast   <- paste0(group_of_interest, "_vs_", comparison_group)
     reversed_contrast <- paste0(comparison_group, "_vs_", group_of_interest)
+    
+    message("target_contrast")
+    print(target_contrast)
+    message("reversed_contrast")
+    print(reversed_contrast)
     
     # If  contrast is present in stat_results:
     if (target_contrast %in% stat_results$Contrast) {
@@ -3756,12 +3764,21 @@ shinyServer(function(session, input, output) {
     # remove .X from the kegg_id
     stats_df$kegg_id <- gsub("\\.\\d+$", "", stats_df$kegg_id)
     
-    # message("Stats df: ")
-    # print(head(stats_df))
+    message("Stats df: ")
+    print(head(stats_df))
+    
+    # if the stats_df is only contain Non-Significant then return nothing and let the user know 
+    if (all(stats_df$diffexpressed == "Non-Significant")) {
+      sendSweetAlert(session, "Error", "No significant results found.", type = "error")
+      return()
+    }
     
     stat_df_signi <- stats_df[stats_df$diffexpressed != "Non-Significant",]
     
     def_results_list <- split(stat_df_signi, stat_df_signi$diffexpressed)
+    
+    message("def_results_list troubleshooting")
+    print(head(def_results_list))
     
     # from the def_results_list print the head of each df in the list 
     for (i in names(def_results_list)) {
@@ -3801,6 +3818,9 @@ shinyServer(function(session, input, output) {
       res_df_gene <- lapply(names(res_geneCentric), function(x) rbind(res_geneCentric[[x]]@result))
       names(res_df_gene) <- names(res_geneCentric)
       res_df_gene <- do.call(rbind, res_df_gene)
+      
+      message("res_df_gene troubleshooting")
+      print(head(res_df_gene))
 
       # Convert rownames to a column
       res_df_gene <- res_df_gene %>%
@@ -3935,6 +3955,7 @@ shinyServer(function(session, input, output) {
     
     title_down <- paste0(title_name," ", dataset_name, " Downregulated")
     title_up <- paste0(title_name," ", dataset_name, " Upregulated")
+    title_combo <- paste0(title_name," ", dataset_name, " Combined")
     
     
     output$enrichment_cnetplot_down <- renderPlot({
@@ -3943,6 +3964,10 @@ shinyServer(function(session, input, output) {
     
     output$enrichment_cnetplot_up <- renderPlot({
       NetGraphPlotWithGgraph(enrichres_up, filtered_kegg_data, title = title_up)  # Directly call the function
+    })
+    
+    output$enrichment_cnetplot <- renderPlot({
+      NetGraphPlotWithGgraph(enrichres, filtered_kegg_data, title = title_combo)  # Directly call the function
     })
     
     return(NULL)
