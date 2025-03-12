@@ -1604,7 +1604,7 @@ shinyUI(dashboardPage(
                     fluidRow(
                       column(
                         width = 6,
-                        selectInput("identifier_column", "Select Identifier Column", choices = NULL, width = "100%")
+                        selectInput("identifier_column", "Select InChI Column", choices = NULL, width = "100%")
                       ),
                       column(
                         width = 6,
@@ -1715,7 +1715,7 @@ shinyUI(dashboardPage(
                         plotOutput("enrichment_cnetplot_up", height = "600px") %>% withSpinner(color = "steelblue")
                       )
                     ),
-                    plotOutput("enrichment_cnetplot", height = "600px") %>% withSpinner(color = "steelblue")
+                    # plotOutput("enrichment_cnetplot", height = "600px") %>% withSpinner(color = "steelblue")
                   )
                 )
               ),

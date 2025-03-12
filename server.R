@@ -2374,8 +2374,8 @@ shinyServer(function(session, input, output) {
         seq <- rv$sequence[[sd]]  # Retrieve the selected sequence
       }
       
-      seq <- seq[!seq[, "labels"] %in% c("Sample", "QC"), ]  # Restrict rows to "Sample" and "QC"
-      data <- data[, rownames(seq), drop = FALSE]  # Use row names of seq to filter columns
+      # seq <- seq[!seq[, "labels"] %in% c("Sample", "QC"), ]  # Restrict rows to "Sample" and "QC"
+      # data <- data[, rownames(seq), drop = FALSE]  # Use row names of seq to filter columns
       
       columns <- colnames(data)
       
@@ -3079,7 +3079,7 @@ shinyServer(function(session, input, output) {
       message(paste0("Number of features after filtering: ", nrow(subset)))
       
       # Set this to TRUE during development and FALSE in production
-      run_development_code <- TRUE
+      run_development_code <- FALSE
 
       if (run_development_code) {
         # Check how many rows query has initially
@@ -3113,49 +3113,54 @@ shinyServer(function(session, input, output) {
           print("Row indices to be processed:")
           print(row_indices)
           
-          for (start_idx in row_indices) {
-            end_idx <- min(start_idx + chunk_size - 1, num_rows)
-            print(paste("Processing features from", start_idx, "to", end_idx))
-            
-            compound_subset <- new_compounds[start_idx:end_idx]
-            print("Current features subset:")
-            print(compound_subset)
-            
-            props_chunk <- tryCatch({
-              get_properties(
-                properties = desired_properties,
-                identifier = compound_subset,
-                namespace = "name",
-                propertyMatch = list(.ignore.case = TRUE, type = "contain")
-              )
-            }, error = function(e) {
-              warning("Failed to get properties for compounds: ", paste(compound_subset, collapse = ", "))
-              return(NULL)
-            })
-            
-            if (is.null(props_chunk) || !inherits(props_chunk, "PubChemInstanceList")) {
-              print("props_chunk is NULL or not a PubChemInstanceList, skipping this batch.")
-              Sys.sleep(1) # respect rate limit
-              next
+          if (num_rows > 0) {
+            for (start_idx in row_indices) {
+              end_idx <- base::min(start_idx + chunk_size - 1, num_rows)
+              print(paste("Processing features from", start_idx, "to", end_idx))
+              
+              compound_subset <- new_compounds[start_idx:end_idx]
+              print("Current features subset:")
+              print(compound_subset)
+              
+              props_chunk <- tryCatch({
+                get_properties(
+                  properties = desired_properties,
+                  identifier = compound_subset,
+                  namespace = "name",
+                  propertyMatch = list(.ignore.case = TRUE, type = "contain")
+                )
+              }, error = function(e) {
+                warning("Failed to get properties for compounds: ", paste(compound_subset, collapse = ", "))
+                return(NULL)
+              })
+              
+              if (is.null(props_chunk) || !inherits(props_chunk, "PubChemInstanceList")) {
+                print("props_chunk is NULL or not a PubChemInstanceList, skipping this batch.")
+                Sys.sleep(1) # respect rate limit
+                next
+              }
+              
+              props_retrieved <- tryCatch({
+                retrieve(object = props_chunk, .to.data.frame = TRUE, .combine.all = TRUE)
+              }, error = function(e) {
+                warning("Failed to retrieve data for compounds: ", paste(compound_subset, collapse = ", "))
+                return(data.frame())
+              })
+              
+              if (!is.null(props_retrieved) && nrow(props_retrieved) > 0) {
+                all_results <- bind_rows(all_results, props_retrieved)
+              } else {
+                print("No valid rows retrieved for this batch.")
+              }
+              
+              print(Sys.time())
+              # Pause to respect the 5 queries/second limit
+              Sys.sleep(1)
             }
-            
-            props_retrieved <- tryCatch({
-              retrieve(object = props_chunk, .to.data.frame = TRUE, .combine.all = TRUE)
-            }, error = function(e) {
-              warning("Failed to retrieve data for compounds: ", paste(compound_subset, collapse = ", "))
-              return(data.frame())
-            })
-            
-            if (!is.null(props_retrieved) && nrow(props_retrieved) > 0) {
-              all_results <- bind_rows(all_results, props_retrieved)
-            } else {
-              print("No valid rows retrieved for this batch.")
-            }
-            
-            print(Sys.time())
-            # Pause to respect the 5 queries/second limit
-            Sys.sleep(1)
+          } else {
+            message("No new compounds to process; skipping property queries.")
           }
+          
           
           if (nrow(all_results) > 0) {
             # use dplyr to convert columns to numeric
@@ -3229,8 +3234,6 @@ shinyServer(function(session, input, output) {
           relationship = "many-to-many"
         )
       
-      print(colnames(subset))
-      
       if ("InChIKey.x" %in% colnames(subset)) {
         # Merge InChIKey.x and InChIKey.y into InChIKey
         subset <- subset %>%
@@ -3240,7 +3243,6 @@ shinyServer(function(session, input, output) {
       
       subset <- subset %>%
         relocate(all_of(c("InChIKey", "CID", "CanonicalSMILES", "IsomericSMILES", "IUPACName")), .after = identifier)
-      
       
       # Remove duplicated columns based on InChI 
       subset <- subset %>% distinct(.keep_all = TRUE)
@@ -3335,13 +3337,50 @@ shinyServer(function(session, input, output) {
       
       final_data <- data_updated_pathways[, final_col_order]
       
-      # Merge the data with the original data
-      # final_data <- data %>%
-      #   left_join(
-      #     final_data %>% select(all_of(c(identifier, new_cols))),
-      #     by = identifier
-      #   )
+      # print(head(final_data))
       
+      print(colnames(final_data))
+      print(colnames(refmet))
+      
+      common_cols <- setdiff(intersect(names(final_data), names(refmet)), c(compound, "refmet_name"))
+      
+      # Perform the left join using final_data[[compound]] and refmet$refmet_name.
+      final_data_updated <- final_data %>%
+        left_join(refmet, by = setNames("refmet_name", compound), suffix = c("", ".refmet")) %>%
+        # For each overlapping column (excluding the join key columns), update with the value from refmet if available.
+        mutate(across(
+          .cols = all_of(common_cols),
+          .fns = ~ coalesce(get(paste0(cur_column(), ".refmet")), .x)
+        )) %>%
+        # Remove the temporary columns from refmet (those ending in ".refmet")
+        select(-ends_with(".refmet"))
+      
+      additional_keys <- c("lipid_name", "sum_name")  # example additional keys
+      
+      for(key in additional_keys) {
+        if(key %in% names(final_data_updated)) {
+          final_data_updated <- final_data_updated %>%
+            left_join(refmet, by = setNames("refmet_name", key), suffix = c("", paste0(".", key))) %>%
+            mutate(across(
+              .cols = all_of(common_cols),
+              .fns = ~ coalesce(get(paste0(cur_column(), ".", key)), .x)
+            )) %>%
+            select(-ends_with(paste0(".", key)))
+        }
+      }
+      
+      print(head(final_data_updated))
+      # final_data_updated <- final_data_updated %>%
+      #   mutate(
+      #     CID = coalesce(CID, pubchem_cid),
+      #     InChIKey = coalesce(InChIKey, inchi_key)
+      #   ) %>%
+      #   select(-pubchem_cid, -inchi_key)
+      
+      
+      message("Number of features after final merge with refmet:", nrow(final_data_updated))
+      
+      final_data <- final_data_updated
       
       cat("\n--- Final dataset ---\n")
       print(head(final_data))
@@ -3966,9 +4005,9 @@ shinyServer(function(session, input, output) {
       NetGraphPlotWithGgraph(enrichres_up, filtered_kegg_data, title = title_up)  # Directly call the function
     })
     
-    output$enrichment_cnetplot <- renderPlot({
-      NetGraphPlotWithGgraph(enrichres, filtered_kegg_data, title = title_combo)  # Directly call the function
-    })
+    # output$enrichment_cnetplot <- renderPlot({
+    #   NetGraphPlotWithGgraph(enrichres, filtered_kegg_data, title = title_combo)  # Directly call the function
+    # })
     
     return(NULL)
     
