@@ -312,53 +312,34 @@ insertColumn <- function(df, column_name, new_column_name, new_column) {
 }
 
 # Function to perform GO term enrichment analysis
-run_gene_enrichment <- function(kegg_info, all_kegg_ids) {
+run_gene_enrichment <- function(data, all_kegg) {
   
+  universe <- all_kegg
   
-  # gce_enrich_result <- new(
-  #   "enrichResult",
-  #   readable = FALSE,
-  #   result = 
-  # )
-  
-  # gene-centric enrichment analysis.
-  # gce_enrich_result <- enrichKEGG(
-  #   data[,"kegg_id"],
-  #   universe = all_kegg,
-  #   keyType = "kegg",
-  #   organism = "cpd",
-  #   pvalueCutoff = 0.05,
-  #   pAdjustMethod = "fdr",
-  #   minGSSize=1)
-  
-  # gene-centric enrichment analysis.
-  # gce_enrich_result <- enrichKEGG(
-  #   gene = kegg_info[,"kegg_id"],
-  #   organism = "cpd", # let the user choose 
-  #   keyType = "kegg",
-  #   pvalueCutoff = 0.05, # let the user choose 
-  #   pAdjustMethod = "BH", # let the user choose
-  #   universe = all_kegg_ids,
-  #   minGSSize = 10, # let the user choose
-  #   maxGSSize = 500, # let the user choose
-  #   qvalueCutoff = 0.2, # let the user choose
-  #   use_internal_data = FALSE
-  # )
-  
-  
-  # gce_enrich_result_df <- as.data.frame(gce_enrich_result)
-  # gce_enrich_result_df$GeneRatio <- sapply(strsplit(gce_enrich_result_df$GeneRatio, "/"), 
-  #                                          function(x) as.numeric(x[1]) / as.numeric(x[2]))
-  # gce_enrich_result_df$BgRatio <- sapply(strsplit(gce_enrich_result_df$BgRatio, "/"), 
-  #                                        function(x) as.numeric(x[1]) / as.numeric(x[2]))
+  gce_enrich_result <- enrichKEGG(
+    gene = data$kegg_id,
+    organism = "cpd",
+    keyType = "kegg",
+    pvalueCutoff = 0.05,
+    pAdjustMethod = "fdr",
+    universe,
+    minGSSize = 10,
+    maxGSSize = 500,
+    qvalueCutoff = 0.02,
+    use_internal_data = FALSE
+  )
   
   return(gce_enrich_result)
 }
 run_module_enrichment <- function(data, all_kegg) {
+  
+  universe <- all_kegg
+  
   # metabolite or compound-centric enrichment analysis
   mcce_enrich_result <- enrichMKEGG(
+    
     gene          = data[,"kegg_id"],
-    # universe      = as.character(all_kegg),
+    universe,
     keyType       = "kegg",         # "kegg" is appropriate for compound IDs like CXXXXXX
     organism      = "cpd",          # "cpd" is used for compound pathways
     pvalueCutoff  = 0.05,
@@ -366,32 +347,30 @@ run_module_enrichment <- function(data, all_kegg) {
     minGSSize     = 1,
     qvalueCutoff  = 1)
   
-  # mcce_enrich_result_df <- as.data.frame(mcce_enrich_result)
-  # mcce_enrich_result_df$GeneRatio <- sapply(strsplit(mcce_enrich_result_df$GeneRatio, "/"), 
-  #                                           function(x) as.numeric(x[1]) / as.numeric(x[2]))
-  # mcce_enrich_result_df$BgRatio <- sapply(strsplit(mcce_enrich_result_df$BgRatio, "/"), 
-  #                                         function(x) as.numeric(x[1]) / as.numeric(x[2]))
-  
   return(mcce_enrich_result)
 }
 
-bar_dot_plot <- function(data, title = NULL, top_x = 5) {
+bar_dot_plot <- function(data, title = NULL, top_x = 20) {
   
   message("Inside bar_dot_plot:: ")
   print(head(data))
   
   bar <- barplot(data,
+                 # split = 'Regulation',
                  title = paste0("Barplot ", title),
-                 showCategory = top_x
-  )
-  dot <- dotplot(data,
+                 showCategory = top_x) + 
+    facet_grid(~ Regulation)
+  
+  dot <- enrichplot::dotplot(data,
+                 # split = 'Regulation',
                  x = "GeneRatio",
                  color = "p.adjust",
                  showCategory = top_x,
-                 size = NULL,
-                 split = NULL,
                  font.size = 12,
-                 title = paste0("Dotplot ", title))
+                 label_format = 30,
+                 title = paste0("Dotplot ", title)) + 
+     facet_grid(~ Regulation)
+  
   
   return(list(bar = bar, dot = dot))
 }
@@ -517,7 +496,9 @@ NetGraphPlot <- function(enrichment_data, data, classification_level = "super_cl
   return(list(graph = graph,
               plot = complete_plot))
 }
-NetGraphPlotWithGgraph <- function(enrichment_data, data) {
+NetGraphPlotWithGgraph <- function(enrichment_data, data, title = "Network Graph") {
+  
+  message("Inside NetGraphPlotWithGgraph:: ")
   # Convert enrichment data to a DataFrame
   df <- as.data.frame(enrichment_data)
   
@@ -544,6 +525,15 @@ NetGraphPlotWithGgraph <- function(enrichment_data, data) {
       OutDegree = centrality_degree(mode = 'out'),
       TotalDegree = InDegree + OutDegree
     )
+  
+  message("Graph Node Names: ")
+  print(graph %>% activate(nodes) %>% as_tibble())
+  
+  message("Data KEGG IDs: ")
+  print(data$kegg_id)
+  
+  message("Enrichment Data IDs: ")
+  print(df$ID)
   
   # Merge node metadata
   graph <- graph %>%
@@ -590,7 +580,7 @@ NetGraphPlotWithGgraph <- function(enrichment_data, data) {
     guides(edge_width = "none") +
     theme(plot.title = element_text(hjust = 0.5)) +     # center the title 
     labs(
-      title = 'Network Graph',
+      title = title,
       color = "Biochemical Class",
       size = "Node Importance",
       shape = "Node Type"
