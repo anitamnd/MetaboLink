@@ -329,56 +329,23 @@ run_gene_enrichment <- function(data, all_kegg) {
     use_internal_data = FALSE
   )
   
-  # gene-centric enrichment analysis.
-  # gce_enrich_result <- enrichKEGG(
-  #   data[,"kegg_id"],
-  #   universe = all_kegg,
-  #   keyType = "kegg",
-  #   organism = "cpd",
-  #   pvalueCutoff = 0.05,
-  #   pAdjustMethod = "fdr",
-  #   minGSSize=1)
-  
-  # gene-centric enrichment analysis.
-  # gce_enrich_result <- enrichKEGG(
-  #   gene = kegg_info[,"kegg_id"],
-  #   organism = "cpd", # let the user choose 
-  #   keyType = "kegg",
-  #   pvalueCutoff = 0.05, # let the user choose 
-  #   pAdjustMethod = "BH", # let the user choose
-  #   universe = all_kegg_ids,
-  #   minGSSize = 10, # let the user choose
-  #   maxGSSize = 500, # let the user choose
-  #   qvalueCutoff = 0.2, # let the user choose
-  #   use_internal_data = FALSE
-  # )
-  
-  
-  # gce_enrich_result_df <- as.data.frame(gce_enrich_result)
-  # gce_enrich_result_df$GeneRatio <- sapply(strsplit(gce_enrich_result_df$GeneRatio, "/"), 
-  #                                          function(x) as.numeric(x[1]) / as.numeric(x[2]))
-  # gce_enrich_result_df$BgRatio <- sapply(strsplit(gce_enrich_result_df$BgRatio, "/"), 
-  #                                        function(x) as.numeric(x[1]) / as.numeric(x[2]))
-  
   return(gce_enrich_result)
 }
 run_module_enrichment <- function(data, all_kegg) {
+  
+  universe <- all_kegg
+  
   # metabolite or compound-centric enrichment analysis
   mcce_enrich_result <- enrichMKEGG(
+    
     gene          = data[,"kegg_id"],
-    # universe      = as.character(all_kegg),
+    universe,
     keyType       = "kegg",         # "kegg" is appropriate for compound IDs like CXXXXXX
     organism      = "cpd",          # "cpd" is used for compound pathways
     pvalueCutoff  = 0.05,
     pAdjustMethod = "fdr",
     minGSSize     = 1,
     qvalueCutoff  = 1)
-  
-  # mcce_enrich_result_df <- as.data.frame(mcce_enrich_result)
-  # mcce_enrich_result_df$GeneRatio <- sapply(strsplit(mcce_enrich_result_df$GeneRatio, "/"), 
-  #                                           function(x) as.numeric(x[1]) / as.numeric(x[2]))
-  # mcce_enrich_result_df$BgRatio <- sapply(strsplit(mcce_enrich_result_df$BgRatio, "/"), 
-  #                                         function(x) as.numeric(x[1]) / as.numeric(x[2]))
   
   return(mcce_enrich_result)
 }
