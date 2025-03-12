@@ -21,6 +21,7 @@ library(jsonlite)
 library(shinyalert)
 library(shinybusy)
 library(gtools)
+library(caret)
 
 library(webchem)
 library(PubChemR)
