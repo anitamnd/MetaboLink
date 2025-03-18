@@ -276,9 +276,7 @@ shinyServer(function(session, input, output) {
     
     if(is.null(rv$activeFile)) {
       showNotification("No data", type = "error")
-    } else if (sum(rv$sequence[[rv$activeFile]][, 1] %in% "Name") != 1) {
-      showNotification("Data must have exactly 1 \"Name\" column", type = "error")
-    } else {
+     } else {
       sequence <- rv$sequence[[rv$activeFile]]
       data <- rv$data[[rv$activeFile]]
       identifier <- input$identifier_column_refmet
@@ -358,7 +356,7 @@ shinyServer(function(session, input, output) {
           print(paste0("Row indices: ", row_indices))
           
           for (start_idx in row_indices) {
-            end_idx <- min(start_idx + chunk_size - 1, num_rows)
+            end_idx <- base::min(start_idx + chunk_size - 1, num_rows)
             print(paste0("Index: ", start_idx, "-", end_idx))
             
             sub_data_chunk <- sub_data[start_idx:end_idx,]
@@ -478,10 +476,48 @@ shinyServer(function(session, input, output) {
         relocate(IsomericSMILES, .after = CanonicalSMILES) %>%
         relocate(IUPACName, .after = IsomericSMILES)
       
-      # Debug
-      print("Are data column names and sequence row names identical?")
-      print(identical(colnames(rv$tmpData),
-                      rownames(rv$tmpSequence)))
+      data_final$CID <- as.character(data_final$CID)
+      
+      common_cols <- setdiff(intersect(names(data_final), names(refmet)), c("Name", "refmet_name"))
+      
+      # Perform the left join using data_final[[compound]] and refmet$refmet_name.
+      final_data_updated <- data_final %>%
+        left_join(refmet, by = setNames("refmet_name", "Name"), suffix = c("", ".refmet")) %>%
+        # For each overlapping column (excluding the join key columns), update with the value from refmet if available.
+        mutate(across(
+          .cols = all_of(common_cols),
+          .fns = ~ coalesce(get(paste0(cur_column(), ".refmet")), .x)
+        )) %>%
+        # Remove the temporary columns from refmet (those ending in ".refmet")
+        select(-ends_with(".refmet"))
+      
+      additional_keys <- c("Original annotation","lipid_name", "sum_name")  # example additional keys
+      
+      for(key in additional_keys) {
+        if(key %in% names(final_data_updated)) {
+          final_data_updated <- final_data_updated %>%
+            left_join(refmet, by = setNames("refmet_name", key), suffix = c("", paste0(".", key))) %>%
+            mutate(across(
+              .cols = all_of(common_cols),
+              .fns = ~ coalesce(get(paste0(cur_column(), ".", key)), .x)
+            )) %>%
+            select(-ends_with(paste0(".", key)))
+        }
+      }
+      
+      final_data_updated <- final_data_updated %>%
+        # make the pubchem_cid as charactor
+        mutate(pubchem_cid = as.character(pubchem_cid))
+      
+      final_data_updated <- final_data_updated %>%
+        mutate(
+          CID = coalesce(CID, pubchem_cid),
+          InChIKey = coalesce(InChIKey, inchi_key)
+        ) %>%
+        select(-pubchem_cid, -inchi_key)
+      
+      data_final <- final_data_updated
+      
       
       update_modal_spinner(
         session = session,
@@ -524,8 +560,6 @@ shinyServer(function(session, input, output) {
     
     if(is.null(rv$activeFile)) {
       showNotification("No data", type = "error")
-    } else if (sum(rv$sequence[[rv$activeFile]][, 1] %in% "Name") != 1) {
-      showNotification("Data must have exactly 1 \"Name\" column", type = "error")
     } else {
       sequence <- rv$sequence[[rv$activeFile]]
       data <- rv$data[[rv$activeFile]]
@@ -569,7 +603,7 @@ shinyServer(function(session, input, output) {
       # Combine with abbreviations
       abbreviations <- bind_rows(abbreviations, manual_mappings)
       
-      print(abbreviations)
+      # print(abbreviations)
       
       # Build regex pattern, ensuring LPC is before PC
       abbreviation_pattern <- paste0("\\b(", paste(unique_abbre, collapse = "|"), ")(\\(O-)?")
@@ -581,14 +615,16 @@ shinyServer(function(session, input, output) {
       
       data <- data %>%
         mutate(
-          lipid_name = gsub("_\\d+\\.\\d+_\\d+\\.\\d+$", "", lipid_names),  # Remove extra numbers
-          lipid_name = gsub("_\\d+\\.\\d+_\\d+$", "", lipid_name),  # Additional cleanup
+          lipid_name = gsub("_\\d+\\.\\d+_\\d+\\.\\d+$", "", lipid_names),  # Remove trailing numbers (e.g., _884.54293_2.4)
+          lipid_name = gsub("_\\d+\\.\\d+_\\d+$", "", lipid_name),           # Additional numeric cleanup if needed
+          lipid_name = gsub("_\\[[^]]+\\].*$", "", lipid_name),              # Remove trailing adduct pattern
           lipid_abbreviation = str_extract(lipid_name, abbreviation_pattern)  # Extract abbreviation
         ) %>%
         relocate(c(lipid_name, lipid_abbreviation), .after = all_of(identifier))
       
-      library(dplyr)
-      library(stringr)
+      # if names still contain 
+      data <- data %>%
+        mutate(lipid_name = gsub("_\\d+\\.\\d+_\\d+\\.\\d+$", "", lipid_name))
       
       calculate_sum_name <- function(lipid_name) {
         # Extract the head group (assumed to be the first word)
@@ -668,6 +704,8 @@ shinyServer(function(session, input, output) {
         }, lipid_name, lipid_abbreviation)) %>%
         relocate(sum_name, .after = lipid_name)
       
+      # coalesce sum_name with lipid_name if sum_name is NA
+      data$sum_name <- coalesce(data$sum_name, data$lipid_name)
       
       # Fix O- notation dynamically
       data$lipid_abbreviation <- ifelse(
@@ -676,24 +714,18 @@ shinyServer(function(session, input, output) {
         data$lipid_abbreviation
       )
       
-      # Replace NA values in abbreviations with "None"
-      data$lipid_abbreviation[is.na(data$lipid_abbreviation)] <- "None"
+      # Replace NA values in abbreviations with NA
+      data$lipid_abbreviation[is.na(data$lipid_abbreviation)] <- NA
       
       # Join with abbreviations to get lipid_class
       data <- data %>%
-        left_join(abbreviations, by = c("lipid_abbreviation" = "sub_class")) %>% 
+        left_join(abbreviations, by = c("lipid_abbreviation" = "sub_class"),
+                  relationship = "many-to-many") %>% 
         rename(lipid_class = main_class) %>%
         relocate(lipid_class, .after = lipid_abbreviation)
       
-      # Replace NA in lipid_class with "None"
-      data$lipid_class[is.na(data$lipid_class)] <- "None"
-      
-      # and now only those columns 
-      print(data %>% filter(lipid_abbreviation != "None" & lipid_class == "None") %>% select(identifier, lipid_name, sum_name, lipid_abbreviation, lipid_class))
-      
-      # print rows where lipid_class is None but lipid_abbreviation is not none 
-      # print(data[data$lipid_class == "None" & data$lipid_abbreviation != "None",
-      #            c(identifier, "lipid_name", "lipid_abbreviation", "lipid_class")])
+      # Replace NA in lipid_class with NA
+      data$lipid_class[is.na(data$lipid_class)] <- NA
       
       colnames_cleaned <- setdiff(colnames(data), original_colnames)
       
@@ -734,7 +766,6 @@ shinyServer(function(session, input, output) {
     sendSweetAlert(session, "Success", "Lipid names have been cleaned to standardization and column with lipid group has been added.", type = "success")
     message(sample(quotes, 1))
   })
-  
   
   observeEvent(input$editColumns, {
     showModal(
@@ -948,12 +979,149 @@ shinyServer(function(session, input, output) {
         textOutput("No columns labeled QC.")
       } 
     })
-      output$dt_boxplot_panel <- renderDT(rv$data[[rv$activeFile]][rv$sequence[[rv$activeFile]][, 1] %in% "Name"],
-                                          rownames = FALSE, 
-                                          options = list(autoWidth = TRUE,
-                                                         scrollY = "700px",
-                                                         pageLength = 20))
-
+    output$dt_boxplot_panel <- renderDT(rv$data[[rv$activeFile]][rv$sequence[[rv$activeFile]][, 1] %in% "Name"],
+                                        rownames = FALSE, 
+                                        options = list(autoWidth = TRUE,
+                                                       scrollY = "700px",
+                                                       pageLength = 20))
+    
+    
+    # Plot of classes in the identifer table
+    output$super_class_plot <- renderPlotly({
+      data_sub <- data
+      
+      # remove rows where NA, "", " " or "NA" are present in the super_class column
+      data_sub <- data_sub[!is.na(data_sub$super_class) &
+                             data_sub$super_class != "" &
+                             data_sub$super_class != " " &
+                             data_sub$super_class != "NA" &
+                             data_sub$super_class != "N/A", ]
+      
+      # Check if "super_class" column exists; if not, send an error alert and exit.
+      if (!("super_class" %in% colnames(data_sub))) {
+        showNotification(
+          paste("No Super Class column found in the dataset.
+        Make sure a column named 'super_class' is present 
+              by running 'Gather Identifiers'."),
+          type = "message",
+          duration = 10
+        )
+        return(NULL)  # Stop further execution of the renderPlotly block.
+      }
+      
+      # Create ggplot
+      p <- data_sub %>%
+        arrange(super_class) %>%  # Sort lexicographically
+        mutate(super_class = factor(super_class, levels = unique(super_class))) %>%  # Ensure unique levels
+        ggplot(aes(x = super_class)) +
+        geom_bar(fill = "steelblue", color = "black", width = 0.4) +
+        geom_text(stat = "count", aes(label = after_stat(count)), vjust = -4, size = 3, color = "black") +  # Add labels
+        labs(title = paste0("Distribution of Super Classes - number of features: ", nrow(data)),
+             x = "Super Class",
+             y = "Count") +
+        theme_bw(base_size = 11) +  # Modern theme
+        theme(
+          axis.text.x = element_text(angle = 45, hjust = 1, size = 12, color = "black"),
+          axis.text.y = element_text(size = 12, color = "black"),
+          axis.title.x = element_text(size = 14, face = "bold"),
+          axis.title.y = element_text(size = 14, face = "bold"),
+          panel.grid.major = element_blank(),  # Remove grid lines for cleaner look
+          panel.grid.minor = element_blank()
+        )
+      
+      ggplotly(p)
+    })
+    output$main_class_plot <- renderPlotly({
+      data_sub <- data
+      
+      # remove rows where NA, "", " " or "NA" are present in the main_class column
+      data_sub <- data_sub[!is.na(data_sub$main_class) &
+                             data_sub$main_class != "" &
+                             data_sub$main_class != " " &
+                             data_sub$main_class != "NA" &
+                             data_sub$main_class != "N/A", ]
+      
+      # Check if "main_class" column exists; if not, send an error alert and exit.
+      if (!("main_class" %in% colnames(data_sub))) {
+        showNotification(
+          paste("No Main Class column found in the dataset. 
+                  Make sure a column named 'main_class' is present 
+                  by running 'Gather Identifiers'."),
+          type = "message",
+          duration = 10
+        )
+        return(NULL)  # Stop further execution of the renderPlotly block.
+      }
+      
+      # Create ggplot
+      p <- data_sub %>%
+        arrange(main_class) %>%  # Sort lexicographically
+        mutate(main_class = factor(main_class, levels = unique(main_class))) %>%  # Ensure unique levels
+        ggplot(aes(x = main_class)) +
+        geom_bar(fill = "steelblue", color = "black", width = 0.4) +  # Better color and border
+        geom_text(stat = "count", aes(label = after_stat(count)), vjust = -4, size = 3, color = "black") +  # Add labels
+        labs(title = paste0("Distribution of Main Classes - number of features: ", nrow(data)),
+             x = "Main Class",
+             y = "Count") +
+        theme_bw(base_size = 11) +  # Modern theme
+        theme(
+          axis.text.x = element_text(angle = 45, hjust = 1, size = 12, color = "black"),
+          axis.text.y = element_text(size = 12, color = "black"),
+          axis.title.x = element_text(size = 14, face = "bold"),
+          axis.title.y = element_text(size = 14, face = "bold"),
+          panel.grid.major = element_blank(),  # Remove grid lines for cleaner look
+          panel.grid.minor = element_blank()
+        )
+      
+      # Convert ggplot to interactive plotly plot
+      ggplotly(p)
+    })
+    output$sub_class_plot <- renderPlotly({
+      data_sub <- data
+      
+      # remove rows where NA, "", " " or "NA" are present in the sub_class column
+      data_sub <- data_sub[!is.na(data_sub$sub_class) &
+                             data_sub$sub_class != "" &
+                             data_sub$sub_class != " " &
+                             data_sub$sub_class != "NA" &
+                             data_sub$sub_class != "N/A", ]
+      
+      # Check if "sub_class" column exists; if not, send an error alert and exit.
+      if (!("sub_class" %in% colnames(data_sub))) {
+        showNotification(
+          paste("No Sub Class column found in the dataset. 
+                  Make sure a column named 'sub_class' is present 
+                  by running 'Gather Identifiers'."),
+          type = "message",
+          duration = 10
+        )
+        return(NULL)  # Stop further execution of the renderPlotly block.
+      }
+      
+      # Create ggplot
+      p <- data_sub %>%
+        arrange(sub_class) %>%  # Sort lexicographically
+        mutate(sub_class = factor(sub_class, levels = unique(sub_class))) %>%  # Ensure unique levels
+        ggplot(aes(x = sub_class)) +
+        geom_bar(fill = "steelblue", color = "black", width = 0.4) +  # Better color and border
+        geom_text(stat = "count", aes(label = after_stat(count)), vjust = -4, size = 3, color = "black") +  # Add labels
+        labs(title = paste0("Distribution of Sub Classes - number of features: ", nrow(data)),
+             x = "Sub Class",
+             y = "Count") +
+        theme_bw(base_size = 11) +  # Modern theme
+        theme(
+          axis.text.x = element_text(angle = 45, hjust = 1, size = 8, color = "black"),
+          axis.text.y = element_text(size = 12, color = "black"),
+          axis.title.x = element_text(size = 14, face = "bold"),
+          axis.title.y = element_text(size = 14, face = "bold"),
+          panel.grid.major = element_blank(),  # Remove grid lines for cleaner look
+          panel.grid.minor = element_blank()
+        )
+      
+      # Convert ggplot to interactive plotly plot
+      ggplotly(p)
+    })
+    
     if (sum(rv$sequence[[rv$activeFile]][, 1] %in% "Name") == 1) { #TODO check if this check is needed
       internalStandards <- findInternalStandards(rv$data[[rv$activeFile]][rv$sequence[[rv$activeFile]][, 1] %in% "Name"])
       updateCheckboxGroupInput(session, "isChoose", choices = internalStandards, selected = internalStandards)
@@ -1604,8 +1772,13 @@ shinyServer(function(session, input, output) {
         # Perform PCA once and save the results to pca_result
         pca_result <- pcaplot(data_subset, seq_subset, input$pca1_islog)
         
+        message("PCA results saved.")
         # Generate a unique name for the PCA result based on the dataset name
-        dataset_name <- names(rv$data)[sd]
+        if (input$selectpca1 == "Unsaved data") {
+          dataset_name <- "UnsavedData"  # or any other name you prefer for unsaved data
+        } else {
+          dataset_name <- names(rv$data)[sd]
+        }
         pca_name <- paste0(dataset_name, "_pca")
         pc_name <- paste0(dataset_name, "_PC")
         
@@ -1670,8 +1843,13 @@ shinyServer(function(session, input, output) {
       # Save the PCA results to pca_results
       pca_result <- pcaplot(data_subset, seq_subset, input$pca2_islog)
       
+      message("PCA results saved.")
       # Generate a unique name for the PCA result based on the dataset name
-      dataset_name <- names(rv$data)[sd]
+      if (input$selectpca1 == "Unsaved data") {
+        dataset_name <- "UnsavedData"  # or any other name you prefer for unsaved data
+      } else {
+        dataset_name <- names(rv$data)[sd]
+      }
       pca_name <- paste0(dataset_name, "_pca")
       pc_name <- paste0(dataset_name, "_PC")
       
@@ -3007,7 +3185,7 @@ shinyServer(function(session, input, output) {
   ######################
   # Pathway Enrichment Analysis 
   observeEvent(input$select_data_for_enrichment, {
-    req(input$select_data_for_enrichment) # Ensure a dataset is selected
+    req(input$select_data_for_enrichment)  # Ensure a dataset is selected
     
     if (!is.null(rv$activeFile)) {
       if (input$select_data_for_enrichment == "Unsaved data") {
@@ -3021,11 +3199,29 @@ shinyServer(function(session, input, output) {
       # Extract column names from the selected dataset
       data_colnames <- colnames(data)
       
-      columns <- c("identifier_column","compound_column")
+      # Define the IDs for the selectInputs you wish to update
+      select_ids <- c("identifier_column", "compound_column")
       
-      for (column in columns) {
-        # Update the 'identifier_column' select input with the new choices
-        updateSelectInput(session, column, choices = data_colnames)
+      for (col in select_ids) {
+        # Set default based on which input it is
+        if (col == "identifier_column") {
+          default_val <- if ("Structure" %in% data_colnames) {
+            "Structure"
+          } else if ("InChI" %in% data_colnames) {
+            "InChI"
+          } else {
+            ""
+          }
+        } else if (col == "compound_column") {
+          # Change this logic as needed. For example, default to "Compound" if present.
+          default_val <- if ("Original annotation" %in% data_colnames) {
+            "Original annotation"
+          } else {
+            data_colnames[1]  # Fallback: use the first column
+          }
+        }
+        
+        updateSelectInput(session, col, choices = data_colnames, selected = default_val)
       }
     }
     
@@ -3046,7 +3242,7 @@ shinyServer(function(session, input, output) {
     
     print("Selected rows:")
     print(selectedData())
-
+    
     # Process logic
     if (!is.null(rv$activeFile)) {
       if (input$select_data_for_enrichment == "Unsaved data") {
@@ -3079,8 +3275,8 @@ shinyServer(function(session, input, output) {
       message(paste0("Number of features after filtering: ", nrow(subset)))
       
       # Set this to TRUE during development and FALSE in production
-      run_development_code <- FALSE
-
+      run_development_code <- TRUE
+      
       if (run_development_code) {
         # Check how many rows query has initially
         query_start <- nrow(query)
@@ -3339,9 +3535,6 @@ shinyServer(function(session, input, output) {
       
       # print(head(final_data))
       
-      print(colnames(final_data))
-      print(colnames(refmet))
-      
       common_cols <- setdiff(intersect(names(final_data), names(refmet)), c(compound, "refmet_name"))
       
       # Perform the left join using final_data[[compound]] and refmet$refmet_name.
@@ -3369,13 +3562,16 @@ shinyServer(function(session, input, output) {
         }
       }
       
-      print(head(final_data_updated))
-      # final_data_updated <- final_data_updated %>%
-      #   mutate(
-      #     CID = coalesce(CID, pubchem_cid),
-      #     InChIKey = coalesce(InChIKey, inchi_key)
-      #   ) %>%
-      #   select(-pubchem_cid, -inchi_key)
+      final_data_updated <- final_data_updated %>%
+        # make the pubchem_cid as charactor
+        mutate(pubchem_cid = as.character(pubchem_cid))
+      
+      final_data_updated <- final_data_updated %>%
+        mutate(
+          CID = coalesce(CID, pubchem_cid),
+          InChIKey = coalesce(InChIKey, inchi_key)
+        ) %>%
+        select(-pubchem_cid, -inchi_key)
       
       
       message("Number of features after final merge with refmet:", nrow(final_data_updated))
@@ -3432,6 +3628,57 @@ shinyServer(function(session, input, output) {
     remove_modal_spinner()
   })
   
+  # Render the identifier count table
+  output$identifier_count_table <- renderDT({
+    req(input$select_data_for_enrichment)
+    
+    # Define your desired vector of column names
+    desired_cols <- c("Name", "lipid_name", "sum_name", "lipid_abbreviation", "lipid_class",
+                      "Original annotation", "Structure", "InChIKey", "CID", "CanonicalSMILES", "IsomericSMILES",
+                      "IUPACName", "refmet_id", "refmet_name", "super_class", "main_class", "sub_class", "chebi_id",
+                      "hmdb_id", "lipidmaps_id", "kegg_id")
+    
+    sd <- which(rv$choices %in% input$select_data_for_enrichment)
+    data <- rv$data[[sd]]
+    
+    # Only include columns from your desired list that exist in the selected data
+    cols_to_include <- intersect(desired_cols, colnames(data))
+    req(length(cols_to_include) > 0)
+    
+    # Compute valid counts for each desired column in data
+    valid_counts <- sapply(cols_to_include, function(col) {
+      sum(!is.na(data[[col]]) & data[[col]] != "")
+    })
+    
+    # Compute NA/empty counts for each desired column in data
+    na_empty_counts <- sapply(cols_to_include, function(col) {
+      sum(is.na(data[[col]]) | data[[col]] == "")
+    })
+    
+    # Create a data frame with a row for each statistic and a column for each desired column
+    df <- data.frame(
+      Statistic = c("Valid Count", "NA/Empty Count"),
+      matrix(c(valid_counts, na_empty_counts),
+             nrow = 2, byrow = TRUE, 
+             dimnames = list(NULL, cols_to_include))
+    )
+    
+    # Render the datatable with additional options for scrolling
+    DT::datatable(
+      df,
+      options = list(
+        dom = 't',
+        scrollX = TRUE,
+        autoWidth = TRUE
+      ),
+      caption = htmltools::tags$caption(
+        style = 'caption-side: top; text-align: left;',
+        HTML(paste0("<b>Total numbers of metabolites: </b>", nrow(data)))
+      )
+    )
+  })
+  
+  
   # Create a reactive expression to store the data used in dt_table
   dataForPathEnri <- reactive({
     req(input$select_data_for_enrichment)
@@ -3470,205 +3717,7 @@ shinyServer(function(session, input, output) {
     }
   })
   
-  # Render the identifier count table
-  output$identifier_count_table <- renderUI({
-    req(nrow(rv$identifier_df) > 0,
-        input$select_data_for_enrichment)
-    
-    sd <- which(rv$choices %in% input$select_data_for_enrichment)
-    data <- rv$data[[sd]]
-    
-    # Count valid (non-NA and non-empty) values for each column
-    valid_counts <- sapply(rv$identifier_df, function(x) {
-      sum(!is.na(x) & x != "")
-    })
-    
-    # Count missing or empty values for each column
-    na_empty_counts <- sapply(rv$identifier_df, function(x) {
-      sum(is.na(x) | x == "")
-    })
-    
-    # Build the table rows
-    table_rows <- paste(
-      sapply(names(valid_counts), function(col_name) {
-        paste0(
-          "<tr>",
-          "<td>", col_name, "</td>",
-          "<td>", valid_counts[col_name], "</td>",
-          "<td>", na_empty_counts[col_name], "</td>",
-          "</tr>"
-        )
-      }),
-      collapse = ""
-    )
-    
-    # Build the complete HTML table
-    table_html <- HTML(
-      paste0(
-        "<table border='1' style='border-collapse: collapse; width: 100%;'>",
-        "<caption style='caption-side: top; text-align: left;'><b>Total numbers of metabolites: </b>", nrow(data), "</caption>",
-        "<thead>",
-        "<tr>",
-        "<th>Identifier</th>",
-        "<th>Valid Count</th>",
-        "<th>NA/Empty Count</th>",
-        "</tr>",
-        "</thead>",
-        "<tbody>",
-        table_rows,
-        "</tbody>",
-        "</table>"
-      )
-    )
-    
-    table_html
-  })
-  
-  # Plot of classes in the identifer table
-  output$super_class_plot <- renderPlotly({
-    req(input$select_data_for_enrichment)
-    
-    sd <- which(rv$choices == input$select_data_for_enrichment)
-    data_sub <- rv$data[[sd]]
-    
-    # remove rows where NA, "", " " or "NA" are present in the super_class column
-    data_sub <- data_sub[!is.na(data_sub$super_class) &
-                           data_sub$super_class != "" &
-                           data_sub$super_class != " " &
-                           data_sub$super_class != "NA" &
-                           data_sub$super_class != "N/A", ]
-    
-    # Check if "super_class" column exists; if not, send an error alert and exit.
-    if (!("super_class" %in% colnames(data_sub))) {
-      showNotification(
-        paste("No Super Class column found in the dataset.
-        Make sure a column named 'super_class' is present 
-              by running 'Gather Identifiers'."),
-        type = "message",
-        duration = 10
-      )
-      return(NULL)  # Stop further execution of the renderPlotly block.
-    }
-    
-    # Create ggplot
-    p <- data_sub %>%
-      arrange(super_class) %>%  # Sort lexicographically
-      mutate(super_class = factor(super_class, levels = unique(super_class))) %>%  # Ensure unique levels
-      ggplot(aes(x = super_class)) +
-      geom_bar(fill = "steelblue", color = "black", width = 0.4) +
-      geom_text(stat = "count", aes(label = after_stat(count)), vjust = -4, size = 3, color = "black") +  # Add labels
-      labs(title = "Distribution of Super Classes",
-           x = "Super Class",
-           y = "Count") +
-      theme_bw(base_size = 11) +  # Modern theme
-      theme(
-        axis.text.x = element_text(angle = 45, hjust = 1, size = 12, color = "black"),
-        axis.text.y = element_text(size = 12, color = "black"),
-        axis.title.x = element_text(size = 14, face = "bold"),
-        axis.title.y = element_text(size = 14, face = "bold"),
-        panel.grid.major = element_blank(),  # Remove grid lines for cleaner look
-        panel.grid.minor = element_blank()
-      )
-    
-    ggplotly(p)
-  })
-  output$main_class_plot <- renderPlotly({
-    req(input$select_data_for_enrichment)
-    
-    sd <- which(rv$choices == input$select_data_for_enrichment)
-    data_sub <- rv$data[[sd]]
-    
-    # remove rows where NA, "", " " or "NA" are present in the main_class column
-    data_sub <- data_sub[!is.na(data_sub$main_class) &
-                           data_sub$main_class != "" &
-                           data_sub$main_class != " " &
-                           data_sub$main_class != "NA" &
-                           data_sub$main_class != "N/A", ]
-    
-    # Check if "main_class" column exists; if not, send an error alert and exit.
-    if (!("main_class" %in% colnames(data_sub))) {
-      showNotification(
-        paste("No Main Class column found in the dataset. 
-                  Make sure a column named 'main_class' is present 
-                  by running 'Gather Identifiers'."),
-        type = "message",
-        duration = 10
-      )
-      return(NULL)  # Stop further execution of the renderPlotly block.
-    }
-    
-    # Create ggplot
-    p <- data_sub %>%
-      arrange(main_class) %>%  # Sort lexicographically
-      mutate(main_class = factor(main_class, levels = unique(main_class))) %>%  # Ensure unique levels
-      ggplot(aes(x = main_class)) +
-      geom_bar(fill = "steelblue", color = "black", width = 0.4) +  # Better color and border
-      geom_text(stat = "count", aes(label = after_stat(count)), vjust = -4, size = 3, color = "black") +  # Add labels
-      labs(title = "Distribution of Main Classes",
-           x = "Main Class",
-           y = "Count") +
-      theme_bw(base_size = 11) +  # Modern theme
-      theme(
-        axis.text.x = element_text(angle = 45, hjust = 1, size = 12, color = "black"),
-        axis.text.y = element_text(size = 12, color = "black"),
-        axis.title.x = element_text(size = 14, face = "bold"),
-        axis.title.y = element_text(size = 14, face = "bold"),
-        panel.grid.major = element_blank(),  # Remove grid lines for cleaner look
-        panel.grid.minor = element_blank()
-      )
-    
-    # Convert ggplot to interactive plotly plot
-    ggplotly(p)
-  })
-  output$sub_class_plot <- renderPlotly({
-    req(input$select_data_for_enrichment)
-    
-    sd <- which(rv$choices == input$select_data_for_enrichment)
-    data_sub <- rv$data[[sd]]
-    
-    # remove rows where NA, "", " " or "NA" are present in the sub_class column
-    data_sub <- data_sub[!is.na(data_sub$sub_class) &
-                           data_sub$sub_class != "" &
-                           data_sub$sub_class != " " &
-                           data_sub$sub_class != "NA" &
-                           data_sub$sub_class != "N/A", ]
-    
-    # Check if "sub_class" column exists; if not, send an error alert and exit.
-    if (!("sub_class" %in% colnames(data_sub))) {
-      showNotification(
-        paste("No Sub Class column found in the dataset. 
-                  Make sure a column named 'sub_class' is present 
-                  by running 'Gather Identifiers'."),
-        type = "message",
-        duration = 10
-      )
-      return(NULL)  # Stop further execution of the renderPlotly block.
-    }
-    
-    # Create ggplot
-    p <- data_sub %>%
-      arrange(sub_class) %>%  # Sort lexicographically
-      mutate(sub_class = factor(sub_class, levels = unique(sub_class))) %>%  # Ensure unique levels
-      ggplot(aes(x = sub_class)) +
-      geom_bar(fill = "steelblue", color = "black", width = 0.4) +  # Better color and border
-      geom_text(stat = "count", aes(label = after_stat(count)), vjust = -4, size = 3, color = "black") +  # Add labels
-      labs(title = "Distribution of Sub Classes",
-           x = "Sub Class",
-           y = "Count") +
-      theme_bw(base_size = 11) +  # Modern theme
-      theme(
-        axis.text.x = element_text(angle = 45, hjust = 1, size = 8, color = "black"),
-        axis.text.y = element_text(size = 12, color = "black"),
-        axis.title.x = element_text(size = 14, face = "bold"),
-        axis.title.y = element_text(size = 14, face = "bold"),
-        panel.grid.major = element_blank(),  # Remove grid lines for cleaner look
-        panel.grid.minor = element_blank()
-      )
-    
-    # Convert ggplot to interactive plotly plot
-    ggplotly(p)
-  })
-  
+  # Run enrichment analysis
   observeEvent(input$run_enrichment_analysis, {
     req(input$select_data_for_enrichment,
         input$group1_enrichment,
@@ -3716,6 +3765,20 @@ shinyServer(function(session, input, output) {
     comparison_group <- input$group2_enrichment
     top_x_features <- as.numeric(input$top_x_enrich)
     dataset_name <- names(rv$data)[sd]
+    
+    p_value_thresh <- input$p_value_threshold_enrich
+    pAdjustMethod <- input$pAdjustMethod_enrich
+    minGSSize <- input$minGSSize_enrich
+    maxGSSize <- input$maxGSSize_enrich
+    qvalueCutoff <- input$qvalueCutoff_enrich
+    color_con <- input$color_con_enrich
+    
+    message("P-value theshold: ", p_value_thresh)
+    message("pAdjustMethod: ", pAdjustMethod)
+    message("minGSSize: ", minGSSize)
+    message("maxGSSize: ", maxGSSize)
+    message("qvalueCutoff: ", qvalueCutoff)
+    message("color_con: ", color_con)
     
     message("Running pathway enrichment analysis...")
     message("Selected dataset: ", dataset_name)
@@ -3816,12 +3879,9 @@ shinyServer(function(session, input, output) {
     
     def_results_list <- split(stat_df_signi, stat_df_signi$diffexpressed)
     
-    message("def_results_list troubleshooting")
-    print(head(def_results_list))
-    
     # from the def_results_list print the head of each df in the list 
     for (i in names(def_results_list)) {
-      print(paste0("Head of ", i, " dataframe:"))
+      message(paste0("Head of ", i, " dataframe:"))
       print(head(def_results_list[[i]]))
     }
     
@@ -3835,71 +3895,66 @@ shinyServer(function(session, input, output) {
       title_name <- "Gene Enrichment Analysis"
       print(paste0("#---", title_name, " ", dataset_name, "---#"))
       
-      res_geneCentric <- lapply(names(def_results_list),
+      res_geneCentric_ORA <- lapply(names(def_results_list),
                                 function(x) enrichKEGG(
                                   gene = def_results_list[[x]]$kegg_id,
                                   organism = "cpd",
                                   keyType = "kegg",
-                                  pvalueCutoff = 0.05,
-                                  pAdjustMethod = "fdr",
+                                  pvalueCutoff = p_value_thresh,
+                                  pAdjustMethod = pAdjustMethod,
                                   universe,
-                                  minGSSize = 1,
-                                  maxGSSize = 500,
-                                  qvalueCutoff = 0.05,
+                                  minGSSize = minGSSize,
+                                  maxGSSize = maxGSSize,
+                                  qvalueCutoff = qvalueCutoff,
                                   use_internal_data = FALSE
                                 )
       )
-      names(res_geneCentric) <- names(def_results_list)
+      names(res_geneCentric_ORA) <- names(def_results_list)
       
       # print("Enrichment results:")
       # print(head(res_geneCentric))
       
-      res_df_gene <- lapply(names(res_geneCentric), function(x) rbind(res_geneCentric[[x]]@result))
-      names(res_df_gene) <- names(res_geneCentric)
-      res_df_gene <- do.call(rbind, res_df_gene)
+      res_df_gene_ORA <- lapply(names(res_geneCentric_ORA), function(x) rbind(res_geneCentric_ORA[[x]]@result))
+      names(res_df_gene_ORA) <- names(res_geneCentric_ORA)
+      res_df_gene_ORA <- do.call(rbind, res_df_gene_ORA)
       
-      message("res_df_gene troubleshooting")
-      print(head(res_df_gene))
+      # message("res_df_gene_ORA troubleshooting")
+      # print(head(res_df_gene_ORA))
 
       # Convert rownames to a column
-      res_df_gene <- res_df_gene %>%
+      res_df_gene_ORA <- res_df_gene_ORA %>%
         tibble::rownames_to_column(var = "Pathway_ID")
       
       # Extract the "Upregulated"/"Downregulated" status and store in a new column
-      res_df_gene <- res_df_gene %>%
+      res_df_gene_ORA <- res_df_gene_ORA %>%
         mutate(Regulation = ifelse(grepl("^Upregulated", Pathway_ID), "Upregulated", "Downregulated"),
                Pathway_ID = gsub("^(Upregulated|Downregulated)\\.", "", Pathway_ID)) %>% # Remove label from Pathway_ID
         select(-Pathway_ID) %>%
         relocate(Regulation, .after = "Count")
 
       # Check the updated dataframe
-      print("Enrichment results:")
-      print(head(res_df_gene))
+      message("Enrichment results:")
+      print(head(res_df_gene_ORA))
       
       # geneSets <- list()
       
+      message("EnrichRes")
       # Define the new enrichResult object
       enrichres <- new("enrichResult",
-                       result = res_df_gene,  # The data frame of enrichment results
+                       result = res_df_gene_ORA,  # The data frame of enrichment results
                        organism = "cpd",  # If analyzing KEGG compounds
                        keytype = "kegg",
                        ontology = "UNKNOWN",
                        gene = universe,
-                       pAdjustMethod = "BH",
-                       qvalueCutoff = 0.2,
+                       pAdjustMethod = pAdjustMethod,
+                       qvalueCutoff = qvalueCutoff,
                        readable = FALSE)
       print(class(enrichres))
       
+      print(enrichres)
       
-      plots <- bar_dot_plot(enrichres, title_name, top_x_features)
       
-      # output$enrichment_cnetplot <- renderPlot({
-      #   NetGraphPlotWithGgraph(enrichres, data)  # Directly call the function
-      # })
-      
-      # output$enrichment_cnetplot <- renderPlot({
-      #   cnetplot(enrichres)
-      # })
+      plots <- bar_dot_plot(enrichres, title_name, top_x_features, color_con)
       
     } else {
       
@@ -3911,11 +3966,11 @@ shinyServer(function(session, input, output) {
                                     gene = def_results_list[[x]]$kegg_id,
                                     organism = "cpd",
                                     keyType = "kegg",
-                                    pvalueCutoff = 0.05,
-                                    pAdjustMethod = "fdr",
+                                    pvalueCutoff = p_value_thresh,
+                                    pAdjustMethod = pAdjustMethod,
                                     universe,
-                                    minGSSize = 1,
-                                    qvalueCutoff = 1
+                                    minGSSize = minGSSize,
+                                    qvalueCutoff = qvalueCutoff
                                   )
       )
       names(res_moduleCentric) <- names(def_results_list)
@@ -3942,8 +3997,6 @@ shinyServer(function(session, input, output) {
       print("Enrichment results DF:")
       print(head(res_df_module))
       
-      # geneSets <- list()
-      
       # Define the new enrichResult object
       enrichres <- new("enrichResult",
                        result = res_df_module,  # The data frame of enrichment results
@@ -3951,21 +4004,14 @@ shinyServer(function(session, input, output) {
                        keytype = "kegg",
                        ontology = "UNKNOWN",
                        gene = universe,
-                       pAdjustMethod = "BH",
-                       qvalueCutoff = 0.2,
+                       pAdjustMethod = pAdjustMethod,
+                       qvalueCutoff = qvalueCutoff,
                        readable = FALSE)
       
       print("Enrichment results after new object:")
       print(head(enrichres))
       
-      plots <- bar_dot_plot(enrichres, title_name, top_x_features)
-      
-      # make two enrich objects based on the Regulation 
-      # enrichres_up <- enrichres$Regulation[["Upregulated"]]
-      # enrichres_down <- enrichres$Regulation[["Downregulated"]]
-      # 
-      # print(head(enrichres_up))
-      # print(head(enrichres_down))
+      plots <- bar_dot_plot(enrichres, title_name, top_x_features, color_con)
 
     }
     
@@ -3987,10 +4033,13 @@ shinyServer(function(session, input, output) {
       distinct(kegg_id, .keep_all = TRUE) %>%
       select(refmet_name, kegg_id, super_class, main_class, sub_class, all_of(selected_group_samples))
     
-    enrichres <- as.data.frame(enrichres)
+    enrichres_df <- as.data.frame(enrichres)
     
-    enrichres_down <- enrichres[enrichres$Regulation == "Downregulated",]
-    enrichres_up <- enrichres[enrichres$Regulation == "Upregulated",]
+    message("EnrichRes DF: ")
+    print(head(enrichres_df))
+    
+    enrichres_down <- enrichres_df[enrichres_df$Regulation == "Downregulated",]
+    enrichres_up <- enrichres_df[enrichres_df$Regulation == "Upregulated",]
     
     title_down <- paste0(title_name," ", dataset_name, " Downregulated")
     title_up <- paste0(title_name," ", dataset_name, " Upregulated")
@@ -3998,151 +4047,32 @@ shinyServer(function(session, input, output) {
     
     
     output$enrichment_cnetplot_down <- renderPlot({
-      NetGraphPlotWithGgraph(enrichres_down, filtered_kegg_data, title = title_down)  # Directly call the function
+      NetGraphPlotWithGgraph(enrichres_down, filtered_kegg_data, title = title_down,
+                             layout_option = input$layout_option,
+                             node_size_mult = input$node_size_mult,
+                             node_text_size = input$node_text_size,
+                             edge_alpha = input$edge_alpha,
+                             edge_width_scale = input$edge_width_scale,
+                             node_color_by = input$node_color_by)  # Directly call the function
     })
     
     output$enrichment_cnetplot_up <- renderPlot({
-      NetGraphPlotWithGgraph(enrichres_up, filtered_kegg_data, title = title_up)  # Directly call the function
+      NetGraphPlotWithGgraph(enrichres_up, filtered_kegg_data, title = title_up,
+                             layout_option = input$layout_option,
+                             node_size_mult = input$node_size_mult,
+                             node_text_size = input$node_text_size,
+                             edge_alpha = input$edge_alpha,
+                             edge_width_scale = input$edge_width_scale,
+                             node_color_by = input$node_color_by)  # Directly call the function
     })
     
     # output$enrichment_cnetplot <- renderPlot({
-    #   NetGraphPlotWithGgraph(enrichres, filtered_kegg_data, title = title_combo)  # Directly call the function
-    # })
-    
-    return(NULL)
-    
-    # Extract unique groups
-    unique_sample_groups <- unique(filtered_sequence$group)
-    
-    # Clean KEGG ID column by filtering out empty or invalid values
-    filtered_data <- filtered_data %>%
-      filter(!is.na(kegg_id), kegg_id != "", kegg_id != " ", kegg_id != "NA", kegg_id != "N/A")
-    
-    # Ensure unique feature names for row names
-    rownames(filtered_data) <- make.unique(as.character(filtered_data[, "refmet_name"]))
-    
-    # Perform statistical calculations
-    statistical_results <- calculate_stats(filtered_data, filtered_sequence)
-    
-    # Identify significant features (p.adj < 0.05)
-    significance_threshold <- 0.05
-    significant_features_df <- statistical_results[statistical_results$p.adj < significance_threshold, ]
-    
-    # Extract feature names from row names
-    significant_features_df$feature <- sub("^[^.]+\\.", "", rownames(significant_features_df))
-    
-    # Group features by sample group
-    features_by_group <- lapply(unique_sample_groups, function(group) {
-      group_rows <- significant_features_df[grepl(group, significant_features_df$Contrast), ]
-      unique(group_rows$feature)
-    })
-    names(features_by_group) <- unique_sample_groups
-    
-    # message("\nSignificant Feature Names by Group:")
-    # print(features_by_group)
-    
-    # Store detailed statistical results for each group
-    detailed_significant_results <- lapply(unique_sample_groups, function(group) {
-      significant_features_df[grepl(group, significant_features_df$Contrast), ]
-    })
-    names(detailed_significant_results) <- unique_sample_groups
-    
-    # Extract significant features for the selected group
-    selected_group_features <- significant_features_df[grepl(group_of_interest, significant_features_df$Contrast), ]
-    
-    message("selected group features significant ")
-    print(head(selected_group_features))
-    
-    unique_selected_features <- unique(selected_group_features$feature)
-    
-    print(paste0("Significant features for group ", group_of_interest, ":"))
-    print(unique_selected_features)
-    
-    # Retrieve KEGG information for significant features
-    kegg_info_df <- filtered_data[unique_selected_features, c("refmet_name", "kegg_id"), drop = FALSE]
-    message("For group ", group_of_interest, " the significant features and their KEGG IDs are:")
-    
-    kegg_info_df <- kegg_info_df %>%
-      rownames_to_column(var = "feature")
-    
-    # merge selected_group_features and  kegg_info_df by feature
-    kegg_info_df <- merge(kegg_info_df,
-                          selected_group_features,
-                          by = "feature")
-    
-    kegg_info_df$Significance <- ifelse(kegg_info_df$p.adj < 0.05, "Significant", "Not Significant")
-    kegg_info_df$diffexpressed <- ifelse(kegg_info_df$log2FC > 0, "Up", "Down")
-    
-    print(head(kegg_info_df))
-    
-    # Extract sample names belonging to the selected group
-    selected_group_samples <- rownames(seq[seq$group == group_of_interest & seq$labels == "Sample",])
-    
-    # Filter KEGG data based on group samples
-    filtered_kegg_data <- data %>%
-      filter(!is.na(kegg_id), kegg_id != "", kegg_id != " ") %>%
-      distinct(kegg_id, .keep_all = TRUE) %>%
-      select(refmet_name, kegg_id, super_class, main_class, sub_class, all_of(selected_group_samples))
-    
-    # Extract unique KEGG IDs
-    unique_kegg_ids <- unique(filtered_kegg_data$kegg_id)
-    bg_features <- as.data.frame(unique_kegg_ids)
-    
-    message("All KEGG IDs:")
-    
-    print(head(bg_features))
-    
-    
-    # Run enrichment analysis based on selection
-    if (input$gene_selected) {
-      title_name <- "Gene Enrichment Analysis"
-      print(paste0("#---", title_name, " ", dataset_name, "---#"))
-      
-      enrichment_result <- run_gene_enrichment(kegg_info_df, bg_features)
-      print(head(enrichment_result))
-      
-    } else {
-      title_name <- "Module Enrichment Analysis"
-      print(paste0("#---", title_name, " ", dataset_name, "---#"))
-      
-      enrichment_result <- run_module_enrichment(kegg_info_df, bg_features)
-      print(head(enrichment_result))
-    }
-    
-    plots <- bar_dot_plot(enrichment_result,title_name,top_x)
-    
-    output$enrichment_barplot <- renderPlot({
-      plots$bar
-    })
-    
-    output$enrichment_dotplot <- renderPlot({
-      plots$dot
-    })
-    
-    # TODO  
-    # if (input$gene_selected) {
-    #   cat("#-----Selected data Gene-----# \n")
-    #   cnet <- plot_cnetplot_subcat(enrichment_result, kegg_data, top_x)
-    # } else {
-    #   cat("#-----Selected data Module-----# \n")
-    #   cnet <- plot_cnetplot_desc(enrichment_result, kegg_data, top_x)
-    # }
-    
-    # graph <- NetGraphPlot(enrichment_result, kegg_data, classification_level = "main_class")
-    # graph <- NetGraphPlotWithGgraph(enrichment_result, kegg_data)
-    
-    
-    output$enrichment_cnetplot <- renderPlot({
-      NetGraphPlotWithGgraph(enrichment_result, kegg_data)  # Directly call the function
-    })
-    
-    # output$enrichment_cnetplot <- renderPlot({
-    #   graph$plot
+    #   cnetplot(enrichres)  # Directly call the function
     # })
     
     output$enrichment_table <- renderDT({
       datatable(
-        graph$net, 
+        enrichres_df, 
         options = list(
           pageLength = 10,
           autoWidth = FALSE,
@@ -4151,9 +4081,6 @@ shinyServer(function(session, input, output) {
         class = "display nowrap"
       )
     })
-    
-    
-    # TODO Implement FELLA 
     
     message(sample(quotes, 1))
     
@@ -4199,7 +4126,7 @@ shinyServer(function(session, input, output) {
       
       seq_subset <- seq[seq[, "labels"] %in% c("Sample"), ]  # Restrict to "Sample" rows
       
-      # if seq[,group] is numeric put group_ infron
+      # if seq[,group] is numeric put group_ in front
       if (is.numeric(seq_subset[, "group"])) {
         seq_subset[, "group"] <- paste0("group_", seq_subset[, "group"])
         numerator <- paste0("group_", numerator)
@@ -4240,7 +4167,7 @@ shinyServer(function(session, input, output) {
       }
       
       # assign the sub_df a name for debugging
-      cirbar_df_name <- paste0(dataset_name, "_volcano_df")
+      cirbar_df_name <- paste0(dataset_name, "_cirbar_df")
       assign(cirbar_df_name, sub_df)
       
       # Define custom colors
@@ -4256,7 +4183,7 @@ shinyServer(function(session, input, output) {
       )
       
       # for each column return the min and max value in a 2xncol(data) matrix
-      min_max_values <- sapply(plotting_data[,3:ncol(plotting_data)], function(x) c(min(x, na.rm = TRUE), max(x, na.rm = TRUE)))
+      min_max_values <- sapply(plotting_data[,3:ncol(plotting_data)], function(x) c(base::min(x, na.rm = TRUE), max(x, na.rm = TRUE)))
       rownames(min_max_values) <- c("min", "max")
       print(round(min_max_values, 2))
       
@@ -4297,7 +4224,7 @@ shinyServer(function(session, input, output) {
       valid_data <- plotting_data %>% filter(!is.na(.data[[feature]]))
       
       # Create 5 evenly spaced ticks from min to max
-      tick_min <- min(plotting_data[[feature]], na.rm = TRUE)
+      tick_min <- base::min(plotting_data[[feature]], na.rm = TRUE)
       tick_max <- max(plotting_data[[feature]], na.rm = TRUE)
       ticks <- seq(tick_min, tick_max, length.out = 5)
       
@@ -4319,23 +4246,23 @@ shinyServer(function(session, input, output) {
         #              linetype = "dashed", color = "gray", linewidth = 0.3) +
         
         geom_segment(data = valid_data,
-                     aes(x = min(id), xend = max(id), y = tick_1, yend = tick_1),
+                     aes(x = base::min(id), xend = max(id), y = tick_1, yend = tick_1),
                      linetype = "dashed", color = "gray70", linewidth = 0.3) +
         geom_segment(data = valid_data,
-                     aes(x = min(id), xend = max(id), y = tick_2, yend = tick_2),
+                     aes(x = base::min(id), xend = max(id), y = tick_2, yend = tick_2),
                      linetype = "dashed", color = "gray70", linewidth = 0.3) +
         geom_segment(data = valid_data,
-                     aes(x = min(id), xend = max(id), y = tick_3, yend = tick_3),
+                     aes(x = base::min(id), xend = max(id), y = tick_3, yend = tick_3),
                      linetype = "dashed", color = "gray70", linewidth = 0.3) +
         geom_segment(data = valid_data,
-                     aes(x = min(id), xend = max(id), y = tick_4, yend = tick_4),
+                     aes(x = base::min(id), xend = max(id), y = tick_4, yend = tick_4),
                      linetype = "dashed", color = "gray70", linewidth = 0.3) +
         geom_segment(data = valid_data,
-                     aes(x = min(id), xend = max(id), y = tick_5, yend = tick_5),
+                     aes(x = base::min(id), xend = max(id), y = tick_5, yend = tick_5),
                      linetype = "dashed", color = "gray70", linewidth = 0.3) +
         
         annotate("text",
-                 x = min(plotting_data$id),
+                 x = base::min(plotting_data$id),
                  y = c(tick_1, tick_2, tick_3, tick_4, tick_5),
                  label = c(as.character(round(tick_1, 2)),
                            as.character(round(tick_2, 2)),
@@ -4344,7 +4271,7 @@ shinyServer(function(session, input, output) {
                            as.character(round(tick_5, 2))),
                  color = "black", size = 5, angle = 0, fontface = "bold", hjust = 1) +
         
-        ylim(min(valid_data[,feature]) - 0.25,
+        ylim(base::min(valid_data[,feature]) - 0.25,
              max(valid_data[,feature])) +
         
         theme_minimal() +
@@ -4795,7 +4722,7 @@ shinyServer(function(session, input, output) {
         
         # Ensure minimum and maximum height limits
         total_plot_height <- max(total_plot_height, 600)   # Minimum height
-        total_plot_height <- min(total_plot_height, 4000)  # Maximum height
+        total_plot_height <- base::min(total_plot_height, 4000)  # Maximum height
         
         # Calculate logFC range dynamically
         logFC_range <- range(filtered_data$logFC, na.rm = TRUE)
@@ -4806,7 +4733,7 @@ shinyServer(function(session, input, output) {
           fill.limits <- c(-manual_limit, manual_limit)
         } else {
           # Use dynamic range
-          fill.limits <- c(min(logFC_range), max(logFC_range))
+          fill.limits <- c(base::min(logFC_range), max(logFC_range))
         }
         
         heatmap_plot <- heatmap_lipidome(
@@ -5065,9 +4992,9 @@ shinyServer(function(session, input, output) {
         
         # Ensure minimum and maximum limits
         total_height <- max(total_height, 6)   # Minimum height in inches
-        total_height <- min(total_height, 40)  # Maximum height in inches
+        total_height <- base::min(total_height, 40)  # Maximum height in inches
         total_width <- max(total_width, 8)     # Minimum width in inches
-        total_width <- min(total_width, 40)    # Maximum width in inches
+        total_width <- base::min(total_width, 40)    # Maximum width in inches
         
         # Return the dimensions
         list(height = total_height, width = total_width)
@@ -5500,13 +5427,33 @@ shinyServer(function(session, input, output) {
           default_val <- if ("Structure" %in% columns) "Structure" else ""
           updateSelectInput(session, x, label = NULL, choices = columns, selected = default_val)
         } else if (grepl("group_column_cirbar", x)) {
-          default_val <- if ("super_class" %in% columns) "super_class" else ""
+          default_val <- if ("super_class" %in% columns) {
+            "super_class"
+          } else if ("lipid_class" %in% columns) {
+            "lipid_class"
+          } else {
+            ""
+          }
           updateSelectInput(session, x, label = NULL, choices = columns, selected = default_val)
-        # } else if (grepl("group_column_heatmap", x)) {
-        #   default_val <- if ("super_class" %in% columns) "super_class" else ""
-        #   updateSelectInput(session, x, label = NULL, choices = columns, selected = default_val)
+          
+        } else if (grepl("name_column_lipids", x)) {
+          default_val <- if ("Name" %in% columns) {
+            "Name"
+          } else if ("Original annotation" %in% columns) {
+            "Original annotation"
+          } else {
+            ""
+          }
+          updateSelectInput(session, x, label = NULL, choices = columns, selected = default_val)
+          
         } else {
-          default_val <- if ("Original annotation" %in% columns) "Original annotation" else ""
+          default_val <- if ("Original annotation" %in% columns) {
+            "Original annotation"
+          } else if ("Name" %in% columns) {
+            "Name"
+          } else {
+            ""
+          }
           updateSelectInput(session, x, label = NULL, choices = columns, selected = default_val)
         }
       }
