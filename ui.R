@@ -390,56 +390,140 @@ shinyUI(dashboardPage(
                      #TODO add specific panel for comparison?
                      fluidRow(
                        column(12,
-                              box(width = NULL, title = "Median across samples", 
+                              box(width = NULL,
+                                  title = "Median across samples",
+                                  status = "primary",
+                                  solidHeader = TRUE,
+                                  collapsible = TRUE,
                                   plotlyOutput("histogram") %>% withSpinner(color="steelblue")
                               )),
                        column(12,
                               box(width = NULL, title = "Median across QCs",
+                                  status = "primary",
+                                  solidHeader = TRUE,
+                                  collapsible = TRUE,
                                   uiOutput("histogram_qc") %>% withSpinner(color="steelblue")
                               )),
                        column(12,
                               box(width = NULL, title = "Median across groups",
+                                  status = "primary",
+                                  solidHeader = TRUE,
+                                  collapsible = TRUE,
                                   column(6, selectInput("select_group", "Select group", choices = NULL, width = "100%")),
                                   column(6),
                                   plotlyOutput("histogram_group") %>% withSpinner(color="steelblue")
-                              ))
+                              )),
+                       column(
+                         width = 12,
+                         box(
+                           title = "Class Plot",
+                           width = NULL,
+                           status = "primary",
+                           solidHeader = TRUE,
+                           collapsible = TRUE,
+                           fluidRow(
+                             column(
+                               width = 3,
+                               wellPanel(
+                                 h4("Select which class plot to display:"),
+                                 radioButtons(
+                                   inputId  = "classChoice",
+                                   label    = NULL,  
+                                   choices  = c("Super Class" = "super",
+                                                "Main Class"  = "main",
+                                                "Sub Class"   = "sub"),
+                                   selected = "super"
+                                 )
+                               )
+                             ),
+                             column(
+                               width = 9,
+                               conditionalPanel(
+                                 condition = "input.classChoice == 'super'",
+                                 plotlyOutput("super_class_plot", height = "500px") %>% withSpinner(color = "steelblue")
+                               ),
+                               conditionalPanel(
+                                 condition = "input.classChoice == 'main'",
+                                 plotlyOutput("main_class_plot", height = "500px") %>% withSpinner(color = "steelblue")
+                               ),
+                               conditionalPanel(
+                                 condition = "input.classChoice == 'sub'",
+                                 plotlyOutput("sub_class_plot", height = "500px") %>% withSpinner(color = "steelblue")
+                               )
+                             )
+                           )
+                         )
+                       )
                      )
             ),
             tabPanel("PCA", 
-                     #TODO small guide/tooltips
                      fluidRow(
-                       column(12, box(width = NULL, title = "Principal Component Analysis",
-                                      tagList(
-                                        list(
-                                          tags$li("Check log-transfomed checkbox if data is already log-transformed.")
-                                        )
-                                      )
-                       ))
+                       column(12, 
+                              box(
+                                width = NULL, 
+                                title = "Principal Component Analysis",
+                                status = "info",
+                                solidHeader = TRUE,
+                                collapsible = FALSE,
+                                tagList(
+                                  tags$ul(
+                                    tags$li("Check log-transfomed checkbox if data is already log-transformed.")
+                                  )
+                                )
+                              )
+                       )
                      ),
                      fluidRow(
-                       column(6, box(width = NULL,
-                                     selectInput("selectpca1", "", choices = NULL, width = "100%"),
-                                     checkboxInput("pca1_islog", "Data is log-transformed.", value = FALSE, width = "100%"),
-                                     actionButton("run_pca1", "Run PCA", width = "50%") %>%
-                                       bsTooltip("Check box if the data is log-transformed!", placement = "bottom", trigger = "hover"),
-                                     plotlyOutput("plotpca1", width = "100%"), br(),
-                                     htmlOutput("pca1Details")
-                       )),
-                       column(6, box(width = NULL,
-                                     selectInput("selectpca2", "", choices = NULL, width = "100%"),
-                                     checkboxInput("pca2_islog", "Data is log-transformed.", value = FALSE, width = "100%"),
-                                     actionButton("run_pca2", "Run PCA", width = "50%"),
-                                     plotlyOutput("plotpca2"), br(),
-                                     htmlOutput("pca2Details")
-                       )),
-                       #TODO boxplots (see normalization)
-                       column(6, box(width = NULL,
-                                     plotlyOutput("plotscree1", width = "100%")
-                       )),
-                       column(6, box(width = NULL,
-                                     plotlyOutput("plotscree2", width = "100%")
-                       ))
-                     ),
+                       # Left column: PCA 1 and Scree Plot 1 (stacked vertically)
+                       column(6,
+                              box(
+                                width = NULL,
+                                title = "PCA 1",
+                                status = "primary",
+                                solidHeader = TRUE,
+                                collapsible = TRUE,
+                                selectInput("selectpca1", "", choices = NULL, width = "100%"),
+                                checkboxInput("pca1_islog", "Data is log-transformed.", value = FALSE, width = "100%"),
+                                actionButton("run_pca1", "Run PCA", width = "50%") %>%
+                                  bsTooltip("Check box if the data is log-transformed!", placement = "bottom", trigger = "hover"),
+                                plotlyOutput("plotpca1", width = "100%"),
+                                br(),
+                                htmlOutput("pca1Details")
+                              ),
+                              box(
+                                width = NULL,
+                                title = "Scree plot 1",
+                                status = "primary",
+                                solidHeader = TRUE,
+                                collapsible = TRUE,
+                                plotlyOutput("plotscree1", width = "100%")
+                              )
+                       ),
+                       # Right column: PCA 2 and Scree Plot 2 (stacked vertically)
+                       column(6,
+                              box(
+                                width = NULL,
+                                title = "PCA 2",
+                                status = "primary",
+                                solidHeader = TRUE,
+                                collapsible = TRUE,
+                                selectInput("selectpca2", "", choices = NULL, width = "100%"),
+                                checkboxInput("pca2_islog", "Data is log-transformed.", value = FALSE, width = "100%"),
+                                actionButton("run_pca2", "Run PCA", width = "50%"),
+                                plotlyOutput("plotpca2", width = "100%"),
+                                br(),
+                                htmlOutput("pca2Details")
+                              ),
+                              box(
+                                width = NULL,
+                                title = "Scree plot 2",
+                                status = "primary",
+                                solidHeader = TRUE,
+                                collapsible = TRUE,
+                                plotlyOutput("plotscree2", width = "100%")
+                              )
+                       )
+                     )
             ),
             tabPanel("Feature drift",
                      fluidRow(
@@ -1643,30 +1727,176 @@ shinyUI(dashboardPage(
                       )
                     ),
                     
-                    numericInput(
-                      inputId = "top_x_enrich",
-                      label = "Number of Top Features:",
-                      value = 20,
-                      min = 1,
-                      step = 1
-                    ),
-                    
                     actionButton("run_enrichment_analysis", "Run Enrichment Analysis", width = "100%")
+                  )
+                ),
+                
+                fluidRow(
+                  # Enrichment Settings Panel
+                  column(
+                    width = 6,
+                    box(
+                      title = "Enrichment Settings",
+                      width = 12,
+                      status = "primary",
+                      solidHeader = TRUE,
+                      collapsible = TRUE,
+                      fluidRow(
+                        column(
+                          width = 6,
+                          numericInput(
+                            inputId = "top_x_enrich",
+                            label = "Number of Top Features:",
+                            value = 20,
+                            min = 1,
+                            step = 1
+                          ),
+                          numericInput(
+                            inputId = "p_value_threshold_enrich",
+                            label = "P-value Threshold:",
+                            value = 0.05,
+                            min = 0,
+                            max = 1,
+                            step = 0.01
+                          )
+                        ),
+                        column(
+                          width = 6,
+                          selectInput(
+                            inputId = "pAdjustMethod_enrich",
+                            label = "P-Adjust Method:",
+                            choices = c("holm", "hochberg", "hommel", "bonferroni", "BH", "BY", "fdr", "none"),
+                            selected = "fdr"
+                          ),
+                          selectInput(
+                            inputId = "color_con_enrich",
+                            label = "Color based on Method:",
+                            choices = c("p.adjust", "pvalue", "qvalue"),
+                            selected = "p.adjust"
+                          )
+                        )
+                      ),
+                      fluidRow(
+                        column(
+                          width = 6,
+                          numericInput(
+                            inputId = "minGSSize_enrich",
+                            label = "min GS Size Threshold:",
+                            value = 1,
+                            min = 0,
+                            max = 1000000,
+                            step = 1
+                          )
+                        ),
+                        column(
+                          width = 6,
+                          numericInput(
+                            inputId = "maxGSSize_enrich",
+                            label = "max GS Size Threshold:",
+                            value = 500,
+                            min = 0,
+                            max = 1000000,
+                            step = 1
+                          )
+                        )
+                      ),
+                      fluidRow(
+                        column(
+                          width = 6,
+                          numericInput(
+                            inputId = "qvalueCutoff_enrich",
+                            label = "Q-value Threshold:",
+                            value = 0.05,
+                            min = 0,
+                            max = 1,
+                            step = 0.01
+                          )
+                        )
+                      )
+                    )
+                  ),
+                  # Network Graph Customizations Panel
+                  column(
+                    width = 6,
+                    box(
+                      title = "Network Graph Customizations",
+                      width = 12,
+                      status = "info",
+                      solidHeader = TRUE,
+                      collapsible = TRUE,
+                      fluidRow(
+                        column(
+                          width = 6,
+                          selectInput(
+                            inputId = "layout_option",
+                            label = "Choose Layout:",
+                            choices = c("nicely", "kk", "fr", "drl"),
+                            selected = "nicely"
+                          ),
+                          sliderInput(
+                            inputId = "node_size_mult",
+                            label = "Node Size Multiplier:",
+                            min = 0.5,
+                            max = 3,
+                            value = 1,
+                            step = 0.1
+                          )
+                        ),
+                        column(
+                          width = 6,
+                          sliderInput(
+                            inputId = "node_text_size",
+                            label = "Node Text Size:",
+                            min = 1,
+                            max = 6,
+                            value = 3,
+                            step = 0.5
+                          ),
+                          sliderInput(
+                            inputId = "edge_alpha",
+                            label = "Edge Transparency:",
+                            min = 0,
+                            max = 1,
+                            value = 0.5,
+                            step = 0.1
+                          )
+                        )
+                      ),
+                      fluidRow(
+                        column(
+                          width = 6,
+                          sliderInput(
+                            inputId = "edge_width_scale",
+                            label = "Edge Width Scale:",
+                            min = 0.5,
+                            max = 3,
+                            value = 1,
+                            step = 0.1
+                          )
+                        ),
+                        column(
+                          width = 6,
+                          selectInput("node_color_by", "Color Nodes By:",
+                                      choices = c("super_class", "main_class", "sub_class"),
+                                      selected = "super_class")
+                        )
+                      )
+                    )
                   )
                 ),
                 
                 # Identifiers Count
                 column(
-                  width = 6,
+                  width = 12,
                   box(
                     width = 12,
-                    title = "Number of Identifiers Gathered",
+                    title = "Identifiers Gathered",
                     status = "primary",
                     solidHeader = TRUE,
-                    collapsible = FALSE,
+                    collapsible = TRUE,
                     
                     textOutput("identifier_count_text"),
-                    uiOutput("identifier_count_table")
+                    DTOutput("identifier_count_table")
                   )
                 )
               ),
@@ -1720,66 +1950,22 @@ shinyUI(dashboardPage(
                 )
               ),
               
-              # Class Plot Selection
-              fluidRow(
-                column(
-                  width = 12,
-                  box(
-                    title = "Class Plot",
-                    width = NULL,
-                    status = "primary",
-                    solidHeader = TRUE,
-                    collapsible = TRUE,
-                    fluidRow(
-                      column(
-                        width = 3,
-                        wellPanel(
-                          h4("Select which class plot to display:"),
-                          radioButtons(
-                            inputId  = "classChoice",
-                            label    = NULL,  
-                            choices  = c("Super Class" = "super",
-                                         "Main Class"  = "main",
-                                         "Sub Class"   = "sub"),
-                            selected = "super"
-                          )
-                        )
-                      ),
-                      column(
-                        width = 9,
-                        conditionalPanel(
-                          condition = "input.classChoice == 'super'",
-                          plotlyOutput("super_class_plot", height = "500px") %>% withSpinner(color = "steelblue")
-                        ),
-                        conditionalPanel(
-                          condition = "input.classChoice == 'main'",
-                          plotlyOutput("main_class_plot", height = "500px") %>% withSpinner(color = "steelblue")
-                        ),
-                        conditionalPanel(
-                          condition = "input.classChoice == 'sub'",
-                          plotlyOutput("sub_class_plot", height = "500px") %>% withSpinner(color = "steelblue")
-                        )
-                      )
-                    )
-                  )
-                )
-              ),
-              
-              # Identifier Table
+              # Enrichment Table
               fluidRow(
                 column(
                   width = 12,
                   box(
                     width = NULL,
-                    title = "Identifier Table",
+                    title = "Enrichment Table",
                     status = "primary",
                     solidHeader = TRUE,
                     collapsible = TRUE,
-                    DTOutput("identifier_table")
+                    DTOutput("enrichment_table")
                   )
                 )
               )
             ),
+            
             # Summary tab
             tabPanel("Summary",
                      box(width = NULL,

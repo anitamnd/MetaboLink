@@ -312,7 +312,10 @@ insertColumn <- function(df, column_name, new_column_name, new_column) {
 }
 
 # Function to perform GO term enrichment analysis
-run_gene_enrichment <- function(data, all_kegg) {
+run_gene_enrichment <- function(data, all_kegg,
+                                pvalueCutoff = 0.05, pAdjustMethod = "fdr", 
+                                minGSSize = 10,
+                                maxGSSize = 500, qvalueCutoff = 0.02) {
   
   universe <- all_kegg
   
@@ -320,12 +323,12 @@ run_gene_enrichment <- function(data, all_kegg) {
     gene = data$kegg_id,
     organism = "cpd",
     keyType = "kegg",
-    pvalueCutoff = 0.05,
-    pAdjustMethod = "fdr",
+    pvalueCutoff = pvalueCutoff,
+    pAdjustMethod = pAdjustMethod,
     universe,
-    minGSSize = 10,
-    maxGSSize = 500,
-    qvalueCutoff = 0.02,
+    minGSSize = minGSSize,
+    maxGSSize = maxGSSize,
+    qvalueCutoff = qvalueCutoff,
     use_internal_data = FALSE
   )
   
@@ -350,21 +353,20 @@ run_module_enrichment <- function(data, all_kegg) {
   return(mcce_enrich_result)
 }
 
-bar_dot_plot <- function(data, title = NULL, top_x = 20) {
+bar_dot_plot <- function(data, title = NULL, top_x = 20, color_conditions = NULL) {
   
   message("Inside bar_dot_plot:: ")
   print(head(data))
   
   bar <- barplot(data,
-                 # split = 'Regulation',
+                 col = color_conditions,
                  title = paste0("Barplot ", title),
                  showCategory = top_x) + 
     facet_grid(~ Regulation)
   
   dot <- enrichplot::dotplot(data,
-                 # split = 'Regulation',
                  x = "GeneRatio",
-                 color = "p.adjust",
+                 color = color_conditions,
                  showCategory = top_x,
                  font.size = 12,
                  label_format = 30,
@@ -496,7 +498,10 @@ NetGraphPlot <- function(enrichment_data, data, classification_level = "super_cl
   return(list(graph = graph,
               plot = complete_plot))
 }
-NetGraphPlotWithGgraph <- function(enrichment_data, data, title = "Network Graph") {
+NetGraphPlotWithGgraph <- function(enrichment_data, data, title = "Network Graph",
+                                   layout_option = "nicely", node_size_mult = 1,
+                                   node_text_size = 3, edge_alpha = 0.5,
+                                   edge_width_scale = 1, node_color_by = "super_class" ) {
   
   message("Inside NetGraphPlotWithGgraph:: ")
   # Convert enrichment data to a DataFrame
@@ -511,7 +516,7 @@ NetGraphPlotWithGgraph <- function(enrichment_data, data, title = "Network Graph
   edge_list <- df %>%
     mutate(geneID = str_split(geneID, "/")) %>%
     unnest(cols = geneID) %>%
-    select(ID, geneID,GeneRatio, BgRatio, RichFactor, FoldEnrichment, zScore, pvalue, p.adjust, qvalue, Count) %>%
+    select(ID, geneID, GeneRatio, BgRatio, RichFactor, FoldEnrichment, zScore, pvalue, p.adjust, qvalue, Count) %>%
     rename(from = ID, to = geneID)
   
   message("Edge List: ")
@@ -535,50 +540,48 @@ NetGraphPlotWithGgraph <- function(enrichment_data, data, title = "Network Graph
   message("Enrichment Data IDs: ")
   print(df$ID)
   
-  # Merge node metadata
+  # Merge node metadata and assign a node_color based on user selection.
   graph <- graph %>%
     left_join(data %>% select(kegg_id, refmet_name, super_class, main_class, sub_class),
               by = c("name" = "kegg_id")) %>%
     left_join(df %>% select(ID, Description), by = c("name" = "ID")) %>%
     mutate(
-      # Assign classes for modules
+      # For any missing metadata, default to "Module"
       super_class = coalesce(super_class, "Module"),
       main_class  = coalesce(main_class, "Module"),
       sub_class   = coalesce(sub_class, "Module"),
       
-      # Assign labels based on type
-      label = ifelse(type == "Compound", refmet_name, Description),
+      # Determine node_color based on the user's choice:
+      node_color = case_when(
+        node_color_by == "super_class" ~ super_class,
+        node_color_by == "main_class" ~ main_class,
+        node_color_by == "sub_class" ~ sub_class,
+        TRUE ~ super_class
+      ),
       
-      # Remove everything after comma in label to keep it clean
+      # Assign labels based on type and clean them up
+      label = ifelse(type == "Compound", refmet_name, Description),
       label = str_trunc(label, width = 30, side = "right")
     ) %>%
-    select(-refmet_name, -Description)
-  
-  graph <- graph %>%
-    mutate(label = gsub(",.*", "", label)) # Remove everything after comma in label
+    select(-refmet_name, -Description) %>%
+    mutate(label = gsub(",.*", "", label))  # Remove everything after comma in label
   
   print(graph)
   
-  Graph_plot <- ggraph(graph, layout = 'nicely') + # 'kk', 'fr', 'nicely', 'drl'
+  Graph_plot <- ggraph(graph, layout = layout_option) +
     geom_edge_link0(aes(color = -log10(p.adjust),
-                        width = zScore),
-                    alpha = 0.5) +  # Better edge opacity
-    geom_node_point(aes(color = super_class,
-                        size = InDegree,
+                        width = zScore * edge_width_scale),
+                    alpha = edge_alpha) +
+    geom_node_point(aes(color = node_color,
+                        size = InDegree * node_size_mult,
                         shape = type)) +
     scale_shape_manual(values = c("Compound" = 16, "Module" = 15)) +
-    # scale_color_manual() + # might use in future to control color 
-    # geom_node_label(aes(label = label),
-    #                 label.padding = unit(0.2, "lines"),
-    #                 repel = TRUE,
-    #                 size = 3) + 
     geom_node_text(aes(label = label),
                    repel = TRUE,
-                   size = 3) +
-    
+                   size = node_text_size) +
     theme_void() +
     guides(edge_width = "none") +
-    theme(plot.title = element_text(hjust = 0.5)) +     # center the title 
+    theme(plot.title = element_text(hjust = 0.5)) +
     labs(
       title = title,
       color = "Biochemical Class",
@@ -586,11 +589,10 @@ NetGraphPlotWithGgraph <- function(enrichment_data, data, title = "Network Graph
       shape = "Node Type"
     )
   
-  # Graph_plot <- recordPlot()
-  # 
-  # Plot the Graph
   return(plot = Graph_plot)
 }
+
+
 plot_cnetplot_subcat <- function(enrichment_data, main_data, top_n = 5) {
   # Subset top_n
   enrichment_data <- enrichment_data %>%
