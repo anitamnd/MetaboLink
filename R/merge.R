@@ -62,7 +62,8 @@ mergeDatasets <- function(dataset1, sequence1, dataset2, sequence2, ppmTolerance
   # print(graph)
   # summary(graph)
   updateProgressBar(id = "pb", value = 90)
-  mergeid <- components(graph)$membership
+  
+  mergeid <- igraph::components(graph)$membership
   updateProgressBar(id = "pb", value = 100)
   colnames(dataset2) <- colnames(dataset1)
   combineddat <- as.data.frame(rbind(dataset1, dataset2))
