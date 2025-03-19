@@ -83,7 +83,7 @@ finddup <- function(out_dup, rankings) {
   dup_prio <- cbind(out_dup, prio)
   
   message("dup_prio")
-  print(head(dup_prio,12))
+  # print(head(dup_prio,12))
   
   rows <- NULL
   
