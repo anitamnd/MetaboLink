@@ -251,6 +251,9 @@ shinyUI(dashboardPage(
                           column(6, numericInput("merge_ppm", "M/z tolerance ppm", min = 0, value = 10, width = "100%"), style = "padding-left:0px;"),
                           column(6, numericInput("merge_rt", "RT tolerance", min = 0, value = 0.1, step = 0.01, width = "100%"), style = "padding-left:0px;")
                         ),
+                        
+                        selectInput("annotation_column_merge", "Select merging Column", choices = NULL, width = "100%")
+                        ,
                         fluidRow(
                           style = "margin-right: 0px;",
                           column(6, bsButton("editRankings", "Edit priorities", width = "100%"), style = "padding-left:0px;"),
