@@ -22,7 +22,7 @@ shinyServer(function(session, input, output) {
   disable("upload")
   
   rankings_merge <- data.frame(
-    name = c("high", "medium", "low"),
+    name = c("High", "Medium", "Low"),
     priority = c(1, 2, 3)
   )
   
@@ -1658,6 +1658,12 @@ shinyServer(function(session, input, output) {
       selected <- which(rv$choices %in% input$mergeFile)
       sequenceToMerge <- rv$sequence[[selected]]
       datasetToMerge <- rv$data[[selected]]
+      
+      print(input$annotation_column_merge)
+      
+      criteria_column <- input$annotation_column_merge
+      
+      
       if (sum(activeSequence[, 1] %in% c("Adduct_pos", "Adduct_neg")) != 1 || sum(sequenceToMerge[, 1] %in% c("Adduct_pos", "Adduct_neg")) != 1) {
         sendSweetAlert(session = session, title = "Error", text = "Each dataset must contain exactly one adduct column labeled in the sequence file.", type = "error")
       } else if (ncol(activeDataset) != ncol(datasetToMerge)) {
@@ -1675,24 +1681,30 @@ shinyServer(function(session, input, output) {
         })
         colnames(dub_dat)[activeSequence[, 1] %in% c("Adduct_pos", "Adduct_neg")] <- "adduct"
         out_dub <- data.frame(
-          "nClust" = nclust,
-          "Cluster_ID" = dub_dat$mergeID,
-          "Ion_mode" = dub_dat$ionmode,
-          "Adductor" = dub_dat$adduct,
-          "Name" = dub_dat[, which(activeSequence[, 1] %in% "Name")],
-          "RT" = dub_dat[, which(activeSequence[, 1] %in% "RT")],
-          "Mass" = dub_dat[, which(activeSequence[, 1] %in% "Mass")],
-          "CV" = cov
+          nClust = nclust,
+          Cluster_ID = dub_dat$mergeID,
+          Ion_mode = dub_dat$ionmode,
+          Adductor = dub_dat$adduct,
+          Name = dub_dat[, which(activeSequence[, 1] %in% "Name")],
+          RT = dub_dat[, which(activeSequence[, 1] %in% "RT")],
+          Mass = dub_dat[, which(activeSequence[, 1] %in% "Mass")],
+          CV = cov,
+          Criteria = dub_dat[, which(rownames(activeSequence) %in% criteria_column)]
         )
         out_dub <- out_dub[order(out_dub[, 1], out_dub[, 2], decreasing = T), ]
+        print(head(out_dub))
+        
         md_dup <<- out_dub
         cluster_ends <- which(!duplicated(out_dub[, 2]))
         output$md_modal_dt <- renderDataTable({
           datatable(out_dub,
                     rownames = F,
-                    options = list(dom = "t", autowidth = T, paging = F),
+                    options = list(dom = "t",
+                                   autowidth = T,
+                                   paging = F),
                     selection = list(selected = finddup(out_dub, rankings_merge))
-          ) %>% formatStyle(1:8, `border-top` = styleRow(cluster_ends, "solid 2px"))
+          ) %>% formatStyle(1:9,
+                            `border-top` = styleRow(cluster_ends, "solid 4px"))
         },
         server = T
         )
@@ -5417,6 +5429,7 @@ shinyServer(function(session, input, output) {
       
       columns <- colnames(dat)
       column_inputs <- c("identifier_column_refmet",
+                         "annotation_column_merge",
                          "name_column_lipids",
                          "name_column_cirbar",
                          "group_column_cirbar",
@@ -5441,6 +5454,14 @@ shinyServer(function(session, input, output) {
             "Name"
           } else if ("Original annotation" %in% columns) {
             "Original annotation"
+          } else {
+            ""
+          }
+          updateSelectInput(session, x, label = NULL, choices = columns, selected = default_val)
+          
+        } else if (grepl("annotation_column_merge", x)) {
+          default_val <- if ("Name" %in% columns) {
+            "Name"
           } else {
             ""
           }
@@ -5697,3 +5718,4 @@ shinyServer(function(session, input, output) {
                     dat=VSClustMessage, tool="VSClust")
   })
 })
+
