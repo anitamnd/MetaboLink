@@ -25,6 +25,9 @@ shinyServer(function(session, input, output) {
     name = c("High", "Medium", "Low"),
     priority = c(1, 2, 3)
   )
+  ##############
+  # Load files #
+  ##############
   
   massCorrection <- read.csv("./csvfiles/adducts.csv") # Import mass correction data
   refmet <- read.csv("./csvfiles/refmet.csv") # Import reference metabolite data
@@ -32,7 +35,10 @@ shinyServer(function(session, input, output) {
   # Hidden features
   quotes <- readLines("./csvfiles/quotes.csv")
   
-  # Window/panel selection
+  ##########################
+  # Window/panel selection #
+  ##########################
+  
   observeEvent(list(c(input$sequence, input$example, input$upload)), {
     windowselect("sequence")
   }, ignoreInit = T)
@@ -47,7 +53,9 @@ shinyServer(function(session, input, output) {
   })
   
   
-  ### Functions ###
+  #############
+  # Functions #
+  #############
   
   initializeVariables <- function() {
     rv$results[[length(rv$results) + 1]] <- list()
@@ -717,10 +725,19 @@ shinyServer(function(session, input, output) {
       # Replace NA values in abbreviations with NA
       data$lipid_abbreviation[is.na(data$lipid_abbreviation)] <- NA
       
+      print(head(data$main_class))
+      
       # Join with abbreviations to get lipid_class
       data <- data %>%
         left_join(abbreviations, by = c("lipid_abbreviation" = "sub_class"),
-                  relationship = "many-to-many") %>% 
+                  relationship = "many-to-many") %>%
+        { 
+          if("main_class.x" %in% names(.)) {
+            rename(., main_class = main_class.x) %>% select(-main_class.y)
+          } else {
+            .
+          }
+        } %>%
         rename(lipid_class = main_class) %>%
         relocate(lipid_class, .after = lipid_abbreviation)
       
@@ -945,6 +962,7 @@ shinyServer(function(session, input, output) {
     
     data <- rv$data[[rv$activeFile]]
     sequence <- rv$sequence[[rv$activeFile]]
+    
     output$histogram <- renderPlotly({
       samples <- data[, sequence[ , 'labels'] %in% "Sample"]
       medians <- apply(samples, 2, median, na.rm = TRUE)
@@ -1217,6 +1235,53 @@ shinyServer(function(session, input, output) {
         textOutput("No columns labeled QC.")
       }
     })
+    
+    output$violin_plot <- renderPlotly({
+      message("Inside violin plot")
+      
+      seq_sub <- sequence[sequence$labels == "Sample", ]
+
+      data_sub <- data[, rownames(seq_sub)] 
+      
+      seq_sub <- seq_sub %>% 
+        rownames_to_column("sample")
+      
+      data_long <- data_sub %>%
+        pivot_longer(cols = everything(), names_to = "sample", values_to = "value")
+      
+      data_long <- left_join(data_long, seq_sub, by = "sample")
+      
+      data_long <- data_long[!is.na(data_long$value), ]
+      
+      sample_size <- data_long %>%
+        group_by(group) %>%
+        summarize(num = n())
+      
+      data_long <- data_long %>%
+        left_join(sample_size, by = "group") %>%
+        mutate(myaxis = paste0(group, "\n", "n=", num))
+      
+      # Create the base plot
+      violin_layer <- ggplot(data_long, aes(x = myaxis, y = value, fill = group)) +
+        geom_violin(width = 1.4) + 
+        scale_fill_viridis(discrete = TRUE) +
+        theme_bw() +
+        theme(
+          legend.position = "none",
+          plot.title = element_text(size = 11)
+        ) +
+        ggtitle("Violin Plot with Boxplot and Sample Size") +
+        xlab("")
+      
+      boxplot_layer <- geom_boxplot(width = 0.1, color = "red", alpha = 0.2)
+      
+      # Combine them into the final plot
+      violin_plot <- violin_layer + boxplot_layer
+      
+      # For interactivity with plotly:
+      ggplotly(violin_plot)
+    })
+    
   })
   
   # Observer for list of all the datasets 
@@ -1299,7 +1364,8 @@ shinyServer(function(session, input, output) {
                 "selectpca1", "selectpca2",
                 "select_data_for_enrichment",
                 "select_data_circular_barplot",
-                "select_heatmap_data", "select_volcano_data") # Update select inputs
+                "select_heatmap_data", "select_volcano_data",
+                "select_random_data") # Update select inputs
     
     selected <- ifelse(is.null(rv$activeFile), length(choices), rv$activeFile)
     for(input in inputs) {
@@ -1361,7 +1427,9 @@ shinyServer(function(session, input, output) {
   })
   
   
-  ## Blank filtration ##
+  ####################
+  # Blank filtration #
+  ####################
   
   observeEvent(input$blankFiltrate, {
     if(is.null(rv$activeFile)) {
@@ -1398,7 +1466,9 @@ shinyServer(function(session, input, output) {
   })
   
   
-  ## IS normalization ##
+  ####################
+  # IS normalization #
+  ####################
   
   observeEvent(input$normalizeIS, {
     if (is.null(rv$activeFile)) {
@@ -1451,7 +1521,9 @@ shinyServer(function(session, input, output) {
   })
   
   
-  ## Missing value filtration ##
+  ###########################
+  # Missing value filtration#
+  ###########################
   
   observeEvent(input$runFilterNA, {
     if(is.null(rv$activeFile)) {
@@ -1491,7 +1563,9 @@ shinyServer(function(session, input, output) {
   })
   
   
-  ## Imputation ##
+  ##############
+  # Imputation #
+  ##############
   
   observeEvent(input$runImputation, {
     if (is.null(rv$activeFile)) {
@@ -1536,8 +1610,9 @@ shinyServer(function(session, input, output) {
     updateDataAndSequence("Impute first", input$newFileImp, "_imp", additionalInfo)
   })
   
-  
-  ## Drift correction ##
+  ####################
+  # Drift correction #
+  ####################
   
   # observeEvent(input$driftMethod, {
   #   if (input$driftMethod == "QC-RFSC (random forrest)") {
@@ -1588,7 +1663,9 @@ shinyServer(function(session, input, output) {
   })
   
   
-  ## Merge datasets ##
+  ##################
+  # Merge datasets #
+  ##################
   
   observeEvent(input$editRankings, {
     showModal(
@@ -3772,6 +3849,12 @@ shinyServer(function(session, input, output) {
       return()
     }
     
+    show_modal_spinner(
+      spin = "atom",
+      color = "#0A4F8F",
+      text = "Running analysis"
+    )
+    
     # Extract user-selected values
     group_of_interest <- input$group1_enrichment
     comparison_group <- input$group2_enrichment
@@ -3904,6 +3987,11 @@ shinyServer(function(session, input, output) {
     
     # Run enrichment analysis based on selection
     if (input$gene_selected) {
+      update_modal_spinner(
+        session = session,
+        text = "Gene enrichment analysis in progress... Please be patient."
+      )
+      
       title_name <- "Gene Enrichment Analysis"
       print(paste0("#---", title_name, " ", dataset_name, "---#"))
       
@@ -3948,6 +4036,27 @@ shinyServer(function(session, input, output) {
       message("Enrichment results:")
       print(head(res_df_gene_ORA))
       
+      # I want to display here a message to the user that if the all res_df_gene_ORA$p.adjust are larger than the threshhold let the user know to set the threhold larger
+      if (all(res_df_gene_ORA$p.adjust > p_value_thresh)) {
+        sendSweetAlert(session,
+                       "Warning",
+                       paste("All adjusted p-values values are larger than the threshold.",
+                             "The lowest adjusted p-values value is", min(res_df_gene_ORA$p.adjust),
+                             ". Try setting the threshold larger."), 
+                       type = "Warning")
+        return()
+      }
+      
+      if (all(res_df_gene_ORA$qvalue > qvalueCutoff)) {
+        sendSweetAlert(session,
+                       "Warning",
+                       paste("All q-values are larger than the threshold.",
+                             "The lowest q-value value is", min(res_df_gene_ORA$qvalue),
+                             ". Try setting the threshold larger."), 
+                       type = "Warning")
+        return()
+      }
+      
       # geneSets <- list()
       
       message("EnrichRes")
@@ -3961,8 +4070,9 @@ shinyServer(function(session, input, output) {
                        pAdjustMethod = pAdjustMethod,
                        qvalueCutoff = qvalueCutoff,
                        readable = FALSE)
-      print(class(enrichres))
       
+      message("Enrichment results after new object:")
+      print(class(enrichres))
       print(enrichres)
       
       
@@ -3970,10 +4080,15 @@ shinyServer(function(session, input, output) {
       
     } else {
       
+      update_modal_spinner(
+        session = session,
+        text = "Module enrichment analysis in progress... Please be patient."
+      )
+      
       title_name <- "Module Enrichment Analysis"
       print(paste0("#---", title_name, " ", dataset_name, "---#"))
       
-      res_moduleCentric <- lapply(names(def_results_list),
+      res_moduleCentric_ORA <- lapply(names(def_results_list),
                                   function(x) enrichMKEGG(
                                     gene = def_results_list[[x]]$kegg_id,
                                     organism = "cpd",
@@ -3985,21 +4100,21 @@ shinyServer(function(session, input, output) {
                                     qvalueCutoff = qvalueCutoff
                                   )
       )
-      names(res_moduleCentric) <- names(def_results_list)
+      names(res_moduleCentric_ORA) <- names(def_results_list)
       
       print("Enrich results:")
-      print(head(res_moduleCentric))
+      print(head(res_moduleCentric_ORA))
       
-      res_df_module <- lapply(names(res_moduleCentric), function(x) rbind(res_moduleCentric[[x]]@result))
-      names(res_df_module) <- names(res_moduleCentric)
-      res_df_module <- do.call(rbind, res_df_module)
+      res_df_module_ORA <- lapply(names(res_moduleCentric_ORA), function(x) rbind(res_moduleCentric_ORA[[x]]@result))
+      names(res_df_module_ORA) <- names(res_moduleCentric_ORA)
+      res_df_module_ORA <- do.call(rbind, res_df_module_ORA)
       
       # Convert rownames to a column
-      res_df_module <- res_df_module %>%
+      res_df_module_ORA <- res_df_module_ORA %>%
         tibble::rownames_to_column(var = "Pathway_ID")
       
       # Extract the "Upregulated"/"Downregulated" status and store in a new column
-      res_df_module <- res_df_module %>%
+      res_df_module_ORA <- res_df_module_ORA %>%
         mutate(Regulation = ifelse(grepl("^Upregulated", Pathway_ID), "Upregulated", "Downregulated"),
                Pathway_ID = gsub("^(Upregulated|Downregulated)\\.", "", Pathway_ID)) %>% # Remove label from Pathway_ID
         select(-Pathway_ID) %>%
@@ -4007,11 +4122,32 @@ shinyServer(function(session, input, output) {
       
       # Check the updated dataframe
       print("Enrichment results DF:")
-      print(head(res_df_module))
+      print(head(res_df_module_ORA))
+      
+      # I want to display here a message to the user that if the all res_df_gene_ORA$p.adjust are larger than the threshhold let the user know to set the threhold larger
+      if (all(res_df_module_ORA$p.adjust > p_value_thresh)) {
+        sendSweetAlert(session,
+                       "Warning",
+                       paste("All adjusted p-values are larger than the threshold.",
+                             "The lowest adjusted p-value value is", min(res_df_module_ORA$p.adjust),
+                             ". Try setting the threshold larger."), 
+                       type = "Warning")
+        return()
+      }
+      
+      if (all(res_df_module_ORA$qvalue > qvalueCutoff)) {
+        sendSweetAlert(session,
+                       "Warning",
+                       paste("All q-values are larger than the threshold.",
+                             "The lowest q-value value is", min(res_df_module_ORA$qvalue),
+                             ". Try setting the threshold larger."), 
+                       type = "Warning")
+        return()
+      }
       
       # Define the new enrichResult object
       enrichres <- new("enrichResult",
-                       result = res_df_module,  # The data frame of enrichment results
+                       result = res_df_module_ORA,  # The data frame of enrichment results
                        organism = "cpd",  # If analyzing KEGG compounds
                        keytype = "kegg",
                        ontology = "UNKNOWN",
@@ -4020,18 +4156,18 @@ shinyServer(function(session, input, output) {
                        qvalueCutoff = qvalueCutoff,
                        readable = FALSE)
       
-      print("Enrichment results after new object:")
-      print(head(enrichres))
+      message("Enrichment results after new object:")
+      print(class(enrichres))
+      print(enrichres)
       
       plots <- bar_dot_plot(enrichres, title_name, top_x_features, color_con)
 
     }
     
-    
     output$enrichment_barplot <- renderPlot({
       plots$bar
     })
-
+    
     output$enrichment_dotplot <- renderPlot({
       plots$dot
     })
@@ -4039,11 +4175,13 @@ shinyServer(function(session, input, output) {
     # Extract sample names belonging to the selected group
     selected_group_samples <- rownames(seq[seq$group == group_of_interest & seq$labels == "Sample",])
     
+    print(head(data$main_class))
+    
     # Filter KEGG data based on group samples
     filtered_kegg_data <- data %>%
       filter(!is.na(kegg_id), kegg_id != "", kegg_id != " ") %>%
       distinct(kegg_id, .keep_all = TRUE) %>%
-      select(refmet_name, kegg_id, super_class, main_class, sub_class, all_of(selected_group_samples))
+      select(Name, 'Original annotation', refmet_name, kegg_id, super_class, main_class, sub_class, all_of(selected_group_samples))
     
     enrichres_df <- as.data.frame(enrichres)
     
@@ -4057,6 +4195,10 @@ shinyServer(function(session, input, output) {
     title_up <- paste0(title_name," ", dataset_name, " Upregulated")
     title_combo <- paste0(title_name," ", dataset_name, " Combined")
     
+    update_modal_spinner(
+      session = session,
+      text = "Plotting... Please be patient."
+    )
     
     output$enrichment_cnetplot_down <- renderPlot({
       NetGraphPlotWithGgraph(enrichres_down, filtered_kegg_data, title = title_down,
@@ -4078,6 +4220,27 @@ shinyServer(function(session, input, output) {
                              node_color_by = input$node_color_by)  # Directly call the function
     })
     
+    
+    enrich_df_long <- enrichres_df %>% 
+      separate_rows(geneID, sep = "/")
+    
+    # Example heatmap: rows as enriched terms (using Description) and columns as compound IDs,
+    # with the fill representing, say, the Count or another metric.
+    output$enrichment_heatmap <- renderPlot({
+      ggplot(enrich_df_long, aes(x = geneID, y = Description, fill = FoldEnrichment)) +
+        geom_tile() +
+        theme_minimal() +
+        labs(x = "Compound ID", y = "Enriched Term")
+    })
+    
+    # output$enrichment_ridge <- renderPlot({
+    #   ggplot(enrichres_df, aes(x = FoldEnrichment, y = Description)) +
+    #     geom_density_ridges() +
+    #     theme_minimal() +
+    #     labs(x = "Fold Enrichment", y = "Enriched Term")
+    # })
+    
+    
     # output$enrichment_cnetplot <- renderPlot({
     #   cnetplot(enrichres)  # Directly call the function
     # })
@@ -4095,6 +4258,7 @@ shinyServer(function(session, input, output) {
     })
     
     message(sample(quotes, 1))
+    remove_modal_spinner()
     
   })
   
@@ -5320,7 +5484,56 @@ shinyServer(function(session, input, output) {
     )
   }) #### End of all lipid heatmap code for server.r 
   
-  #### Summary of data
+  ############################
+  # Random plots for testing #
+  ############################
+  
+  # Random plot 1
+  observeEvent(input$run_random_plot, {
+    req(input$select_random_data)
+    
+    if (!is.null(rv$activeFile)) {
+      if (input$select_random_data == "Unsaved data") {
+        data <- rv$tmpData  # Use the temporary data
+        seq <- rv$tmpSequence  # Use the temporary sequence
+        dataset_name <- "Unsaved data"
+      } else {
+        # Get the index of the selected dataset
+        sd <- which(rv$choices %in% input$select_random_data)
+        data <- rv$data[[sd]]  # Retrieve the selected dataset
+        seq <- rv$sequence[[sd]]  # Retrieve the selected sequence
+        dataset_name <- names(rv$data)[sd]  # Retrieve dataset name
+      }
+      
+      # make the sequence only contain rows where labels == "Sample"
+      seq_sub <- seq[seq$labels == "Sample", ]
+      
+      # Unique identified features
+      # Only include rows from data where these columns lipid_name  sum_name lipid_abbreviation lipid_class ar not NA 
+      data_lipid_classes <- data[!is.na(data$sum_name) &
+                                   !is.na(data$'Original annotation') &
+                                   !is.na(data$super_class) &
+                                   !is.na(data$main_class) &
+                                   !is.na(data$sub_class), ]
+      
+      print(head(seq_sub))
+      print(head(data_lipid_classes))
+      print(head(data$'Original annotation'))
+      
+      
+      output$random_plot1 <- renderPlotly({
+        # something goes here 
+      })
+      
+      message(sample(quotes, 1))
+      
+    }
+  })
+  
+  
+  ###################
+  # Summary of data #
+  ###################
   observe({ 
     if (!is.null(rv$activeFile)) {
       # Get the data and sequence
@@ -5460,10 +5673,10 @@ shinyServer(function(session, input, output) {
           updateSelectInput(session, x, label = NULL, choices = columns, selected = default_val)
           
         } else if (grepl("annotation_column_merge", x)) {
-          default_val <- if ("Name" %in% columns) {
-            "Name"
+          default_val <- if ("ID level" %in% columns) {
+            "ID level"
           } else {
-            ""
+            "Name"
           }
           updateSelectInput(session, x, label = NULL, choices = columns, selected = default_val)
           
@@ -5481,7 +5694,10 @@ shinyServer(function(session, input, output) {
     }
   })
   
-  ## Normalization ##
+  #################
+  # Normalization #
+  #################
+  
   observeEvent(input$normalize, {
     if (is.null(rv$activeFile)) {
       showNotification("No data", type = "error")
@@ -5514,8 +5730,10 @@ shinyServer(function(session, input, output) {
     updateDataAndSequence("Normalize first", input$newFileNorm, "_normalized", additionalInfo)
   })
   
+  ##################
+  # Transformation #
+  ##################
   
-  ## Transformation ##
   
   observeEvent(input$transform, {
     if (is.null(rv$activeFile)) {
@@ -5545,8 +5763,10 @@ shinyServer(function(session, input, output) {
     updateDataAndSequence("Transform first", input$newFileTransform, "_transformed", additionalInfo)
   })
   
+  ########################
+  # Statistical analysis #
+  ########################
   
-  ## Statistical analysis ##
   observeEvent(input$testType, {
     sequence <- rv$sequence[[rv$activeFile]]
     enable("selectTest")
@@ -5680,8 +5900,9 @@ shinyServer(function(session, input, output) {
     })
   })
   
-  
-  ## Send data to PolySTest and VSClust ##
+  #########################
+  # PolySTest and VSClust #
+  #########################
   
   observeEvent(input$export_polystest, {
     sequence <- rv$sequence[[rv$activeFile]]

@@ -542,7 +542,7 @@ NetGraphPlotWithGgraph <- function(enrichment_data, data, title = "Network Graph
   
   # Merge node metadata and assign a node_color based on user selection.
   graph <- graph %>%
-    left_join(data %>% select(kegg_id, refmet_name, super_class, main_class, sub_class),
+    left_join(data %>% select(Name, 'Original annotation', kegg_id, refmet_name, super_class, main_class, sub_class),
               by = c("name" = "kegg_id")) %>%
     left_join(df %>% select(ID, Description), by = c("name" = "ID")) %>%
     mutate(
@@ -561,10 +561,11 @@ NetGraphPlotWithGgraph <- function(enrichment_data, data, title = "Network Graph
       
       # Assign labels based on type and clean them up
       label = ifelse(type == "Compound", refmet_name, Description),
+      label = coalesce(label, `Original annotation`, Name),
       label = str_trunc(label, width = 30, side = "right")
     ) %>%
-    select(-refmet_name, -Description) %>%
-    mutate(label = gsub(",.*", "", label))  # Remove everything after comma in label
+    select(-refmet_name, -Description, -`Original annotation`, -Name) %>%
+    mutate(label = gsub(",.*", "", label))
   
   print(graph)
   
