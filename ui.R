@@ -393,34 +393,25 @@ shinyUI(dashboardPage(
                      #TODO add specific panel for comparison?
                      fluidRow(
                        column(12,
-                              box(width = NULL,
+                              box(width = 12,
                                   title = "Median across samples",
                                   status = "primary",
                                   solidHeader = TRUE,
                                   collapsible = TRUE,
-                                  plotlyOutput("histogram") %>% withSpinner(color="steelblue")
+                                  plotlyOutput("histogram", height = "600px") %>% withSpinner(color="steelblue")
                               )),
                        column(12,
-                              box(width = NULL, title = "Median across QCs",
+                              box(width = 12, title = "Median across QCs",
                                   status = "primary",
                                   solidHeader = TRUE,
                                   collapsible = TRUE,
-                                  uiOutput("histogram_qc") %>% withSpinner(color="steelblue")
-                              )),
-                       column(12,
-                              box(width = NULL, title = "Median across groups",
-                                  status = "primary",
-                                  solidHeader = TRUE,
-                                  collapsible = TRUE,
-                                  column(6, selectInput("select_group", "Select group", choices = NULL, width = "100%")),
-                                  column(6),
-                                  plotlyOutput("histogram_group") %>% withSpinner(color="steelblue")
+                                  uiOutput("histogram_qc", height = "600px") %>% withSpinner(color="steelblue")
                               )),
                        column(
                          width = 12,
                          box(
                            title = "Class Plot",
-                           width = NULL,
+                           width = 12,
                            status = "primary",
                            solidHeader = TRUE,
                            collapsible = TRUE,
@@ -443,20 +434,42 @@ shinyUI(dashboardPage(
                                width = 9,
                                conditionalPanel(
                                  condition = "input.classChoice == 'super'",
-                                 plotlyOutput("super_class_plot", height = "500px") %>% withSpinner(color = "steelblue")
+                                 plotlyOutput("super_class_plot", height = "600px") %>% withSpinner(color = "steelblue")
                                ),
                                conditionalPanel(
                                  condition = "input.classChoice == 'main'",
-                                 plotlyOutput("main_class_plot", height = "500px") %>% withSpinner(color = "steelblue")
+                                 plotlyOutput("main_class_plot", height = "600px") %>% withSpinner(color = "steelblue")
                                ),
                                conditionalPanel(
                                  condition = "input.classChoice == 'sub'",
-                                 plotlyOutput("sub_class_plot", height = "500px") %>% withSpinner(color = "steelblue")
+                                 plotlyOutput("sub_class_plot", height = "600px") %>% withSpinner(color = "steelblue")
                                )
                              )
                            )
                          )
+                       ),
+                       
+                       column(12, 
+                              box(
+                                width = 12,
+                                title = "Violin plot",
+                                status = "primary",
+                                solidHeader = TRUE,
+                                collapsible = TRUE,
+                                plotlyOutput("violin_plot", height = "600px") %>% withSpinner(color="steelblue")
+                              )
                        )
+                       ,
+                       column(12,
+                              box(width = 12,
+                                  title = "Median across groups",
+                                  status = "primary",
+                                  solidHeader = TRUE,
+                                  collapsible = TRUE,
+                                  column(6, selectInput("select_group", "Select group", choices = NULL, width = "100%")),
+                                  column(6),
+                                  plotlyOutput("histogram_group", height = "600px") %>% withSpinner(color="steelblue")
+                              ))
                      )
             ),
             tabPanel("PCA", 
@@ -1255,7 +1268,7 @@ shinyUI(dashboardPage(
                                status = "primary",
                                solidHeader = TRUE,
                                collapsible = TRUE,
-                               plotOutput("circular_barplot", width = "800px", height = "800px") %>% withSpinner(color = "steelblue")
+                               plotOutput("circular_barplot", height = "600px") %>% withSpinner(color = "steelblue")
                              )
                            )
                          )
@@ -1642,12 +1655,56 @@ shinyUI(dashboardPage(
                                solidHeader = TRUE,
                                collapsible = FALSE,
                                
-                               plotlyOutput("volcano_plot", height = "800px") %>% withSpinner(color="steelblue"),
+                               plotlyOutput("volcano_plot", height = "600px") %>% withSpinner(color="steelblue"),
                                br(),
                                DTOutput("volcano_table")
                              )
                            )
                          )
+                       ),
+                       
+                       tabPanel(title = "random plots",
+                                fluidRow(
+                                  column(
+                                    width = 12,
+                                    box(
+                                      width = NULL,
+                                      title = "Random plots Information",
+                                      status = "info",
+                                      solidHeader = TRUE,
+                                      collapsible = FALSE,
+                                      tagList(
+                                        tags$ul(
+                                          tags$li("Random plots).")
+                                        )
+                                      )
+                                    )
+                                  )
+                                ),
+                                fluidRow(
+                                  column(
+                                    width = 6,
+                                    box(
+                                      width = 12,
+                                      title = "Data & Group Selection",
+                                      status = "primary",
+                                      solidHeader = TRUE,
+                                      collapsible = FALSE,
+                                      
+                                      selectInput("select_random_data", "Select Dataset for random plot:", choices = NULL, width = "100%"),
+                                      
+                                      actionButton("run_random_plot", "Random Plot?", width = "100%")
+                                    )
+                                  ),
+                                  box(
+                                    width = 12,
+                                    title = "random plot 1",
+                                    status = "primary",
+                                    solidHeader = TRUE,
+                                    collapsible = TRUE,
+                                    plotlyOutput("random_plot1", height = "600px") %>% withSpinner(color="steelblue")
+                                  )
+                                )
                        )
                      )
             ),
@@ -1917,12 +1974,36 @@ shinyUI(dashboardPage(
                     fluidRow(
                       column(
                         width = 6,
-                        plotOutput("enrichment_barplot", height = "800px") %>% withSpinner(color = "steelblue")
+                        plotOutput("enrichment_barplot", height = "600px") %>% withSpinner(color = "steelblue")
                       ),
                       column(
                         width = 6,
-                        plotOutput("enrichment_dotplot", height = "800px") %>% withSpinner(color = "steelblue")
+                        plotOutput("enrichment_dotplot", height = "600px") %>% withSpinner(color = "steelblue")
                       )
+                    )
+                  )
+                )
+              ),
+              
+              # Enrichment Plots
+              fluidRow(
+                column(
+                  width = 12,
+                  box(
+                    title = "Enrichment",
+                    width = NULL,
+                    status = "primary",
+                    solidHeader = TRUE,
+                    collapsible = TRUE,
+                    fluidRow(
+                      column(
+                        width = 12,
+                        plotOutput("enrichment_heatmap", height = "600px") %>% withSpinner(color = "steelblue")
+                      ) #,
+                      # column(
+                      #   width = 12,
+                      #   plotOutput("enrichment_ridge", height = "600px") %>% withSpinner(color = "steelblue")
+                      # )
                     )
                   )
                 )
