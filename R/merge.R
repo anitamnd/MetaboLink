@@ -62,7 +62,8 @@ mergeDatasets <- function(dataset1, sequence1, dataset2, sequence2, ppmTolerance
   # print(graph)
   # summary(graph)
   updateProgressBar(id = "pb", value = 90)
-  mergeid <- components(graph)$membership
+  
+  mergeid <- igraph::components(graph)$membership
   updateProgressBar(id = "pb", value = 100)
   colnames(dataset2) <- colnames(dataset1)
   combineddat <- as.data.frame(rbind(dataset1, dataset2))
@@ -78,30 +79,42 @@ finddup <- function(out_dup, rankings) {
   prio <- apply(out_dup, 1, function(x) {
     duplicaterank(x, rankings)
   })
+  
   dup_prio <- cbind(out_dup, prio)
+  
+  message("dup_prio")
+  # print(head(dup_prio,12))
+  
   rows <- NULL
+  
   for (i in unique(dup_prio[, 2])) {
-    lowp <- dup_prio[i == dup_prio[, 2], ][, 9] %in% min(dup_prio[i == dup_prio[, 2], ][, 9])
+    lowp <- dup_prio[i == dup_prio[, 2], ][, 10] %in% min(dup_prio[i == dup_prio[, 2], ][, 10])
     mincv <- min(dup_prio[i == dup_prio[, 2], ][lowp, 8])
     keeprow <- rownames(dup_prio[i == dup_prio[, 2], ][lowp, ][dup_prio[i == dup_prio[, 2], ][lowp, 8] == mincv, ])
     keeprow <- keeprow[1]
     rows <- c(rows, keeprow)
   }
+  
   numb <- which(rownames(out_dup) %in% rows)
   return(numb)
 }
 
-duplicaterank <- function(duplicate, rankings) {
+duplicaterank <- function(duplicateRow, rankings) {
+  
+  Criteria_value <- as.character(duplicateRow["Criteria"])
+  
   j <- sapply(1:nrow(rankings), function(x) {
     if (rankings[x, 1] == "") {
       FALSE
     } else {
-      grepl(toupper(rankings[x, 1]), toupper(duplicate[5]))
+      grepl(toupper(rankings[x, 1]), toupper(Criteria_value))
     }
   })
+  
   if (sum(j) > 0) {
     return(min(rankings[j, 2]))
   } else {
     return(10)
   }
+  
 }

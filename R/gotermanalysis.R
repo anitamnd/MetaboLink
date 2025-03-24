@@ -16,9 +16,9 @@ library(tibble)
 update_inchi <- function(data, compound_column, identifier_column, query) {
   
   message(paste0("Features with InChI: ",
-               sum(!is.na(data[[identifier_column]]) & !data[[identifier_column]] %in% c("", " ", "NA", "N/A"))))
+                 sum(!is.na(data[[identifier_column]]) & !data[[identifier_column]] %in% c("", " ", "NA", "N/A"))))
   message(paste0("Features without InChI: ",
-               sum(is.na(data[[identifier_column]]) | data[[identifier_column]] %in% c("", " ", "NA", "N/A"))))
+                 sum(is.na(data[[identifier_column]]) | data[[identifier_column]] %in% c("", " ", "NA", "N/A"))))
   
   # Identify rows with missing or invalid InChI
   missing_idx <- which(is.na(data[[identifier_column]]) | data[[identifier_column]] %in% c("", " ", "NA", "N/A"))
@@ -40,9 +40,9 @@ update_inchi <- function(data, compound_column, identifier_column, query) {
   )
   
   message(paste0("Features with InChI after local update: ",
-               sum(!is.na(data[[identifier_column]]) & !data[[identifier_column]] %in% c("", " ", "NA", "N/A"))))
+                 sum(!is.na(data[[identifier_column]]) & !data[[identifier_column]] %in% c("", " ", "NA", "N/A"))))
   message(paste0("Features without InChI after local update: ",
-               sum(is.na(data[[identifier_column]]) | data[[identifier_column]] %in% c("", " ", "NA", "N/A"))))
+                 sum(is.na(data[[identifier_column]]) | data[[identifier_column]] %in% c("", " ", "NA", "N/A"))))
   
   # Handle still-missing InChI entries using cir_query()
   still_missing_idx <- which(is.na(data[[identifier_column]]) | data[[identifier_column]] %in% c("", " ", "NA", "N/A"))
@@ -70,7 +70,7 @@ update_inchi <- function(data, compound_column, identifier_column, query) {
   message(paste0("Features with InChI after online update: ",
                  sum(!is.na(data[[identifier_column]]) & !data[[identifier_column]] %in% c("", " ", "NA", "N/A"))))
   message(paste0("Features without InChI after online update: ",
-               sum(is.na(data[[identifier_column]]) | data[[identifier_column]] %in% c("", " ", "NA", "N/A"))))
+                 sum(is.na(data[[identifier_column]]) | data[[identifier_column]] %in% c("", " ", "NA", "N/A"))))
   
   return(data)
 }
@@ -232,58 +232,58 @@ get_kegg_pathways <- function(data) {
 
 
 # Function to merge data based on the identifier column
-merge_data <- function(main_df, identifier_df, identifier_column) {
-  
-  # Ensure the identifier column has the same name in both data frames
-  names(identifier_df)[1] <- identifier_column
-  
-  # Identify overlapping columns other than the identifier_column
-  common_cols <- intersect(names(main_df), names(identifier_df))
-  common_cols <- setdiff(common_cols, identifier_column)
-  
-  # Rename overlapping columns in identifier_df to avoid duplication
-  if(length(common_cols) > 0) {
-    names(identifier_df)[names(identifier_df) %in% common_cols] <- paste0(common_cols, "_id")
-  }
-  
-  # Debugging
-  # print(head(identifier_df))
-  # print(dim(identifier_df))
-  # print(head(main_df[[identifier_column]]))
-  # print(dim(main_df))
-  
-  # Merge main_df and identifier_df on the identifier column
-  merged_df <- merge(main_df, identifier_df, by = identifier_column, all.x = TRUE)
-  
-  # Get the position of the identifier_column in main_df
-  identifier_index <- which(names(main_df) == identifier_column)
-  
-  # Get the names of the columns from identifier_df (excluding identifier_column)
-  id_cols <- setdiff(names(identifier_df), identifier_column)
-  
-  # Build the new column order
-  # Start with columns before the identifier_column in main_df
-  if(identifier_index > 1) {
-    left_cols <- names(main_df)[1:(identifier_index - 1)]
-  } else {
-    left_cols <- character(0)
-  }
-  
-  # Columns after the identifier_column in main_df
-  if(identifier_index < ncol(main_df)) {
-    right_cols <- names(main_df)[(identifier_index + 1):ncol(main_df)]
-  } else {
-    right_cols <- character(0)
-  }
-  
-  # New column order: left_cols, identifier_column, id_cols (from identifier_df), right_cols
-  new_col_order <- c(left_cols, identifier_column, id_cols, right_cols)
-  
-  # Reorder the merged_df according to new_col_order
-  final_df <- merged_df[, new_col_order]
-  
-  return(final_df)
-}
+# merge_data <- function(main_df, identifier_df, identifier_column) {
+#   
+#   # Ensure the identifier column has the same name in both data frames
+#   names(identifier_df)[1] <- identifier_column
+#   
+#   # Identify overlapping columns other than the identifier_column
+#   common_cols <- intersect(names(main_df), names(identifier_df))
+#   common_cols <- setdiff(common_cols, identifier_column)
+#   
+#   # Rename overlapping columns in identifier_df to avoid duplication
+#   if(length(common_cols) > 0) {
+#     names(identifier_df)[names(identifier_df) %in% common_cols] <- paste0(common_cols, "_id")
+#   }
+#   
+#   # Debugging
+#   # print(head(identifier_df))
+#   # print(dim(identifier_df))
+#   # print(head(main_df[[identifier_column]]))
+#   # print(dim(main_df))
+#   
+#   # Merge main_df and identifier_df on the identifier column
+#   merged_df <- merge(main_df, identifier_df, by = identifier_column, all.x = TRUE)
+#   
+#   # Get the position of the identifier_column in main_df
+#   identifier_index <- which(names(main_df) == identifier_column)
+#   
+#   # Get the names of the columns from identifier_df (excluding identifier_column)
+#   id_cols <- setdiff(names(identifier_df), identifier_column)
+#   
+#   # Build the new column order
+#   # Start with columns before the identifier_column in main_df
+#   if(identifier_index > 1) {
+#     left_cols <- names(main_df)[1:(identifier_index - 1)]
+#   } else {
+#     left_cols <- character(0)
+#   }
+#   
+#   # Columns after the identifier_column in main_df
+#   if(identifier_index < ncol(main_df)) {
+#     right_cols <- names(main_df)[(identifier_index + 1):ncol(main_df)]
+#   } else {
+#     right_cols <- character(0)
+#   }
+#   
+#   # New column order: left_cols, identifier_column, id_cols (from identifier_df), right_cols
+#   new_col_order <- c(left_cols, identifier_column, id_cols, right_cols)
+#   
+#   # Reorder the merged_df according to new_col_order
+#   final_df <- merged_df[, new_col_order]
+#   
+#   return(final_df)
+# }
 
 # Make a function that take in a df and a column name and insert a new column to the right of the column
 insertColumn <- function(df, column_name, new_column_name, new_column) {
@@ -312,30 +312,37 @@ insertColumn <- function(df, column_name, new_column_name, new_column) {
 }
 
 # Function to perform GO term enrichment analysis
-run_gene_enrichment <- function(data, all_kegg) {
+run_gene_enrichment <- function(data, all_kegg,
+                                pvalueCutoff = 0.05, pAdjustMethod = "fdr", 
+                                minGSSize = 10,
+                                maxGSSize = 500, qvalueCutoff = 0.02) {
   
-  # gene-centric enrichment analysis.
+  universe <- all_kegg
+  
   gce_enrich_result <- enrichKEGG(
-    data[,"kegg_id"],
-    # universe = all_kegg,
-    keyType = "kegg",
+    gene = data$kegg_id,
     organism = "cpd",
-    pvalueCutoff = 0.05,
-    pAdjustMethod = "fdr",
-    minGSSize=1)
-  # gce_enrich_result_df <- as.data.frame(gce_enrich_result)
-  # gce_enrich_result_df$GeneRatio <- sapply(strsplit(gce_enrich_result_df$GeneRatio, "/"), 
-  #                                          function(x) as.numeric(x[1]) / as.numeric(x[2]))
-  # gce_enrich_result_df$BgRatio <- sapply(strsplit(gce_enrich_result_df$BgRatio, "/"), 
-  #                                        function(x) as.numeric(x[1]) / as.numeric(x[2]))
-
+    keyType = "kegg",
+    pvalueCutoff = pvalueCutoff,
+    pAdjustMethod = pAdjustMethod,
+    universe,
+    minGSSize = minGSSize,
+    maxGSSize = maxGSSize,
+    qvalueCutoff = qvalueCutoff,
+    use_internal_data = FALSE
+  )
+  
   return(gce_enrich_result)
 }
 run_module_enrichment <- function(data, all_kegg) {
+  
+  universe <- all_kegg
+  
   # metabolite or compound-centric enrichment analysis
   mcce_enrich_result <- enrichMKEGG(
+    
     gene          = data[,"kegg_id"],
-    # universe      = as.character(all_kegg),
+    universe,
     keyType       = "kegg",         # "kegg" is appropriate for compound IDs like CXXXXXX
     organism      = "cpd",          # "cpd" is used for compound pathways
     pvalueCutoff  = 0.05,
@@ -343,31 +350,257 @@ run_module_enrichment <- function(data, all_kegg) {
     minGSSize     = 1,
     qvalueCutoff  = 1)
   
-  # mcce_enrich_result_df <- as.data.frame(mcce_enrich_result)
-  # mcce_enrich_result_df$GeneRatio <- sapply(strsplit(mcce_enrich_result_df$GeneRatio, "/"), 
-  #                                           function(x) as.numeric(x[1]) / as.numeric(x[2]))
-  # mcce_enrich_result_df$BgRatio <- sapply(strsplit(mcce_enrich_result_df$BgRatio, "/"), 
-  #                                         function(x) as.numeric(x[1]) / as.numeric(x[2]))
-  
   return(mcce_enrich_result)
 }
 
-bar_dot_plot <- function(data, title = NULL, top_x = 5) {
+bar_dot_plot <- function(data, title = NULL, top_x = 20, color_conditions = NULL) {
+  
+  message("Inside bar_dot_plot:: ")
+  print(head(data))
+  
   bar <- barplot(data,
-          title = paste0("Barplot ", title),
-          showCategory = top_x
-  )
-  dot <- dotplot(data,
-          x = "GeneRatio",
-          color = "p.adjust",
-          showCategory = top_x,
-          size = NULL,
-          split = NULL,
-          font.size = 12,
-          title = paste0("Dotplot ", title))
+                 col = color_conditions,
+                 title = paste0("Barplot ", title),
+                 showCategory = top_x) + 
+    facet_grid(~ Regulation)
+  
+  dot <- enrichplot::dotplot(data,
+                 x = "GeneRatio",
+                 color = color_conditions,
+                 showCategory = top_x,
+                 font.size = 12,
+                 label_format = 30,
+                 title = paste0("Dotplot ", title)) + 
+     facet_grid(~ Regulation)
+  
   
   return(list(bar = bar, dot = dot))
 }
+NetGraphPlot <- function(enrichment_data, data, classification_level = "super_class") {
+  # Convert enrichResult to a data frame
+  df <- as.data.frame(enrichment_data)
+  
+  message("Enrichment Data: ")
+  print(head(df))
+  message("Original Data: ")
+  print(head(data))
+  
+  # Make an edge list: split geneID by "/" and then unnest the list
+  edge_list <- df %>%
+    mutate(geneID = str_split(geneID, "/")) %>%
+    unnest(cols = geneID) %>%
+    select(ID, geneID, RichFactor, FoldEnrichment, zScore,
+           pvalue, p.adjust, qvalue, Count) %>%
+    rename(source = ID,
+           target = geneID)
+  
+  # Edge attributes: transparency, color based on zScore
+  edge_list <- edge_list %>%
+    mutate(transparency = 1 - p.adjust / max(p.adjust)) %>%
+    mutate(color = scales::col_numeric(c("#FFD700", "#FF4500"), domain = NULL)(zScore))
+  
+  # Create node attributes 
+  node_list <- tibble(ID = unique(c(edge_list$source, edge_list$target))) %>% 
+    mutate(type = ifelse(str_detect(ID, "^C"), "Compound", "Module")) %>%
+    left_join(df %>% select(ID, Description), by = "ID") %>%
+    left_join(data %>% select(kegg_id, refmet_name, super_class, main_class, sub_class), 
+              by = c("ID" = "kegg_id")) %>%
+    mutate(name = ifelse(type == "Module", Description, refmet_name)) %>%
+    mutate(
+      super_class = ifelse(type == "Compound", super_class, "Module"),
+      main_class  = ifelse(type == "Compound", main_class, "Module"),
+      sub_class   = ifelse(type == "Compound", sub_class, "Module")
+    ) %>%
+    select(ID, type, name, super_class, main_class, sub_class)
+  
+  node_list$name <- gsub(",.*", "", node_list$name)
+  
+  # Select classification level for coloring
+  node_list <- node_list %>%
+    mutate(classification = case_when(
+      classification_level == "super_class" ~ super_class,
+      classification_level == "main_class"  ~ main_class,
+      classification_level == "sub_class"   ~ sub_class
+    ))
+  
+  # Assign colors dynamically based on classification
+  unique_classes <- unique(na.omit(node_list$classification))
+  class_colors <- setNames(rainbow(length(unique_classes)), unique_classes)
+  
+  # Ensure proper color mapping
+  node_list <- node_list %>%
+    mutate(color = ifelse(is.na(classification), "#B0B0B0", class_colors[as.character(classification)]))
+  
+  # Define visual properties
+  node_list <- node_list %>%
+    mutate(shape = ifelse(type == "Compound", "circle", "square")) %>%
+    mutate(frame = "#000000") %>%
+    mutate(font = 2)
+  
+  message("Edge List: ")
+  print(head(edge_list))
+  message("Node List: ")
+  print(node_list)
+  
+  # Create igraph object
+  graph <- graph_from_data_frame(d = edge_list,
+                                 vertices = node_list,
+                                 directed = FALSE)
+  
+  # Compute layout to reduce overlapping
+  layout <- layout_with_fr(graph)  # Fruchterman-Reingold for spacing
+  
+  # Adjust label size dynamically
+  num_nodes <- vcount(graph)
+  label_cex <- ifelse(num_nodes > 50, 0.5, ifelse(num_nodes > 30, 0.7, 1))
+  
+  # Plot network graph
+  plot(graph,
+       layout = layout,
+       main = paste("Network Graph of Enrichment Data (Colored by", classification_level, ")"),
+       sub = "*Insert data title and group*",
+       
+       # Edge attributes 
+       edge.width = E(graph)$RichFactor * 3,
+       edge.color = E(graph)$color,
+       
+       # Vertex attributes
+       vertex.color = node_list$color,
+       vertex.shape = node_list$shape,
+       vertex.frame.color = node_list$frame,
+       
+       # Label attributes
+       vertex.label = node_list$name,
+       vertex.label.cex = label_cex,
+       vertex.label.font = node_list$font,
+       vertex.label.family = "Times",
+       vertex.label.dist = 0.8  # Pushes labels away from nodes
+  )
+  
+  # Legend for Node Type (Fixed)
+  legend("topright", legend = c("Module", "Compound"), 
+         col = "black", 
+         pch = c(15, 19), # Square for modules, Circle for compounds
+         pt.cex = 2, title = "Node Type")
+  
+  # Dynamic Legend for Classification Level
+  if (length(unique_classes) > 0) {
+    legend("bottomright", legend = unique_classes, 
+           col = class_colors, 
+           pch = 19, pt.cex = 1.5, title = paste("Color by", classification_level))
+  }
+  
+  # Edge Legend for Enrichment Strength
+  legend("bottomleft", legend = c("High RichFactor", "Low RichFactor"), 
+         col = c("#FF4500", "#FFD700"), 
+         lwd = 3, title = "Edge Strength")
+  complete_plot <- recordPlot()
+  return(list(graph = graph,
+              plot = complete_plot))
+}
+NetGraphPlotWithGgraph <- function(enrichment_data, data, title = "Network Graph",
+                                   layout_option = "nicely", node_size_mult = 1,
+                                   node_text_size = 3, edge_alpha = 0.5,
+                                   edge_width_scale = 1, node_color_by = "super_class" ) {
+  
+  message("Inside NetGraphPlotWithGgraph:: ")
+  # Convert enrichment data to a DataFrame
+  df <- as.data.frame(enrichment_data)
+  
+  message("Enrichment Data: ")
+  print(head(df))
+  message("Original Data: ")
+  print(head(data))
+  
+  # Construct Edge List
+  edge_list <- df %>%
+    mutate(geneID = str_split(geneID, "/")) %>%
+    unnest(cols = geneID) %>%
+    select(ID, Regulation, geneID, GeneRatio, BgRatio, RichFactor, FoldEnrichment, zScore, pvalue, p.adjust, qvalue, Count) %>%
+    rename(from = ID, to = geneID) %>%
+    relocate(Regulation, .after = Count)
+  
+  message("Edge List: ")
+  print(edge_list)
+  
+  # Create Graph
+  graph <- as_tbl_graph(edge_list) %>%
+    mutate(
+      type = ifelse(str_detect(name, "^C"), "Compound", "Module"),
+      InDegree  = centrality_degree(mode = 'in'),
+      OutDegree = centrality_degree(mode = 'out'),
+      # Make a total that if the inDegree is zero use Outdegree and vice versa
+      TotalDegree = ifelse(InDegree == 0, OutDegree, InDegree)
+    )
+  
+  message("Graph Node Names: ")
+  print(graph %>% activate(nodes) %>% as_tibble())
+  
+  # message("Data KEGG IDs: ")
+  # print(data$kegg_id)
+  
+  # message("Enrichment Data IDs: ")
+  # print(df$ID)
+  
+  # Merge node metadata and assign a node_color based on user selection.
+  graph <- graph %>%
+    left_join(data %>% select(Name, 'Original annotation', kegg_id, refmet_name, super_class, main_class, sub_class),
+              by = c("name" = "kegg_id")) %>%
+    left_join(df %>% select(ID, Description), by = c("name" = "ID")) %>%
+    mutate(
+      # For any missing metadata, default to "Module"
+      super_class = coalesce(super_class, "Module"),
+      main_class  = coalesce(main_class, "Module"),
+      sub_class   = coalesce(sub_class, "Module"),
+      
+      # Determine node_color based on the user's choice:
+      node_color = case_when(
+        node_color_by == "super_class" ~ super_class,
+        node_color_by == "main_class" ~ main_class,
+        node_color_by == "sub_class" ~ sub_class,
+        TRUE ~ super_class
+      ),
+      
+      # Assign labels based on type and clean them up
+      label = ifelse(type == "Compound", refmet_name, Description),
+      label = coalesce(label, `Original annotation`, Name),
+      label = str_trunc(label, width = 30, side = "right")
+    ) %>%
+    select(-refmet_name, -Description, -`Original annotation`, -Name) %>%
+    mutate(label = gsub(",.*", "", label))
+  
+  print(graph)
+  
+  Graph_plot <- ggraph(graph, layout = layout_option) +
+    geom_edge_link0(aes(color = -log10(p.adjust),
+                        width = edge_width_scale),
+                    alpha = edge_alpha) +
+    geom_node_point(aes(color = node_color,
+                        size = TotalDegree * node_size_mult,
+                        shape = type)) +
+    scale_shape_manual(values = c("Compound" = 16, "Module" = 15),
+                       guide = guide_legend(order = 1,
+                                            override.aes = list(size = 5))) +
+    scale_color_discrete(guide = guide_legend(order = 2,
+                                              override.aes = list(size = 5))) +
+    scale_size_continuous(guide = guide_legend(order = 3)) +
+    geom_node_text(aes(label = label),
+                   repel = TRUE,
+                   size = node_text_size) +
+    theme_void() +
+    guides(edge_width = "none") +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    labs(
+      title = title,
+      color = "Biochemical Class",
+      size = "Node Importance",
+      shape = "Node Type"
+    )
+  
+  return(plot = Graph_plot)
+}
+
+
 plot_cnetplot_subcat <- function(enrichment_data, main_data, top_n = 5) {
   # Subset top_n
   enrichment_data <- enrichment_data %>%
@@ -407,7 +640,7 @@ plot_cnetplot_subcat <- function(enrichment_data, main_data, top_n = 5) {
   
   # Combine nodes
   df_nodes <- bind_rows(df_nodes_pathway, df_nodes_compound)
-
+  
   # Create graph
   net <- graph_from_data_frame(d = df_edges, vertices = df_nodes, directed = FALSE)
   
@@ -476,6 +709,13 @@ plot_cnetplot_subcat <- function(enrichment_data, main_data, top_n = 5) {
               plot = complete_plot))
 }
 plot_cnetplot_desc <- function(enrichment_data, main_data, top_n = 5) {
+  
+  message("Inside plot_cnetplot_desc:: ")
+  print("Enrichment Data: ")
+  print(head(enrichment_data))
+  print("Main Data: ")
+  print(head(main_data))
+  
   # Subset top_n
   enrichment_data <- enrichment_data %>%
     arrange(p.adjust) %>%
@@ -578,7 +818,7 @@ plot_cnetplot_desc <- function(enrichment_data, main_data, top_n = 5) {
     lwd = 1,
     horiz = TRUE,  # Horizontal layout
     cex = 0.4
-    )
+  )
   
   complete_plot <- recordPlot()
   

@@ -21,8 +21,9 @@ library(jsonlite)
 library(shinyalert)
 library(shinybusy)
 library(gtools)
-# clean lipid names 
+
 library(rgoslin)
+library(caret)
 
 # for pathway enrichment 
 library(webchem)
@@ -38,8 +39,11 @@ library(grid)        # for manual text annotation
 library(stats)       # for t.test, aov
 # volcano 
 library(colourpicker)
+library(scales)
+
 # pathway 
 library(clusterProfiler)
+# library(org.Mm.eg.db)
 
 library(ggraph)
 library(tidygraph)
