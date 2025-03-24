@@ -516,8 +516,9 @@ NetGraphPlotWithGgraph <- function(enrichment_data, data, title = "Network Graph
   edge_list <- df %>%
     mutate(geneID = str_split(geneID, "/")) %>%
     unnest(cols = geneID) %>%
-    select(ID, geneID, GeneRatio, BgRatio, RichFactor, FoldEnrichment, zScore, pvalue, p.adjust, qvalue, Count) %>%
-    rename(from = ID, to = geneID)
+    select(ID, Regulation, geneID, GeneRatio, BgRatio, RichFactor, FoldEnrichment, zScore, pvalue, p.adjust, qvalue, Count) %>%
+    rename(from = ID, to = geneID) %>%
+    relocate(Regulation, .after = Count)
   
   message("Edge List: ")
   print(edge_list)
@@ -528,17 +529,18 @@ NetGraphPlotWithGgraph <- function(enrichment_data, data, title = "Network Graph
       type = ifelse(str_detect(name, "^C"), "Compound", "Module"),
       InDegree  = centrality_degree(mode = 'in'),
       OutDegree = centrality_degree(mode = 'out'),
-      TotalDegree = InDegree + OutDegree
+      # Make a total that if the inDegree is zero use Outdegree and vice versa
+      TotalDegree = ifelse(InDegree == 0, OutDegree, InDegree)
     )
   
   message("Graph Node Names: ")
   print(graph %>% activate(nodes) %>% as_tibble())
   
-  message("Data KEGG IDs: ")
-  print(data$kegg_id)
+  # message("Data KEGG IDs: ")
+  # print(data$kegg_id)
   
-  message("Enrichment Data IDs: ")
-  print(df$ID)
+  # message("Enrichment Data IDs: ")
+  # print(df$ID)
   
   # Merge node metadata and assign a node_color based on user selection.
   graph <- graph %>%
@@ -571,12 +573,17 @@ NetGraphPlotWithGgraph <- function(enrichment_data, data, title = "Network Graph
   
   Graph_plot <- ggraph(graph, layout = layout_option) +
     geom_edge_link0(aes(color = -log10(p.adjust),
-                        width = zScore * edge_width_scale),
+                        width = edge_width_scale),
                     alpha = edge_alpha) +
     geom_node_point(aes(color = node_color,
-                        size = InDegree * node_size_mult,
+                        size = TotalDegree * node_size_mult,
                         shape = type)) +
-    scale_shape_manual(values = c("Compound" = 16, "Module" = 15)) +
+    scale_shape_manual(values = c("Compound" = 16, "Module" = 15),
+                       guide = guide_legend(order = 1,
+                                            override.aes = list(size = 5))) +
+    scale_color_discrete(guide = guide_legend(order = 2,
+                                              override.aes = list(size = 5))) +
+    scale_size_continuous(guide = guide_legend(order = 3)) +
     geom_node_text(aes(label = label),
                    repel = TRUE,
                    size = node_text_size) +

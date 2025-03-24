@@ -36,6 +36,8 @@ library(grid)        # for manual text annotation
 library(stats)       # for t.test, aov
 # volcano 
 library(colourpicker)
+library(scales)
+
 # pathway 
 library(clusterProfiler)
 # library(org.Mm.eg.db)

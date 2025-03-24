@@ -1890,7 +1890,20 @@ shinyUI(dashboardPage(
                           selectInput(
                             inputId = "layout_option",
                             label = "Choose Layout:",
-                            choices = c("nicely", "kk", "fr", "drl"),
+                            choices <- c(
+                              "Nicely" = "nicely",
+                              "Kamada-Kawai" = "kk",
+                              "Fruchterman-Reingold" = "fr",
+                              "DrL Layout" = "drl",
+                              "Linear" = "linear",
+                              "Star" = "star",
+                              "Circular" = "circle",
+                              "Davidson-Harel" = "dh",
+                              "Graph Optimization" = "graphopt",
+                              "Grid Layout" = "grid",
+                              "Multidimensional Scaling" = "mds",
+                              "Random" = "randomly"
+                            ),
                             selected = "nicely"
                           ),
                           sliderInput(
@@ -1929,7 +1942,7 @@ shinyUI(dashboardPage(
                             inputId = "edge_width_scale",
                             label = "Edge Width Scale:",
                             min = 0.5,
-                            max = 3,
+                            max = 5,
                             value = 1,
                             step = 0.1
                           )
@@ -2028,7 +2041,7 @@ shinyUI(dashboardPage(
                         width = 6,
                         plotOutput("enrichment_cnetplot_up", height = "600px") %>% withSpinner(color = "steelblue")
                       )
-                    ),
+                    ) #,
                     # plotOutput("enrichment_cnetplot", height = "600px") %>% withSpinner(color = "steelblue")
                   )
                 )

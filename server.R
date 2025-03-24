@@ -1854,6 +1854,15 @@ shinyServer(function(session, input, output) {
         }
         
         data_subset <- data[seq[, "labels"] %in% c("Sample", "QC")] # Get the data for the samples and QC
+        
+        if (any(is.na(data[, "Name"]) | data[, "Name"] == "")) {
+          sendSweetAlert(session, "Error",
+                         "No names in Name column.
+                         Make sure features has names ;)",
+                         type = "error")
+          return()
+        }
+        
         rownames(data_subset) <- make.unique(as.character(data[, "Name"])) # Make the rownames unique
         
         seq_subset <- seq[seq[, "labels"] %in% c("Sample", "QC"), ] # Get the sequence for the samples and QC
@@ -2117,7 +2126,6 @@ shinyServer(function(session, input, output) {
       }
     }
   })
-  
   
   #####################
   # Outlier Detection #
@@ -2837,7 +2845,7 @@ shinyServer(function(session, input, output) {
       }
     }
   })
-  # Define the reactive value at the top of the server so it persists
+  # Define the reactive value at the top of the server 
   savedDatasetNameVolcano <- reactiveVal("My Volcano Plot")
   # Observe the input for the volcano title and update the reactive value
   observe({
@@ -2967,33 +2975,47 @@ shinyServer(function(session, input, output) {
       )
     )
   })
+  
+  darken_color <- function(color, factor = 0.7) {
+    rgb_val <- grDevices::col2rgb(color)
+    dark_rgb <- pmax(rgb_val * factor, 0)
+    rgb(t(dark_rgb), maxColorValue = 255)
+  }
+  
   output$group_color_ui <- renderUI({
     # Only show if group selection is enabled and at least one group is selected
     if (!input$enable_group_selection) return(NULL)
     req(input$selected_group_volcano)
     
     selected_groups <- input$selected_group_volcano
-    
+    n_groups <- length(selected_groups)
+    default_colors <- hue_pal()(n_groups)
+
     # For each selected group, create two colourInput widgets:
     ui_list <- lapply(seq_along(selected_groups), function(i) {
       grp <- selected_groups[i]
+      grp_id <- make.names(grp)
+      
+      fill_default <- default_colors[i]
+      outline_default <- darken_color(fill_default)
+      
       tagList(
         h4(paste("Group:", grp)),
         fluidRow(
           column(
             width = 6,
             colourInput(
-              inputId = paste0("color_", grp, "_fill"),
+              inputId = paste0("color_", grp_id, "_fill"),
               label = "Fill:",
-              value = "green"  # Default fill color
+              value = fill_default  # Default fill color
             )
           ),
           column(
             width = 6,
             colourInput(
-              inputId = paste0("color_", grp, "_outline"),
+              inputId = paste0("color_", grp_id, "_outline"),
               label = "Outline:",
-              value = "darkgreen"  # Default outline color
+              value = outline_default  # Default outline color
             )
           )
         )
@@ -3022,7 +3044,7 @@ shinyServer(function(session, input, output) {
         session,
         "selected_group_volcano",
         choices = unique_groups,
-        selected = NULL,  # Reset selection
+        selected = unique_groups[2],  # Reset selection
         server = TRUE  # Enable server-side processing for large lists
       )
       
@@ -3084,35 +3106,36 @@ shinyServer(function(session, input, output) {
       show_legend <- input$show_legend_volcano
       
       
-      print(paste0("dataset_name: ", dataset_name))
-      print(paste0("label column: ", label_column))
-      print(paste0("numerator: ", numerator))
-      print(paste0("denominator: ", denominator))
-      print(paste0("log2FC_tresh: ", log2FC_tresh))
-      print(paste0("pval_tresh: ", pval_tresh))
-      print(paste0("show legend: ", show_legend))
+      message(paste0("dataset_name: ", dataset_name))
+      message(paste0("label column: ", label_column))
+      message(paste0("numerator: ", numerator))
+      message(paste0("denominator: ", denominator))
+      message(paste0("log2FC_tresh: ", log2FC_tresh))
+      message(paste0("pval_tresh: ", pval_tresh))
+      message(paste0("show legend: ", show_legend))
       
       enable_feature_selection <- input$enable_feature_selection
-      print("Feature Selection Enabled:")
+      message("Feature Selection Enabled:")
       print(enable_feature_selection)
       available_features <- input$selected_features_volcano
-      print("Available Features:")
+      message("Available Features:")
       print(available_features)
       
       enable_group_selection <- input$enable_group_selection
-      print("Group Selection Enabled:")
+      message("Group Selection Enabled:")
       print(enable_group_selection)
       available_groups <- input$selected_group_volcano
-      print("Available Groups:")
+      message("Available Groups:")
       print(available_groups)
       
       if (input$enable_group_selection && !is.null(input$selected_group_volcano)) {
         selected_groups <- input$selected_group_volcano
         group_color_df <- do.call(rbind, lapply(selected_groups, function(grp) {
+          grp_id <- make.names(grp)
           data.frame(
             Group   = grp,
-            Fill    = input[[paste0("color_", grp, "_fill")]],
-            Outline = input[[paste0("color_", grp, "_outline")]],
+            Fill    = input[[paste0("color_", grp_id, "_fill")]],
+            Outline = input[[paste0("color_", grp_id, "_outline")]],
             stringsAsFactors = FALSE
           )
         }))
@@ -4033,7 +4056,7 @@ shinyServer(function(session, input, output) {
         relocate(Regulation, .after = "Count")
 
       # Check the updated dataframe
-      message("Enrichment results:")
+      message("Enrichment results DF:")
       print(head(res_df_gene_ORA))
       
       # I want to display here a message to the user that if the all res_df_gene_ORA$p.adjust are larger than the threshhold let the user know to set the threhold larger
@@ -4121,7 +4144,7 @@ shinyServer(function(session, input, output) {
         relocate(Regulation, .after = "ID")
       
       # Check the updated dataframe
-      print("Enrichment results DF:")
+      message("Enrichment results DF:")
       print(head(res_df_module_ORA))
       
       # I want to display here a message to the user that if the all res_df_gene_ORA$p.adjust are larger than the threshhold let the user know to set the threhold larger
@@ -4185,11 +4208,11 @@ shinyServer(function(session, input, output) {
     
     enrichres_df <- as.data.frame(enrichres)
     
-    message("EnrichRes DF: ")
-    print(head(enrichres_df))
+    # message("EnrichRes DF: ")
+    # print(head(enrichres_df))
     
-    enrichres_down <- enrichres_df[enrichres_df$Regulation == "Downregulated",]
-    enrichres_up <- enrichres_df[enrichres_df$Regulation == "Upregulated",]
+    enrichres_df_down <- enrichres_df[enrichres_df$Regulation == "Downregulated",]
+    enrichres_df_up <- enrichres_df[enrichres_df$Regulation == "Upregulated",]
     
     title_down <- paste0(title_name," ", dataset_name, " Downregulated")
     title_up <- paste0(title_name," ", dataset_name, " Upregulated")
@@ -4201,7 +4224,7 @@ shinyServer(function(session, input, output) {
     )
     
     output$enrichment_cnetplot_down <- renderPlot({
-      NetGraphPlotWithGgraph(enrichres_down, filtered_kegg_data, title = title_down,
+      NetGraphPlotWithGgraph(enrichres_df_down, filtered_kegg_data, title = title_down,
                              layout_option = input$layout_option,
                              node_size_mult = input$node_size_mult,
                              node_text_size = input$node_text_size,
@@ -4211,7 +4234,7 @@ shinyServer(function(session, input, output) {
     })
     
     output$enrichment_cnetplot_up <- renderPlot({
-      NetGraphPlotWithGgraph(enrichres_up, filtered_kegg_data, title = title_up,
+      NetGraphPlotWithGgraph(enrichres_df_up, filtered_kegg_data, title = title_up,
                              layout_option = input$layout_option,
                              node_size_mult = input$node_size_mult,
                              node_text_size = input$node_text_size,
@@ -4220,6 +4243,15 @@ shinyServer(function(session, input, output) {
                              node_color_by = input$node_color_by)  # Directly call the function
     })
     
+    # output$enrichment_cnetplot <- renderPlot({
+    #   NetGraphPlotWithGgraph(enrichres_df, filtered_kegg_data, title = title_up,
+    #                          layout_option = input$layout_option,
+    #                          node_size_mult = input$node_size_mult,
+    #                          node_text_size = input$node_text_size,
+    #                          edge_alpha = input$edge_alpha,
+    #                          edge_width_scale = input$edge_width_scale,
+    #                          node_color_by = input$node_color_by)  # Directly call the function
+    # })
     
     enrich_df_long <- enrichres_df %>% 
       separate_rows(geneID, sep = "/")
@@ -5508,17 +5540,20 @@ shinyServer(function(session, input, output) {
       # make the sequence only contain rows where labels == "Sample"
       seq_sub <- seq[seq$labels == "Sample", ]
       
-      # Unique identified features
-      # Only include rows from data where these columns lipid_name  sum_name lipid_abbreviation lipid_class ar not NA 
-      data_lipid_classes <- data[!is.na(data$sum_name) &
-                                   !is.na(data$'Original annotation') &
-                                   !is.na(data$super_class) &
-                                   !is.na(data$main_class) &
-                                   !is.na(data$sub_class), ]
-      
-      print(head(seq_sub))
-      print(head(data_lipid_classes))
-      print(head(data$'Original annotation'))
+      print(seq_sub)
+      print(head(data))
+
+      # # Unique identified features
+      # # Only include rows from data where these columns lipid_name  sum_name lipid_abbreviation lipid_class ar not NA 
+      # data_lipid_classes <- data[!is.na(data$sum_name) &
+      #                              !is.na(data$'Original annotation') &
+      #                              !is.na(data$super_class) &
+      #                              !is.na(data$main_class) &
+      #                              !is.na(data$sub_class), ]
+      # 
+      # print(head(seq_sub))
+      # print(head(data_lipid_classes))
+      # print(head(data$'Original annotation'))
       
       
       output$random_plot1 <- renderPlotly({
