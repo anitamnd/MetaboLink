@@ -21,7 +21,10 @@ library(jsonlite)
 library(shinyalert)
 library(shinybusy)
 library(gtools)
+# clean lipid names 
+library(rgoslin)
 
+# for pathway enrichment 
 library(webchem)
 library(PubChemR)
 library(data.table)

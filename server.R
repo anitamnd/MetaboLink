@@ -16,7 +16,8 @@ shinyServer(function(session, input, output) {
                        identifier_df = list(), # List of identifier data frames
                        timer_active = NULL, # Timer active status
                        start_time = NULL, # Start time for time tracking
-                       index = NULL) # Index for volcano plot
+                       index = NULL,
+                       multipleLipidNamesDf = NULL) # Index for volcano plot
   
   userConfirmation <- reactiveVal(FALSE)
   disable("upload")
@@ -498,7 +499,7 @@ shinyServer(function(session, input, output) {
     show_modal_spinner(
       spin = "atom",
       color = "#0A4F8F",
-      text = "Extracting RefMet information... This may take a few minutes."
+      text = "Cleaning lipid names - might take a few seconds."
     )
     
     if(is.null(rv$activeFile)) {
@@ -513,83 +514,33 @@ shinyServer(function(session, input, output) {
       print(identifier)
       
       original_colnames <- colnames(data)
-      
-      # Define known abbreviations to ensure complete coverage
-      abbreviations_list <- c(
-        "Hex2Cer", "HexCer", "GlcCer", "GalCer", "LacCer", "C1P", "S1P", "SPH",
-        "PGM", "PIP", "CDCA", "UDCA", "HDCA",
-        "FA", "MG", "DG", "TG", "BMP", "CL", "PA", "PC", "PE", "PG",
-        "PI", "PS", "Cer", "SM", "St", "SE", "FC", "CE", "CA", "CAR", "DCA",
-        "LCA", "GCA", "TCA", "LPE", "LNAPE"
-      )
-      
-      # Extract all valid lipid subclasses from refmet
-      unique_abbre <- sort(unique(refmet$sub_class[grepl("^[A-Z]+$", refmet$sub_class)]))
-      
-      # Ensure abbreviations_list is combined with known refmet subclasses
-      unique_abbre <- sort(unique(c(unique_abbre, abbreviations_list)))
-      
-      # Sort abbreviations by length (LPC before PC)
-      unique_abbre <- unique_abbre[order(nchar(unique_abbre), decreasing = TRUE)]
-      
-      # Create abbreviation mapping table
-      abbreviations <- unique(refmet[refmet$sub_class %in% unique_abbre, c("main_class", "sub_class")])
-      
-      # Add missing manual mappings
-      manual_mappings <- data.frame(
-        main_class = c("Fatty Acid", "Ether Phospholipids","Acylcarnitines", "Ether Glycerophosphocholines", "Ether Diacylglycerols",
-                       "Ether Glycerophosphoethanolamines", "Diacylglycerols", "Phosphatidylserines", "Ether Phosphatidylinositol",
-                       "Triacylglycerols", "Ether Triacylglycerols"),
-        sub_class = c("FA", "O-LPE", "CAR", "O-PC", "O-DG","O-PE", "DG", "O-PS", "O-PI", "TG", "O-TG")
-      )
-      
-      # Combine with abbreviations
-      abbreviations <- bind_rows(abbreviations, manual_mappings)
-      
-      print(abbreviations)
-      
-      # Build regex pattern, ensuring LPC is before PC
-      abbreviation_pattern <- paste0("\\b(", paste(unique_abbre, collapse = "|"), ")(\\(O-)?")
-      
       message("Cleaning lipid names")
       
       # Extract and clean lipid names
       lipid_names <- data[[identifier]]
       
-      data <- data %>%
-        mutate(
-          lipid_name = gsub("_\\d+\\.\\d+_\\d+\\.\\d+$", "", lipid_names),  # Remove extra numbers
-          lipid_name = gsub("_\\d+\\.\\d+_\\d+$", "", lipid_name),  # Additional cleanup
-          lipid_abbreviation = str_extract(lipid_name, abbreviation_pattern)  # Extract abbreviation
-        ) %>%
-        relocate(c(lipid_name, lipid_abbreviation), .after = all_of(identifier))
+      # remove NA or empty lipidnames
+      lipid_names <- lipid_names[!is.na(lipid_names) & lipid_names != ""]
       
-      # Fix O- notation dynamically
-      data$lipid_abbreviation <- ifelse(
-        grepl("\\(O-", data$lipid_abbreviation),
-        paste0("O-", gsub("\\(O-", "", data$lipid_abbreviation)),
-        data$lipid_abbreviation
-      )
+      # only unique names from lipid_names is allowed
+      lipid_names <- unique(lipid_names)
       
-      # Replace NA values in abbreviations with "None"
-      data$lipid_abbreviation[is.na(data$lipid_abbreviation)] <- "None"
+      multipleLipidNamesDf <- parseLipidNames(lipid_names)
       
-      # Join with abbreviations to get lipid_class
-      data <- data %>%
-        left_join(abbreviations, by = c("lipid_abbreviation" = "sub_class")) %>% 
-        rename(lipid_class = main_class) %>%
-        relocate(lipid_class, .after = lipid_abbreviation)
+      # Save the cleaned lipid names for download
+      rv$multipleLipidNamesDf <- multipleLipidNamesDf
       
-      # Replace NA in lipid_class with "None"
-      data$lipid_class[is.na(data$lipid_class)] <- "None"
+      multipleLipidNamesDf <- multipleLipidNamesDf %>%
+        select(Normalized.Name,	Original.Name, Species.Name,Extended.Species.Name)
       
-      # Print only the first 100 rows for debugging
-      print(data[1:100, c(identifier, "lipid_name", "lipid_abbreviation", "lipid_class")])
+      # join left the data and multipleLipidNamesDf by identifier and Original.Name
+      data <- left_join(
+        data,
+        multipleLipidNamesDf,
+        by = setNames("Original.Name", identifier)) %>%
+        relocate(c(Normalized.Name, Species.Name, Extended.Species.Name), .after = identifier)
       
-      # print rows where lipid_class is None but lipid_abbreviation is not none 
-      # print(data[data$lipid_class == "None" & data$lipid_abbreviation != "None",
-      #            c(identifier, "lipid_name", "lipid_abbreviation", "lipid_class")])
-      
+
       colnames_cleaned <- setdiff(colnames(data), original_colnames)
       
       # Debug
@@ -609,10 +560,6 @@ shinyServer(function(session, input, output) {
       # Store temporarily
       rv$tmpData <- data
       rv$tmpSequence <- updated_seq
-      
-      # Debug
-      print("Are data column names and sequence row names identical?")
-      print(identical(colnames(rv$tmpData), rownames(rv$tmpSequence)))
       
       # Update sequence
       print("Updating data file...")
@@ -965,6 +912,15 @@ shinyServer(function(session, input, output) {
     output$export_metabo <- renderDownloadUI("dwn_metabo", "_metabo.csv")
     output$export_stats <- renderDownloadUI("dwn_stats", "_results.xlsx")
     output$export_settings <- renderDownloadUI("dwn_settings", ".txt")
+    
+    output$downloadLipids <- downloadHandler(
+      filename = function() {
+        paste0("cleaned_lipid_names_", Sys.Date(), ".csv")
+      },
+      content = function(file) {
+        write.csv(rv$multipleLipidNamesDf, file, row.names = FALSE)
+      }
+    )
     
     #    lapply(seq_len(num_datasets), createDownloadHandler("general", ".csv", rv$data[[rv$activeFile]]))
     #    lapply(seq_len(num_datasets), createDownloadHandler("stats", ".xlsx", rv$results[[rv$activeFile]]))
