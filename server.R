@@ -4067,6 +4067,7 @@ shinyServer(function(session, input, output) {
                              "The lowest adjusted p-values value is", min(res_df_gene_ORA$p.adjust),
                              ". Try setting the threshold larger."), 
                        type = "Warning")
+        remove_modal_spinner()
         return()
       }
       
@@ -4155,6 +4156,7 @@ shinyServer(function(session, input, output) {
                              "The lowest adjusted p-value value is", min(res_df_module_ORA$p.adjust),
                              ". Try setting the threshold larger."), 
                        type = "Warning")
+        remove_modal_spinner()
         return()
       }
       
@@ -4198,7 +4200,7 @@ shinyServer(function(session, input, output) {
     # Extract sample names belonging to the selected group
     selected_group_samples <- rownames(seq[seq$group == group_of_interest & seq$labels == "Sample",])
     
-    print(head(data$main_class))
+    # print(head(data$main_class))
     
     # Filter KEGG data based on group samples
     filtered_kegg_data <- data %>%
@@ -4224,23 +4226,41 @@ shinyServer(function(session, input, output) {
     )
     
     output$enrichment_cnetplot_down <- renderPlot({
-      NetGraphPlotWithGgraph(enrichres_df_down, filtered_kegg_data, title = title_down,
-                             layout_option = input$layout_option,
-                             node_size_mult = input$node_size_mult,
-                             node_text_size = input$node_text_size,
-                             edge_alpha = input$edge_alpha,
-                             edge_width_scale = input$edge_width_scale,
-                             node_color_by = input$node_color_by)  # Directly call the function
+      tryCatch({
+        NetGraphPlotWithGgraph(enrichres_df_down, filtered_kegg_data, title = title_down,
+                               layout_option = input$layout_option,
+                               node_size_mult = input$node_size_mult,
+                               node_text_size = input$node_text_size,
+                               edge_alpha = input$edge_alpha,
+                               edge_width_scale = input$edge_width_scale,
+                               node_color_by = input$node_color_by) 
+      }, error = function(err) {
+        # Create a new blank plot
+        plot.new()
+        # Add a message in the middle of the plot
+        text(0.5, 0.5, "Plot failed to generate.\n
+             No significant pathways detected.\n Please check your criteria or adjust the thresholds.\n.", 
+             cex = 1.2, col = "red", adj = 0.5)
+      })
     })
     
     output$enrichment_cnetplot_up <- renderPlot({
-      NetGraphPlotWithGgraph(enrichres_df_up, filtered_kegg_data, title = title_up,
-                             layout_option = input$layout_option,
-                             node_size_mult = input$node_size_mult,
-                             node_text_size = input$node_text_size,
-                             edge_alpha = input$edge_alpha,
-                             edge_width_scale = input$edge_width_scale,
-                             node_color_by = input$node_color_by)  # Directly call the function
+      tryCatch({
+        NetGraphPlotWithGgraph(enrichres_df_up, filtered_kegg_data, title = title_up,
+                               layout_option = input$layout_option,
+                               node_size_mult = input$node_size_mult,
+                               node_text_size = input$node_text_size,
+                               edge_alpha = input$edge_alpha,
+                               edge_width_scale = input$edge_width_scale,
+                               node_color_by = input$node_color_by)
+      }, error = function(err) {
+        # Create a new blank plot
+        plot.new()
+        # Add a message in the middle of the plot
+        text(0.5, 0.5, "Plot failed to generate.\n
+             No significant pathways detected.\n Please check your criteria or adjust the thresholds.\n.", 
+             cex = 1.2, col = "red", adj = 0.5)
+      })
     })
     
     # output$enrichment_cnetplot <- renderPlot({
