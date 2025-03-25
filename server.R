@@ -639,6 +639,77 @@ shinyServer(function(session, input, output) {
     message(sample(quotes, 1))
   })
   
+  observeEvent(input$RemoveUnannotated, {
+    show_modal_spinner(
+      spin = "atom",
+      color = "#0A4F8F",
+      text = "Remove unannotated features."
+    )
+    
+    if(is.null(rv$activeFile)) {
+      showNotification("No data", type = "error")
+    } else {
+      sequence <- rv$sequence[[rv$activeFile]]
+      data <- rv$data[[rv$activeFile]]
+      identifier <- input$name_column_annotate
+      
+      print(identifier)
+      
+      original_colnames <- colnames(data)
+      
+      num_feature_before <- nrow(data)
+      
+      
+      # remove rows with NA in identifier column
+      data <- data[!is.na(data[[identifier]]),]
+      # remove rows that is empty string
+      data <- data[data[[identifier]] != "",]
+      
+      num_feature_after <- nrow(data)
+      
+      
+      colnames_cleaned <- setdiff(colnames(data), original_colnames)
+      
+      # Debug
+      print("Are data column names and sequence row names identical?")
+      print(identical(colnames(rv$tmpData),
+                      rownames(rv$tmpSequence)))
+      
+      update_modal_spinner(
+        session = session,
+        text = "Just a second. I'm updating your sequence and data file. Please be patient."
+      )
+      
+      # Update sequence
+      print("Updating sequence...")
+      updated_seq <- updateSequence(sequence, data, colnames_cleaned, "-")
+      
+      # Store temporarily
+      rv$tmpData <- data
+      rv$tmpSequence <- updated_seq
+      
+      # Debug
+      print("Are data column names and sequence row names identical?")
+      print(identical(colnames(rv$tmpData), rownames(rv$tmpSequence)))
+      
+      # Update sequence
+      print("Updating data file...")
+      updateDataAndSequence(
+        notificationMessage = paste("Unnanotated features removed from column: ", identifier),
+        newFileInput = TRUE,
+        suffix = "_Anno",
+        additionalInfo = NULL
+      )
+      
+    }
+    
+    remove_modal_spinner()
+    sendSweetAlert(session, "Success", "Unnanotated features has been removed.", type = "success")
+    message(sample(quotes, 1))
+  })
+  
+  
+  
   observeEvent(input$editColumns, {
     showModal(
       modalDialog(
@@ -5563,6 +5634,7 @@ shinyServer(function(session, input, output) {
       column_inputs <- c("identifier_column_refmet",
                          "annotation_column_merge",
                          "name_column_lipids",
+                         "name_column_annotate", 
                          "name_column_cirbar",
                          "group_column_cirbar",
                          "group_column_heatmap")

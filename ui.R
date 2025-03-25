@@ -363,6 +363,15 @@ shinyUI(dashboardPage(
             ),
             
             box(
+              column(
+                width = 6,
+                selectInput("name_column_annotate", "Select annotation column", choices = NULL, width = "100%")
+              ),
+              width = NULL, title = "Remove unnannotated features",
+              actionButton("RemoveUnannotated", "Remove", width = "50%")
+            ),
+            
+            box(
               width = NULL, title = "Edit data columns",
               actionButton("editColumns", "Edit", width = "50%")
             ),
