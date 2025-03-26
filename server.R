@@ -1076,138 +1076,53 @@ shinyServer(function(session, input, output) {
     
     
     # Plot of classes in the identifer table
-    output$super_class_plot <- renderPlotly({
+    output$class_plot <- renderPlotly({
+      req(input$selected_column_class_plot)  # Ensure a column is selected
+      
+      # Copy dataset
       data_sub <- data
+      colname <- input$selected_column_class_plot
       
-      # remove rows where NA, "", " " or "NA" are present in the super_class column
-      data_sub <- data_sub[!is.na(data_sub$super_class) &
-                             data_sub$super_class != "" &
-                             data_sub$super_class != " " &
-                             data_sub$super_class != "NA" &
-                             data_sub$super_class != "N/A", ]
+      # Remove rows where the selected column is NA, empty, or contains unwanted strings.
+      data_sub <- data_sub[!is.na(data_sub[[colname]]) &
+                             data_sub[[colname]] != "" &
+                             data_sub[[colname]] != " " &
+                             data_sub[[colname]] != "NA" &
+                             data_sub[[colname]] != "N/A", ]
       
-      # Check if "super_class" column exists; if not, send an error alert and exit.
-      if (!("super_class" %in% colnames(data_sub))) {
+      # Check if the column exists (should always be true if choices are set correctly)
+      if (!(colname %in% colnames(data_sub))) {
         showNotification(
-          paste("No Super Class column found in the dataset.
-        Make sure a column named 'super_class' is present 
-              by running 'Gather Identifiers'."),
+          paste("No", colname, "column found in the dataset. Make sure a column named", colname, "is present by running 'Gather Identifiers'."),
           type = "message",
           duration = 10
         )
-        return(NULL)  # Stop further execution of the renderPlotly block.
+        return(NULL)
       }
       
-      # Create ggplot
+      # Create the ggplot, sorting and converting the selected column to a factor
       p <- data_sub %>%
-        arrange(super_class) %>%  # Sort lexicographically
-        mutate(super_class = factor(super_class, levels = unique(super_class))) %>%  # Ensure unique levels
-        ggplot(aes(x = super_class)) +
+        arrange(.data[[colname]]) %>%
+        mutate(!!colname := factor(.data[[colname]], levels = unique(.data[[colname]]))) %>%
+        ggplot(aes_string(x = colname)) +
         geom_bar(fill = "steelblue", color = "black", width = 0.4) +
-        geom_text(stat = "count", aes(label = after_stat(count)), vjust = -4, size = 3, color = "black") +  # Add labels
-        labs(title = paste0("Distribution of Super Classes - number of features: ", nrow(data)),
-             x = "Super Class",
-             y = "Count") +
-        theme_bw(base_size = 11) +  # Modern theme
+        geom_text(stat = "count", aes(label = after_stat(count)), vjust = -4, size = 3, color = "black") +
+        labs(
+          title = paste0("Distribution of ", colname, " - number of features: ", nrow(data)),
+          x = colname,
+          y = "Count"
+        ) +
+        theme_bw(base_size = 11) +
         theme(
           axis.text.x = element_text(angle = 45, hjust = 1, size = 12, color = "black"),
           axis.text.y = element_text(size = 12, color = "black"),
           axis.title.x = element_text(size = 14, face = "bold"),
           axis.title.y = element_text(size = 14, face = "bold"),
-          panel.grid.major = element_blank(),  # Remove grid lines for cleaner look
+          panel.grid.major = element_blank(),
           panel.grid.minor = element_blank()
         )
       
-      ggplotly(p)
-    })
-    output$main_class_plot <- renderPlotly({
-      data_sub <- data
-      
-      # remove rows where NA, "", " " or "NA" are present in the main_class column
-      data_sub <- data_sub[!is.na(data_sub$main_class) &
-                             data_sub$main_class != "" &
-                             data_sub$main_class != " " &
-                             data_sub$main_class != "NA" &
-                             data_sub$main_class != "N/A", ]
-      
-      # Check if "main_class" column exists; if not, send an error alert and exit.
-      if (!("main_class" %in% colnames(data_sub))) {
-        showNotification(
-          paste("No Main Class column found in the dataset. 
-                  Make sure a column named 'main_class' is present 
-                  by running 'Gather Identifiers'."),
-          type = "message",
-          duration = 10
-        )
-        return(NULL)  # Stop further execution of the renderPlotly block.
-      }
-      
-      # Create ggplot
-      p <- data_sub %>%
-        arrange(main_class) %>%  # Sort lexicographically
-        mutate(main_class = factor(main_class, levels = unique(main_class))) %>%  # Ensure unique levels
-        ggplot(aes(x = main_class)) +
-        geom_bar(fill = "steelblue", color = "black", width = 0.4) +  # Better color and border
-        geom_text(stat = "count", aes(label = after_stat(count)), vjust = -4, size = 3, color = "black") +  # Add labels
-        labs(title = paste0("Distribution of Main Classes - number of features: ", nrow(data)),
-             x = "Main Class",
-             y = "Count") +
-        theme_bw(base_size = 11) +  # Modern theme
-        theme(
-          axis.text.x = element_text(angle = 45, hjust = 1, size = 12, color = "black"),
-          axis.text.y = element_text(size = 12, color = "black"),
-          axis.title.x = element_text(size = 14, face = "bold"),
-          axis.title.y = element_text(size = 14, face = "bold"),
-          panel.grid.major = element_blank(),  # Remove grid lines for cleaner look
-          panel.grid.minor = element_blank()
-        )
-      
-      # Convert ggplot to interactive plotly plot
-      ggplotly(p)
-    })
-    output$sub_class_plot <- renderPlotly({
-      data_sub <- data
-      
-      # remove rows where NA, "", " " or "NA" are present in the sub_class column
-      data_sub <- data_sub[!is.na(data_sub$sub_class) &
-                             data_sub$sub_class != "" &
-                             data_sub$sub_class != " " &
-                             data_sub$sub_class != "NA" &
-                             data_sub$sub_class != "N/A", ]
-      
-      # Check if "sub_class" column exists; if not, send an error alert and exit.
-      if (!("sub_class" %in% colnames(data_sub))) {
-        showNotification(
-          paste("No Sub Class column found in the dataset. 
-                  Make sure a column named 'sub_class' is present 
-                  by running 'Gather Identifiers'."),
-          type = "message",
-          duration = 10
-        )
-        return(NULL)  # Stop further execution of the renderPlotly block.
-      }
-      
-      # Create ggplot
-      p <- data_sub %>%
-        arrange(sub_class) %>%  # Sort lexicographically
-        mutate(sub_class = factor(sub_class, levels = unique(sub_class))) %>%  # Ensure unique levels
-        ggplot(aes(x = sub_class)) +
-        geom_bar(fill = "steelblue", color = "black", width = 0.4) +  # Better color and border
-        geom_text(stat = "count", aes(label = after_stat(count)), vjust = -4, size = 3, color = "black") +  # Add labels
-        labs(title = paste0("Distribution of Sub Classes - number of features: ", nrow(data)),
-             x = "Sub Class",
-             y = "Count") +
-        theme_bw(base_size = 11) +  # Modern theme
-        theme(
-          axis.text.x = element_text(angle = 45, hjust = 1, size = 8, color = "black"),
-          axis.text.y = element_text(size = 12, color = "black"),
-          axis.title.x = element_text(size = 14, face = "bold"),
-          axis.title.y = element_text(size = 14, face = "bold"),
-          panel.grid.major = element_blank(),  # Remove grid lines for cleaner look
-          panel.grid.minor = element_blank()
-        )
-      
-      # Convert ggplot to interactive plotly plot
+      # Convert the ggplot object to an interactive Plotly plot
       ggplotly(p)
     })
     
@@ -3122,6 +3037,21 @@ shinyServer(function(session, input, output) {
     }
   })
   
+  output$parameter_selection_ui_volcano <- renderUI({
+    if (isTRUE(input$select_parameter_volcano)) {
+      fluidRow(
+        column(
+          width = 6,
+          numericInput("x_param", "X axis limit", value = 5)
+        ),
+        column(
+          width = 6,
+          numericInput("y_param", "Y axis limit", value = 5)
+        )
+      )
+    }
+  })
+  
   observeEvent(input$run_volcano_plot, {
     req(
       input$select_volcano_data,
@@ -3164,7 +3094,7 @@ shinyServer(function(session, input, output) {
         return(NULL) # return from the function/observe and don't proceed
       }
       
-      log2FC_tresh <- input$log2fc_threshold
+      log2FC_tresh <- log2(input$log2fc_threshold)
       pval_tresh <- input$pval_threshold
       
       fill_up <- input$color_up_fill
@@ -3176,15 +3106,28 @@ shinyServer(function(session, input, output) {
       
       show_legend <- input$show_legend_volcano
       
+      x_param <- input$x_param
+      y_param <- input$y_param
+      apply_axis_limits <- input$select_parameter_volcano
+      
+      
       
       message(paste0("dataset_name: ", dataset_name))
       message(paste0("label column: ", label_column))
       message(paste0("numerator: ", numerator))
       message(paste0("denominator: ", denominator))
-      message(paste0("log2FC_tresh: ", log2FC_tresh))
-      message(paste0("pval_tresh: ", pval_tresh))
+      message(paste0("log2FC tresh: ", log2FC_tresh))
+      message(paste0("pval tresh: ", pval_tresh))
       message(paste0("show legend: ", show_legend))
       
+      message(paste0("Axis limits: ", apply_axis_limits))
+      
+      if (input$select_parameter_volcano) {
+        message(paste0("X axis limit: ", x_param))
+        message(paste0("Y axis limit: ", y_param))
+      }
+    
+
       enable_feature_selection <- input$enable_feature_selection
       message("Feature Selection Enabled:")
       print(enable_feature_selection)
@@ -3337,22 +3280,66 @@ shinyServer(function(session, input, output) {
       volcano_df_name <- paste0(dataset_name, "_volcano_df")
       assign(volcano_df_name, sub_df)
       
-      vlcn <- pretty_volcano_plot(sub_df,savedDatasetNameVolcano(),
-                                  log2FC_tresh, pval_tresh,
-                                  fill_up, outline_up,
-                                  fill_down, outline_down,
-                                  fill_ns, outline_ns,
-                                  enable_feature_selection, enable_group_selection,
-                                  available_features, available_groups,
-                                  group_color_df)
+      # vlcn <- pretty_volcano_plot(sub_df,savedDatasetNameVolcano(),
+      #                             log2FC_tresh, pval_tresh,
+      #                             fill_up, outline_up,
+      #                             fill_down, outline_down,
+      #                             fill_ns, outline_ns,
+      #                             enable_feature_selection, enable_group_selection,
+      #                             available_features, available_groups,
+      #                             group_color_df,x_param,y_param, apply_axis_limits)
+      
+      pvp <- reactive(pretty_volcano_plot(
+        sub_df,savedDatasetNameVolcano(),
+        log2FC_tresh, pval_tresh,
+        fill_up, outline_up,
+        fill_down, outline_down,
+        fill_ns, outline_ns,
+        enable_feature_selection, enable_group_selection,
+        available_features, available_groups,
+        group_color_df,x_param,y_param, apply_axis_limits))
       
       output$volcano_plot <- renderPlotly({
-        vlcn$plot
+        pvp()$plot
       })
+      
+      observeEvent(input$download_volcano_plot_modal, {
+        showModal(modalDialog(
+          title = "Download Options",
+          # Select file format: PNG, JPEG, or PDF
+          selectInput(
+            inputId = "file_format",
+            label =  "Choose File Format:",
+            choices = c("PNG", "JPEG", "PDF"),
+            selected = "PNG"),
+          # Input for resolution in DPI
+          numericInput("resolution", "Resolution (DPI):", value = 300, min = 72, max = 1200),
+          footer = tagList(
+            modalButton("Close"),
+            downloadButton("download_plot", "Download")
+          )
+        ))
+      })
+      
+      # Download handler that exports the plot using orca()
+      output$download_plot <- downloadHandler(
+        filename = function() {
+          ext <- switch(input$file_format,
+                        "PNG" = "png",
+                        "JPEG" = "jpeg",
+                        "PDF" = "pdf")
+          paste("volcano_plot.", ext, sep = "")
+        },
+        content = function(file) {
+          scale_factor <- input$resolution / 72
+          
+          kaleido(vlcn$plot, file = file, scale = scale_factor)
+        }
+      )
       
       # Render the table of top features
       output$volcano_table <- DT::renderDataTable({
-        DT::datatable(vlcn$df, 
+        DT::datatable(pvp()$df, 
                       rownames = FALSE,
                       options = list(scrollX = TRUE,
                                      pageLength = 20,

@@ -428,31 +428,21 @@ shinyUI(dashboardPage(
                              column(
                                width = 3,
                                wellPanel(
-                                 h4("Select which class plot to display:"),
-                                 radioButtons(
-                                   inputId  = "classChoice",
-                                   label    = NULL,  
-                                   choices  = c("Super Class" = "super",
-                                                "Main Class"  = "main",
-                                                "Sub Class"   = "sub"),
-                                   selected = "super"
+                                 h4("Select which column plot to display:"),
+                                 selectInput(
+                                   inputId = "selected_column_class_plot",
+                                   label = NULL,
+                                   choices = c("Super class" = "super_class",
+                                               "Main class" = "main_class",
+                                               "Sub class" = "sub_class",
+                                               "Lipid Class" = "Extended.Species.Name"),
+                                   selected = "super_class"
                                  )
                                )
                              ),
                              column(
                                width = 9,
-                               conditionalPanel(
-                                 condition = "input.classChoice == 'super'",
-                                 plotlyOutput("super_class_plot", height = "600px") %>% withSpinner(color = "steelblue")
-                               ),
-                               conditionalPanel(
-                                 condition = "input.classChoice == 'main'",
-                                 plotlyOutput("main_class_plot", height = "600px") %>% withSpinner(color = "steelblue")
-                               ),
-                               conditionalPanel(
-                                 condition = "input.classChoice == 'sub'",
-                                 plotlyOutput("sub_class_plot", height = "600px") %>% withSpinner(color = "steelblue")
-                               )
+                               plotlyOutput("class_plot", height = "600px") %>% withSpinner(color = "steelblue")
                              )
                            )
                          )
@@ -1611,6 +1601,13 @@ shinyUI(dashboardPage(
                                
                                # Additional toggles, e.g. to show/hide legend
                                checkboxInput("show_legend_volcano", "Show Legend:", TRUE),
+                               checkboxInput(
+                                 inputId = "select_parameter_volcano",
+                                 label = "Select axis parameters",
+                                 value = FALSE
+                               ),
+                               # Dynamic UI for Group Selection (appears when 'select_groups_heatmap' is TRUE)
+                               uiOutput("parameter_selection_ui_volcano"),
                              )
                            )
                          ),
@@ -1665,6 +1662,9 @@ shinyUI(dashboardPage(
                                collapsible = FALSE,
                                
                                plotlyOutput("volcano_plot", height = "600px") %>% withSpinner(color="steelblue"),
+                               br(),
+                               actionButton("download_volcano_plot_modal", "Download Heatmap Image"),
+                               
                                br(),
                                DTOutput("volcano_table")
                              )
