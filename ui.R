@@ -1662,9 +1662,8 @@ shinyUI(dashboardPage(
                                collapsible = FALSE,
                                
                                plotlyOutput("volcano_plot", height = "600px") %>% withSpinner(color="steelblue"),
-                               br(),
-                               actionButton("download_volcano_plot_modal", "Download Heatmap Image"),
-                               
+                               # br(),
+                               # downloadButton("downloadPlot_volcano", "Download Volcano Plot"),
                                br(),
                                DTOutput("volcano_table")
                              )

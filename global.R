@@ -21,11 +21,9 @@ library(jsonlite)
 library(shinyalert)
 library(shinybusy)
 library(gtools)
-
-library(rgoslin)
 library(caret)
+library(rgoslin)
 
-# for pathway enrichment 
 library(webchem)
 library(PubChemR)
 library(data.table)
