@@ -2209,7 +2209,12 @@ shinyUI(dashboardPage(
               column(12, style = "margin-top: 20px;",
                      h4("Settings used in app"),
                      uiOutput("export_settings")
+              ),
+              column(12, style = "margin-top: 20px;",
+                     h4("Export to MetaboAnalyst"),
+                     downloadButton("downloadLipids", "Download Cleaned Lipid Names")
               )
+              
           ),
           box(title = "Export to other apps", status = "primary", solidHeader = TRUE, width = 6,
               column(12, 
