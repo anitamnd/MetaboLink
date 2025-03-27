@@ -500,7 +500,7 @@ shinyServer(function(session, input, output) {
         # Remove the temporary columns from refmet (those ending in ".refmet")
         select(-ends_with(".refmet"))
       
-      additional_keys <- c("Original annotation","lipid_name", "sum_name")  # example additional keys
+      additional_keys <- c("Original annotation", "lipid_name", "sum_name", "Normalized.Name", "Species.Name")  # example additional keys
       
       for(key in additional_keys) {
         if(key %in% names(final_data_updated)) {
