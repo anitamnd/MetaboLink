@@ -1175,7 +1175,7 @@ shinyUI(dashboardPage(
                          )
                        ),
                        tabPanel(
-                         "Weird Circular Barplot",
+                         "Circular Barplot",
                          
                          # Information Box
                          fluidRow(
@@ -1183,13 +1183,13 @@ shinyUI(dashboardPage(
                              width = 12,
                              box(
                                width = NULL,
-                               title = "Weird Circular Barplot Information",
+                               title = "Circular Barplot Information",
                                status = "info",
                                solidHeader = TRUE,
                                collapsible = FALSE,
                                tagList(
                                  tags$ul(
-                                   tags$li("Add information regarding Weird Circular Barplot analysis here.")
+                                   tags$li("Add information regarding Circular Barplot analysis here.")
                                  )
                                )
                              )
@@ -1202,7 +1202,7 @@ shinyUI(dashboardPage(
                              width = 12,
                              box(
                                width = NULL,
-                               title = "Weird Circular Barplot Settings",
+                               title = "Circular Barplot Settings",
                                status = "primary",
                                solidHeader = TRUE,
                                collapsible = FALSE,
