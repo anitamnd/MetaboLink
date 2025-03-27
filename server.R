@@ -2995,16 +2995,21 @@ shinyServer(function(session, input, output) {
       enable_feature_selection <- input$enable_feature_selection
       message("Feature Selection Enabled:")
       print(enable_feature_selection)
-      available_features <- input$selected_features_volcano
-      message("Available Features:")
-      print(available_features)
+      if (enable_feature_selection) {
+        available_features <- input$selected_features_volcano
+        message("Available Features:")
+        print(available_features)
+      }
       
       enable_group_selection <- input$enable_group_selection
       message("Group Selection Enabled:")
       print(enable_group_selection)
-      available_groups <- input$selected_group_volcano
-      message("Available Groups:")
-      print(available_groups)
+      if (enable_group_selection) {
+        available_groups <- input$selected_group_volcano
+        message("Available Groups:")
+        print(available_groups)
+      }
+      
       
       if (input$enable_group_selection && !is.null(input$selected_group_volcano)) {
         selected_groups <- input$selected_group_volcano
@@ -3167,39 +3172,16 @@ shinyServer(function(session, input, output) {
         pvp()$plot
       })
       
-      observeEvent(input$download_volcano_plot_modal, {
-        showModal(modalDialog(
-          title = "Download Options",
-          # Select file format: PNG, JPEG, or PDF
-          selectInput(
-            inputId = "file_format",
-            label =  "Choose File Format:",
-            choices = c("PNG", "JPEG", "PDF"),
-            selected = "PNG"),
-          # Input for resolution in DPI
-          numericInput("resolution", "Resolution (DPI):", value = 300, min = 72, max = 1200),
-          footer = tagList(
-            modalButton("Close"),
-            downloadButton("download_plot", "Download")
-          )
-        ))
-      })
-      
       # Download handler that exports the plot using orca()
-      output$download_plot <- downloadHandler(
-        filename = function() {
-          ext <- switch(input$file_format,
-                        "PNG" = "png",
-                        "JPEG" = "jpeg",
-                        "PDF" = "pdf")
-          paste("volcano_plot.", ext, sep = "")
-        },
-        content = function(file) {
-          scale_factor <- input$resolution / 72
-          
-          kaleido(vlcn$plot, file = file, scale = scale_factor)
-        }
-      )
+      # output$downloadPlot_volcano <- downloadHandler(
+      #   filename = function(){
+      #     paste("VolcanoPlot", "png", sep = ".")
+      #   },
+      #   content = function(file){
+      #     # Save the Plotly plot as a PNG using Kaleido via save_image()
+      #     plotly::save_image(pvp()$plot, file = file)
+      #   }
+      # )
       
       # Render the table of top features
       output$volcano_table <- DT::renderDataTable({
@@ -3273,9 +3255,6 @@ shinyServer(function(session, input, output) {
       color = "#0A4F8F",
       text = "Gathering Identifiers... This may take a few minutes."
     )
-    
-    print("Selected rows:")
-    print(selectedData())
     
     # Process logic
     if (!is.null(rv$activeFile)) {
@@ -3582,7 +3561,7 @@ shinyServer(function(session, input, output) {
         # Remove the temporary columns from refmet (those ending in ".refmet")
         select(-ends_with(".refmet"))
       
-      additional_keys <- c("lipid_name", "sum_name")  # example additional keys
+      additional_keys <- c("lipid_name", "sum_name", "Normalized.Name", "Species.Name")  # example additional keys
       
       for(key in additional_keys) {
         if(key %in% names(final_data_updated)) {
@@ -3757,6 +3736,10 @@ shinyServer(function(session, input, output) {
         input$group1_enrichment,
         input$group1_enrichment,
         input$top_x_enrich)
+    
+    
+    print("Selected rows:")
+    print(selectedData())
     
     # Make sure group1_enrichment and group2_enrichment is not the same 
     if (input$group1_enrichment == input$group2_enrichment) {
@@ -5641,10 +5624,24 @@ shinyServer(function(session, input, output) {
           updateSelectInput(session, x, label = NULL, choices = columns, selected = default_val)
           
         } else if (grepl("name_column_lipids", x)) {
-          default_val <- if ("Name" %in% columns) {
-            "Name"
-          } else if ("Original annotation" %in% columns) {
+          default_val <- if ("Original annotation" %in% columns) {
             "Original annotation"
+          } else if ("Original.annotation" %in% columns) {
+            "Original.annotation"
+          } else if ("Name" %in% columns) {
+            "Name"
+          } else {
+            ""
+          }
+          updateSelectInput(session, x, label = NULL, choices = columns, selected = default_val)
+          
+        } else if (grepl("name_column_annotate", x)) {
+          default_val <- if ("Original annotation" %in% columns) {
+            "Original annotation"
+          } else if ("Original.annotation" %in% columns) {
+            "Original.annotation"
+          } else if ("Name" %in% columns) {
+            "Name"
           } else {
             ""
           }
