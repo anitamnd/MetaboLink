@@ -303,209 +303,14 @@ calculate_stats <- function(data, meta,
   return(final_res)
 }
 
-library(ggplot2)
-library(plotly)
-
-# pretty_volcano_plot <- function(data, volcano_df_name = "volcano",
-#                                 log2FC_tresh, pval_tresh,
-#                                 fill_up, outline_up,
-#                                 fill_down, outline_down,
-#                                 fill_ns, outline_ns,
-#                                 enable_feature_selection = FALSE, enable_group_selection = FALSE,
-#                                 available_features = "", available_groups = "") {
-#   
-#   clean_dataset_name <- gsub("_", " ", volcano_df_name) 
-#   
-#   message(paste("Processing:", clean_dataset_name))
-#   print(head(data))
-#   
-#   data$log2FC <- as.numeric(as.character(data$log2FC))
-#   data$p.adj <- as.numeric(as.character(data$p.adj))
-#   
-#   if(any(is.na(data$log2FC)) | any(is.na(data$p.adj))) {
-#     warning(paste("NA values found in numeric columns for", volcano_df_name))
-#     data <- na.omit(data)
-#   }
-#   
-#   data$Significance <- "Non Sig"
-#   data$Significance[data$log2FC > log2FC_tresh & data$p.adj < pval_tresh] <- "Up"
-#   data$Significance[data$log2FC < -log2FC_tresh & data$p.adj < pval_tresh] <- "Down"
-#   data$Significance <- factor(data$Significance, levels = c("Non Sig", "Up", "Down"))
-#   
-#   print("Max values for log2FC:")
-#   print(max(abs(data$log2FC)))
-#   print("Max values for p.adj:")
-#   print(max(-log10(data$p.adj)))
-#   
-#   # Generate hover text for plotly tooltips
-#   data$hover_text <- paste(
-#     "Metabolite:", rownames(data),
-#     "<br>Significance:", data$Significance,
-#     "<br>Log2FC:", round(data$log2FC, 3),
-#     "<br>-Log10(p.adj):", round(-log10(data$p.adj), 3)
-#   )
-#   
-#   # make a df with only significant points
-#   data_sig <- data[data$Significance != "Non Sig", ]
-#   
-#   # Create the volcano plot
-#   p <- ggplot(data, aes(
-#     x = log2FC,
-#     y = -log10(p.adj),
-#     color = Significance,
-#     fill = Significance,
-#     text = hover_text  # This defines tooltip content
-#   )) +
-#     geom_point(shape = 21, size = 3, alpha = 0.8) +
-#     scale_color_manual(values = c(
-#       "Non Sig" = outline_ns,
-#       "Up"      = outline_up,
-#       "Down"    = outline_down
-#     )) +
-#     scale_fill_manual(values = c(
-#       "Non Sig" = fill_ns,
-#       "Up"      = fill_up,
-#       "Down"    = fill_down
-#     )) +
-#     geom_vline(xintercept = c(-log2FC_tresh, log2FC_tresh), 
-#                linetype = "dotted", color = "red") +
-#     geom_hline(yintercept = -log10(pval_tresh), 
-#                linetype = "dotted", color = "red") +
-#     theme_bw() +
-#     labs(
-#       title = paste(clean_dataset_name, ":", gsub("_", " ", unique(data$Contrast))),
-#       x     = "Log2FC",
-#       y     = "-Log10(p-value)"
-#     ) +
-#     theme(
-#       plot.title = element_text(hjust = 0.5),
-#       legend.title = element_blank()
-#     )
-#   
-#   # Convert ggplot to interactive plotly plot
-#   p_interactive <- ggplotly(p, tooltip = "text") 
-#   
-#   return(list(plot = p_interactive,
-#               df = data_sig))
-#   
-# }
-
-pretty_volcano_plot1 <- function(data, volcano_df_name = "volcano", # WORKS
-                                log2FC_tresh, pval_tresh,
-                                fill_up, outline_up,
-                                fill_down, outline_down,
-                                fill_ns, outline_ns,
-                                enable_feature_selection = FALSE, enable_group_selection = FALSE,
-                                available_features = "", available_groups = "", group_color_df = NULL) {
-  
-  library(ggplot2)
-  library(plotly)
-  library(ggrepel)
-  library(dplyr)
-  
-  clean_dataset_name <- gsub("_", " ", volcano_df_name) 
-  message(paste("Processing:", clean_dataset_name))
-  print(head(data))
-  
-  if (enable_group_selection) {
-    print("Group color df:")
-    print(group_color_df)
-  }
-  if(enable_feature_selection) {
-    print("Available features:")
-    print(available_features)
-  }
-  # Convert columns to numeric
-  data$log2FC <- as.numeric(as.character(data$log2FC))
-  data$p.adj  <- as.numeric(as.character(data$p.adj))
-  
-  if(any(is.na(data$log2FC)) | any(is.na(data$p.adj))) {
-    warning(paste("NA values found in numeric columns for", volcano_df_name))
-    data <- na.omit(data)
-  }
-  
-  # Define significance based on thresholds
-  data$Significance <- "Non Sig"
-  data$Significance[data$log2FC > log2FC_tresh & data$p.adj < pval_tresh] <- "Up"
-  data$Significance[data$log2FC < -log2FC_tresh & data$p.adj < pval_tresh] <- "Down"
-  data$Significance <- factor(data$Significance, levels = c("Non Sig", "Up", "Down"))
-  
-  print("Max values for log2FC:")
-  print(max(abs(data$log2FC)))
-  print("Max values for p.adj:")
-  print(max(-log10(data$p.adj)))
-  
-  # Generate hover text for plotly tooltips
-  data$hover_text <- paste(
-    "Feature:", data$Feature_ID,
-    "<br>Group:", data$Group,
-    "<br>Significance:", data$Significance,
-    "<br>Log2FC:", round(data$log2FC, 3),
-    "<br>-Log10(p.adj):", round(-log10(data$p.adj), 3)
-  )
-  
-  # Create a subset with only significant points (if needed later)
-  data_sig <- data[data$Significance != "Non Sig",]
-  
-  # Base volcano plot using Significance for color and fill
-  p <- ggplot(data, aes(
-    x = log2FC,
-    y = -log10(p.adj),
-    color = Significance,
-    fill = Significance,
-    text = hover_text
-  )) +
-    geom_point(shape = 21, size = 3, alpha = 0.8) +
-    scale_color_manual(values = c(
-      "Non Sig" = outline_ns,
-      "Up"      = outline_up,
-      "Down"    = outline_down
-    )) +
-    scale_fill_manual(values = c(
-      "Non Sig" = fill_ns,
-      "Up"      = fill_up,
-      "Down"    = fill_down
-    )) +
-    geom_vline(xintercept = c(-log2FC_tresh, log2FC_tresh), 
-               linetype = "dotted", color = "red") +
-    geom_hline(yintercept = -log10(pval_tresh), 
-               linetype = "dotted", color = "red") +
-    theme_bw() +
-    labs(
-      title = paste(clean_dataset_name, ":", gsub("_", " ", unique(data$Contrast))),
-      x     = "Log2FC",
-      y     = "-Log10(p-value)"
-    ) +
-    theme(
-      plot.title = element_text(hjust = 0.5),
-      legend.title = element_blank()
-    )
-  
-  # TODO: This feature is not available in the current version of ggplot2
-  if(enable_feature_selection && length(available_features) > 0) {
-    p <- p +
-      geom_text_repel(
-        data = subset(data, Feature_ID %in% available_features),
-        aes(x = log2FC, y = -log10(p.adj), label = Feature_ID),
-        size = 3,
-        max.overlaps = Inf
-      )
-  }
-  
-  # Convert ggplot to an interactive plotly object
-  p_interactive <- ggplotly(p, tooltip = "text") 
-  
-  return(list(plot = p_interactive,
-              df = data_sig))
-}
-
 pretty_volcano_plot <- function(data, volcano_df_name = "volcano",
                                 log2FC_tresh, pval_tresh,
                                 fill_up, outline_up,
                                 fill_down, outline_down,
                                 fill_ns, outline_ns,
                                 enable_feature_selection = FALSE, enable_group_selection = FALSE,
-                                available_features = "", available_groups = "", group_color_df = NULL) {
+                                available_features = "", available_groups = "", group_color_df = NULL,
+                                x_param = 5 , y_param = 5, apply_axis_limits = FALSE) {
   
   library(ggplot2)
   library(plotly)
@@ -629,6 +434,12 @@ pretty_volcano_plot <- function(data, volcano_df_name = "volcano",
         legend.title = element_blank()
       )
     
+    if(apply_axis_limits) {
+      p <- p +
+        scale_x_continuous(limits = c(-x_param, x_param)) +
+        scale_y_continuous(limits = c(0, y_param))
+    }
+    
     p_interactive <- ggplotly(p, tooltip = "text") 
     
     return(list(plot = p_interactive,
@@ -668,6 +479,12 @@ pretty_volcano_plot <- function(data, volcano_df_name = "volcano",
       plot.title = element_text(hjust = 0.5),
       legend.title = element_blank()
     )
+  
+  if(apply_axis_limits) {
+    p <- p +
+      scale_x_continuous(limits = c(-x_param, x_param)) +
+      scale_y_continuous(limits = c(0, y_param))
+  }
   
   # TODO: This feature is not available in the current version of ggplot2
   if(enable_feature_selection && length(available_features) > 0) {
