@@ -435,7 +435,7 @@ shinyUI(dashboardPage(
                                    choices = c("Super class" = "super_class",
                                                "Main class" = "main_class",
                                                "Sub class" = "sub_class",
-                                               "Lipid Class" = "Extended.Species.Name"),
+                                               "Lipid Class" = "Lipid.Abbreviation"),
                                    selected = "super_class"
                                  )
                                )
@@ -1671,19 +1671,19 @@ shinyUI(dashboardPage(
                          )
                        ),
                        
-                       tabPanel(title = "random plots",
+                       tabPanel(title = "Odds Ratio plots",
                                 fluidRow(
                                   column(
                                     width = 12,
                                     box(
                                       width = NULL,
-                                      title = "Random plots Information",
+                                      title = "Odds Ratio plot Information",
                                       status = "info",
                                       solidHeader = TRUE,
                                       collapsible = FALSE,
                                       tagList(
                                         tags$ul(
-                                          tags$li("Random plots).")
+                                          tags$li("Odds Ratio plots).")
                                         )
                                       )
                                     )
@@ -1699,19 +1699,34 @@ shinyUI(dashboardPage(
                                       solidHeader = TRUE,
                                       collapsible = FALSE,
                                       
-                                      selectInput("select_random_data", "Select Dataset for random plot:", choices = NULL, width = "100%"),
-                                      
-                                      actionButton("run_random_plot", "Random Plot?", width = "100%")
+                                      selectInput("select_OR_data", "Select Dataset for Odds Ratio plot:", choices = NULL, width = "100%"),
+                                      fluidRow(
+                                        column(
+                                          width = 6,
+                                          selectInput("group1_OR", "Numerator (group):", choices = NULL)
+                                        ),
+                                        column(
+                                          width = 6,
+                                          selectInput("group2_OR", "Denominator (group):", choices = NULL)
+                                        )
+                                      ),
+                                      actionButton("run_OR_plot", "Odds Ratio Plot", width = "100%")
                                     )
                                   ),
                                   box(
                                     width = 12,
-                                    title = "random plot 1",
+                                    title = "OR plot",
                                     status = "primary",
                                     solidHeader = TRUE,
                                     collapsible = TRUE,
-                                    plotlyOutput("random_plot1", height = "600px") %>% withSpinner(color="steelblue")
-                                  )
+                                    plotOutput("OR_plot", height = "600px") %>% withSpinner(color="steelblue")
+                                  ),
+                                  box(width = 12,
+                                      title = "OR results table",
+                                      status = "primary",
+                                      solidHeader = TRUE,
+                                      collapsible = TRUE,
+                                      DTOutput("OR_table")  %>% withSpinner(color="steelblue"))
                                 )
                        )
                      )
