@@ -23,6 +23,8 @@ library(shinybusy)
 library(gtools)
 library(caret)
 library(rgoslin)
+library(ggbeeswarm)
+library(broom)
 
 library(webchem)
 library(PubChemR)

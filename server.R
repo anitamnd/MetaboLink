@@ -342,13 +342,17 @@ shinyServer(function(session, input, output) {
             select("Original annotation") %>% 
             # us gsub to remove everything after ;
             mutate(`Original annotation` = gsub(";.*", "", `Original annotation`))
+        } else if ("Original.annotation" %in% colnames(sub_data)) {
+            sub_data <- sub_data %>% 
+              select("Original.annotation") %>% 
+              # us gsub to remove everything after ;
+              mutate("Original.annotation" = gsub(";.*", "", `Original.annotation`))
         } else {
           sub_data <- sub_data %>% 
             select(Name)
         }
         
         # make intermediate df for online look up 
-        
         desired_properties <- c(
           "CanonicalSMILES","IsomericSMILES","InChI","InChIKey","IUPACName")
         
@@ -500,7 +504,7 @@ shinyServer(function(session, input, output) {
         # Remove the temporary columns from refmet (those ending in ".refmet")
         select(-ends_with(".refmet"))
       
-      additional_keys <- c("Original annotation", "lipid_name", "sum_name", "Normalized.Name", "Species.Name")  # example additional keys
+      additional_keys <- c("Original annotation", "Normalized.Name", "Species.Name")  # example additional keys
       
       for(key in additional_keys) {
         if(key %in% names(final_data_updated)) {
@@ -593,8 +597,17 @@ shinyServer(function(session, input, output) {
       # Save the cleaned lipid names for download
       rv$multipleLipidNamesDf <- multipleLipidNamesDf
       
+      print(head(multipleLipidNamesDf[,1:6]))
+      
+      # if the multipleLipidNamesDf first column is only NA then return NULL 
+      if (all(is.na(multipleLipidNamesDf[[1]]))) {
+        sendSweetAlert(session, "No lipid names found", "No lipid names found in the data. Try selecting another column. ", type = "error")
+        remove_modal_spinner()
+        return(NULL)
+      }
+      
       multipleLipidNamesDf <- multipleLipidNamesDf %>%
-        select(Normalized.Name,	Original.Name, Species.Name,Extended.Species.Name)
+        select(Normalized.Name,	Original.Name, Species.Name, Extended.Species.Name)
       
       # join left the data and multipleLipidNamesDf by identifier and Original.Name
       data <- left_join(
@@ -602,6 +615,193 @@ shinyServer(function(session, input, output) {
         multipleLipidNamesDf,
         by = setNames("Original.Name", identifier)) %>%
         relocate(c(Normalized.Name, Species.Name, Extended.Species.Name), .after = identifier)
+      
+      # rename extended species name to lipid abbreviation
+      data <- data %>%
+        rename(Lipid.Abbreviation = Extended.Species.Name)
+      
+      # Make an if statement if any NA is in the normalized.name column
+
+      
+      if (any(is.na(data$Normalized.Name))) {
+        
+        message("some normalized names is NA")
+        
+        # Define known abbreviations to ensure complete coverage
+        abbreviations_list <- c(
+          "Hex2Cer", "HexCer", "GlcCer", "GalCer", "LacCer", "C1P", "S1P", "SPH",
+          "PGM", "PIP", "CDCA", "UDCA", "HDCA",
+          "FA", "MG", "DG", "TG", "BMP", "CL", "PA", "PC", "PE", "PG",
+          "PI", "PS", "Cer", "SM", "St", "SE", "FC", "CE", "CA", "CAR", "DCA",
+          "LCA", "GCA", "TCA", "LPE", "LNAPE"
+        )
+        
+        # Extract all valid lipid subclasses from refmet
+        unique_abbre <- sort(unique(refmet$sub_class[grepl("^[A-Z]+$", refmet$sub_class)]))
+        
+        # Ensure abbreviations_list is combined with known refmet subclasses
+        unique_abbre <- sort(unique(c(unique_abbre, abbreviations_list)))
+        
+        # Sort abbreviations by length (LPC before PC)
+        unique_abbre <- unique_abbre[order(nchar(unique_abbre), decreasing = TRUE)]
+        
+        # Create abbreviation mapping table
+        abbreviations <- unique(refmet[refmet$sub_class %in% unique_abbre, c("main_class", "sub_class")])
+        
+        # Add missing manual mappings
+        manual_mappings <- data.frame(
+          main_class = c("Fatty Acid", "Ether Phospholipids","Acylcarnitines", "Ether Glycerophosphocholines", "Ether Diacylglycerols",
+                         "Ether Glycerophosphoethanolamines", "Diacylglycerols", "Phosphatidylserines", "Ether Phosphatidylinositol",
+                         "Triacylglycerols", "Ether Triacylglycerols", "Cholesterol Esters","Sphingoid bases",
+                         "glycosphingolipids","glycosphingolipids","glycosphingolipids"),
+          sub_class = c("FA", "O-LPE", "CAR", "O-PC", "O-DG","O-PE", "DG",
+                        "O-PS", "O-PI", "TG", "O-TG", "CE", "SPB", "HexCer", "Hex2Cer", "Hex3Cer")
+        )
+        
+        # Combine with abbreviations
+        abbreviations <- bind_rows(abbreviations, manual_mappings)
+        
+        # Build regex pattern, ensuring LPC is before PC
+        abbreviation_pattern <- paste0("\\b(", paste(unique_abbre, collapse = "|"), ")(\\(O-)?")
+        
+        # print(abbreviation_pattern)
+        
+        # subset data to only contain those without normalized names 
+        data_sub <- data[is.na(data$Normalized.Name),]
+        
+        data_sub <- as.data.frame(data_sub[,all_of(identifier)])
+
+        # remove duplicated rows
+        data_sub <- as.data.frame(data_sub[!duplicated(data_sub),])
+        names(data_sub) <- c(identifier)
+        
+        data_sub <- data_sub %>%
+          mutate(lipid_abbreviation = str_extract(.data[[identifier]], abbreviation_pattern))
+        
+        calculate_sum_name <- function(lipid_name) {
+          # Extract the head group (assumed to be the first word)
+          head_group <- str_extract(lipid_name, "^[A-Za-z]+")
+          
+          # Define a regex pattern that captures:
+          #   (1) an optional "O-" prefix,
+          #   (2) the carbon count (digits),
+          #   (3) the double bond count (digits),
+          #   (4) an optional oxygen info starting with ";" (if present),
+          #   (5) an optional extra trailing info (e.g. "-SN1")
+          chain_pattern <- "(O-)?(\\d+):(\\d+)(;[^\\s\\)\\/_]+)?(-[A-Za-z0-9]+)?"
+          
+          chains <- str_match_all(lipid_name, chain_pattern)[[1]]
+          
+          # If no matches are found, return NA
+          if(nrow(chains) == 0) return(NA)
+          
+          # According to our pattern:
+          #   Column 2: optional "O-" prefix
+          #   Column 3: carbons
+          #   Column 4: double bonds
+          #   Column 5: oxygen info (e.g. ";O2")
+          #   Column 6: extra trailing info (e.g. "-SN1")
+          carbons <- as.numeric(chains[,3])
+          dblbonds <- as.numeric(chains[,4])
+          
+          total_carbons <- sum(carbons, na.rm = TRUE)
+          total_db <- sum(dblbonds, na.rm = TRUE)
+          
+          # Special case: if there's a fatty acid specification in parentheses and head group is SM,
+          # add extra 2 double bonds.
+          if(grepl("\\(FA", lipid_name) && head_group == "SM") {
+            total_db <- total_db + 2
+          }
+          
+          # Collect extra information from each chain match (using the first non-empty occurrence)
+          extra_info <- ""
+          for(i in 1:nrow(chains)) {
+            prefix    <- ifelse(is.na(chains[i,2]), "", chains[i,2])  # "O-" prefix
+            oxy_info  <- ifelse(is.na(chains[i,5]), "", chains[i,5])   # oxygen info (e.g. ";O2")
+            trailing  <- ifelse(is.na(chains[i,6]), "", chains[i,6])   # trailing extra info (e.g. "-SN1")
+            
+            combined <- paste0(prefix, oxy_info, trailing)
+            if(combined != "") {
+              extra_info <- combined
+              break
+            }
+          }
+          
+          # Adjust placement of extra info:
+          # If the extra info is exactly "O-", we want it to come before the numeric chain.
+          if(extra_info == "O-") {
+            summed_chain <- paste0(extra_info, total_carbons, ":", total_db)
+          } else {
+            summed_chain <- paste0(total_carbons, ":", total_db, extra_info)
+          }
+          
+          # For some lipids (example: when the name contains "/" and head_group is SM),
+          # you may want to force the head group to lowercase.
+          if(grepl("/", lipid_name) && head_group == "SM") {
+            head_group <- tolower(head_group)
+          }
+          
+          sum_name <- paste0(head_group, " ", summed_chain)
+          return(sum_name)
+        }
+        
+        # Now, apply the function only when lipid_abbreviation is not NA:
+        data_sub <- data_sub %>%
+          mutate(sum_name = mapply(function(name, abbr) {
+            if (is.na(abbr)) {
+              NA_character_
+            } else {
+              calculate_sum_name(name)
+            }
+          }, .data[[identifier]], lipid_abbreviation)) %>%
+          relocate(sum_name, .after = .data[[identifier]])
+        
+        # data_sub$sum_name <- coalesce(data_sub$sum_name,)
+        
+        # Fix O- notation dynamically
+        data_sub$lipid_abbreviation <- ifelse(
+          grepl("\\(O-", data_sub$lipid_abbreviation),
+          paste0("O-", gsub("\\(O-", "", data_sub$lipid_abbreviation)),
+          data_sub$lipid_abbreviation
+        )
+        
+        # Replace NA values in abbreviations with NA
+        data_sub$lipid_abbreviation[is.na(data_sub$lipid_abbreviation)] <- NA
+        
+        # Join with abbreviations to get lipid_class
+        data_sub <- data_sub %>%
+          left_join(abbreviations, by = c("lipid_abbreviation" = "sub_class"),
+                    relationship = "many-to-many") %>%
+          { 
+            if("main_class.x" %in% names(.)) {
+              rename(., main_class = main_class.x) %>% select(-main_class.y)
+            } else {
+              .
+            }
+          } %>%
+          rename(lipid_class = main_class) %>%
+          relocate(lipid_class, .after = lipid_abbreviation)
+        
+        # Replace NA in lipid_class with NA
+        data_sub$lipid_class[is.na(data_sub$lipid_class)] <- NA
+        
+        message("Data with NA in sum_name or lipid_abbreviation:")
+        print(data_sub[is.na(data_sub$sum_name) | is.na(data_sub$lipid_abbreviation),])
+        
+      }
+      
+      message("Head of data file: ")
+      print(head(data[,1:6]))
+      
+      data <- data %>%
+        left_join(data_sub, by = identifier,
+                  relationship = "many-to-many") %>%
+        mutate(
+          Normalized.Name   = coalesce(Normalized.Name, sum_name),
+          Species.Name      = coalesce(Species.Name, sum_name),
+          Lipid.Abbreviation = coalesce(Lipid.Abbreviation, lipid_class)
+        ) %>%
+        select(-sum_name, -lipid_abbreviation, -lipid_class)
 
       colnames_cleaned <- setdiff(colnames(data), original_colnames)
       
@@ -1215,7 +1415,7 @@ shinyServer(function(session, input, output) {
                 "select_data_for_enrichment",
                 "select_data_circular_barplot",
                 "select_heatmap_data", "select_volcano_data",
-                "select_random_data") # Update select inputs
+                "select_OR_data") # Update select inputs
     
     selected <- ifelse(is.null(rv$activeFile), length(choices), rv$activeFile)
     for(input in inputs) {
@@ -3646,7 +3846,7 @@ shinyServer(function(session, input, output) {
     req(input$select_data_for_enrichment)
     
     # Define your desired vector of column names
-    desired_cols <- c("Name", "lipid_name", "sum_name", "lipid_abbreviation", "lipid_class",
+    desired_cols <- c("Name", "Normalized.Name", "Species.Name", "lipid_name", "sum_name", "lipid_abbreviation", "lipid_class",
                       "Original annotation", "Structure", "InChIKey", "CID", "CanonicalSMILES", "IsomericSMILES",
                       "IUPACName", "refmet_id", "refmet_name", "super_class", "main_class", "sub_class", "chebi_id",
                       "hmdb_id", "lipidmaps_id", "kegg_id")
@@ -5441,48 +5641,186 @@ shinyServer(function(session, input, output) {
     )
   }) #### End of all lipid heatmap code for server.r 
   
-  ############################
-  # Random plots for testing #
-  ############################
+  ##############
+  # Odds Ratio #
+  ##############
   
-  # Random plot 1
-  observeEvent(input$run_random_plot, {
-    req(input$select_random_data)
+  # OR plot
+  observeEvent(input$run_OR_plot, {
+    req(input$select_OR_data,
+        input$group1_OR,
+        input$group2_OR)
     
     if (!is.null(rv$activeFile)) {
-      if (input$select_random_data == "Unsaved data") {
+      if (input$select_OR_data == "Unsaved data") {
         data <- rv$tmpData  # Use the temporary data
         seq <- rv$tmpSequence  # Use the temporary sequence
         dataset_name <- "Unsaved data"
       } else {
         # Get the index of the selected dataset
-        sd <- which(rv$choices %in% input$select_random_data)
+        sd <- which(rv$choices %in% input$select_OR_data)
         data <- rv$data[[sd]]  # Retrieve the selected dataset
         seq <- rv$sequence[[sd]]  # Retrieve the selected sequence
         dataset_name <- names(rv$data)[sd]  # Retrieve dataset name
       }
       
       # make the sequence only contain rows where labels == "Sample"
-      seq_sub <- seq[seq$labels == "Sample", ]
+      seq <- seq[seq$labels == "Sample", ]
       
-      print(seq_sub)
-      print(head(data))
+      # print(seq)
+      # print(head(data))
+      
+      if ("Original annotation" %in% colnames(data)) {
+        data <- data %>% rename(Original.annotation = "Original annotation")
+      }
+      
+      # columns that must be present 
+      desired_cols <- c("Original.annotation",
+                        "Species.Name",
+                        "Lipid.Abbreviation",
+                        "super_class",
+                        "main_class",
+                        "sub_class")
+      
+      # if the desired_cols is not found in the data, return an error message
+      if (!all(desired_cols %in% colnames(data))) {
+        sendSweetAlert(session, "Error", "The data does not contain all the necessary columns.\n Data must contain the following columns: \n Original.annotation, Species.Name, Lipid.Abbreviation, super_class, main_class, sub_class", type = "error")
+        return()
+      }
+      
+      df_for_or <- data %>% 
+        select(Original.annotation,
+               # Normalized.Name,
+               Species.Name,
+               Lipid.Abbreviation,
+               # refmet_name,
+               super_class,
+               main_class,
+               sub_class,
+               rownames(seq))
+      # head(df_for_or)
+      
+      # remove duplicates based on Original.annotation
+      df_for_or <- df_for_or[!duplicated(df_for_or$Original.annotation),]
+      
+      df_long <- df_for_or %>%
+        pivot_longer(
+          cols = rownames(seq),            # all columns named X1, X2, ...
+          names_to = "sample",                # new column: sample
+          values_to = "intensity"             # new column: intensity
+        )
+      
+      seq <- seq %>%
+        rownames_to_column(var = "sample")
+      
+      df_long <- df_long %>%
+        left_join(seq, by = c("sample" = "sample")) %>% # merges group info from seq
+        select(-batch,-order,-time,-paired,-amount) # remove batch, order and label
+      
+      # omit rows with NA 
+      df_long <- df_long[!is.na(df_long$intensity),]
 
-      # # Unique identified features
-      # # Only include rows from data where these columns lipid_name  sum_name lipid_abbreviation lipid_class ar not NA 
-      # data_lipid_classes <- data[!is.na(data$sum_name) &
-      #                              !is.na(data$'Original annotation') &
-      #                              !is.na(data$super_class) &
-      #                              !is.na(data$main_class) &
-      #                              !is.na(data$sub_class), ]
-      # 
-      # print(head(seq_sub))
-      # print(head(data_lipid_classes))
-      # print(head(data$'Original annotation'))
+      df_long$intensity <- log2(df_long$intensity)
+      
+      df_long <- df_long[!is.na(df_long$intensity),]
+      df_long <- df_long[!is.infinite(df_long$intensity),]
+      
+      group1 <- input$group1_OR
+      group2 <- input$group2_OR
+      
+      df_long <- df_long %>%
+        filter(group %in% c(group1, group2)) %>%
+        mutate(group = factor(group, levels = c(group1, group2)))
+      
+      # head(df_long)
+      
+      # Calculate odds ratios per feature using logistic regression
+      odds_ratios <- df_long %>%
+        group_by(Original.annotation) %>%
+        # For each feature, fit a logistic model: group (lps vs ctr) ~ intensity.
+        do({
+          mod <- glm(group ~ intensity, data = ., family = binomial)
+          tidy(mod)
+        }) %>%
+        # Keep the row corresponding to the intensity coefficient
+        filter(term == "intensity") %>%
+        # Exponentiate the estimate to get the odds ratio
+        mutate(odds_ratio = exp(estimate),
+               lower_ci = exp(estimate - 1.96 * std.error),
+               upper_ci = exp(estimate + 1.96 * std.error))
+      
+      odds_ratios <- odds_ratios %>%
+        # use left join to append species.name, lipid.abbreviation, super_class, main_class, sub_class
+        left_join(df_for_or, by = "Original.annotation") %>%
+        select(Original.annotation, odds_ratio, lower_ci, upper_ci, Species.Name, Lipid.Abbreviation, super_class, main_class, sub_class)
+      
+      # print(head(odds_ratios))
+      
+      odds_ratios <- odds_ratios %>%
+        mutate(
+          direction = case_when(
+            lower_ci > 1  ~ "Positive",       # entire CI > 1
+            upper_ci < 1  ~ "Negative",       # entire CI < 1
+            TRUE          ~ "Not significant"
+          )
+        )
+      
+      print(head(odds_ratios))
+      
+      message("Max odds ratio:")
+      print(max(odds_ratios$odds_ratio))
+      message("Min CI:")
+      print(min(odds_ratios$lower_ci))
+      message("Max CI:")
+      print(max(odds_ratios$upper_ci))
       
       
-      output$random_plot1 <- renderPlotly({
-        # something goes here 
+      output$OR_plot <- renderPlot({
+        ggplot(odds_ratios, aes(x = odds_ratio, y = sub_class, color = direction)) +
+          geom_point(position = position_dodge(width = 0.5), size = 4) +
+          geom_errorbarh(aes(xmin = lower_ci, xmax = upper_ci),
+                         height = 0, alpha = 0.5,
+                         position = position_dodge(width = 0.5),
+                         linetype = 3,
+                         linewidth = 2) +
+          geom_vline(xintercept = 1, linetype = "dashed", color = "gray40") +
+          scale_x_log10() +
+          scale_color_manual(values = c("Negative" = "#1f78b4", 
+                                        "Not significant" = "gray60", 
+                                        "Positive" = "#e31a1c")) +
+          # Use facet_grid with switch="y" to move strip labels to the left
+          facet_grid(super_class ~ ., 
+                     scales = "free_y",     # let y vary by panel
+                     space  = "free_y",     # each panel's height adjusts to its data
+                     switch = "y") +        # switch facet strips to the left side
+          theme_bw(base_size = 12) +
+          theme(
+            strip.placement = "outside",     # place facet strips truly outside the plot
+            strip.text.y.left = element_text(angle = 90),  
+            # ^ If you want the facet labels (super_class) to appear horizontally
+            legend.position = "right"
+          ) +
+          labs(
+            x = "Odds Ratio (95% CI)",
+            y = NULL,
+            color = "Direction",
+            title = "Odds Ratios by Lipid Class"
+          )
+      })
+      
+      # print a table with the significant lipids
+      sig_results <- odds_ratios %>% filter(direction != "Not significant")
+      sig_results <- sig_results %>%
+        relocate(c(odds_ratio, lower_ci, upper_ci), .after = sub_class)
+      sig_results
+      
+      output$OR_table <- renderDataTable({
+        datatable(sig_results,
+                  options = list(
+                    dom = 't',
+                    scrollX = TRUE,
+                    autoWidth = TRUE
+                  ))
       })
       
       message(sample(quotes, 1))
@@ -5570,7 +5908,8 @@ shinyServer(function(session, input, output) {
                         "group1_polystest", "group2_polystest",
                         "group1_enrichment","group2_enrichment",
                         "group1_cirbar", "group2_cirbar",
-                        "group1_vol", "group2_vol")
+                        "group1_vol", "group2_vol",
+                        "group1_OR", "group2_OR")
       
       for (x in group_inputs) {
         # Default selected_value to NULL
