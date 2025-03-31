@@ -1708,7 +1708,27 @@ shinyUI(dashboardPage(
                                         column(
                                           width = 6,
                                           selectInput("group2_OR", "Denominator (group):", choices = NULL)
-                                        )
+                                        ),
+                                        column(
+                                          width = 6,
+                                          selectInput("OR_main_label", "Select Main Label Column:", choices = NULL),
+                                        ),
+                                        column(
+                                          width = 6,
+                                          selectInput("OR_sub_label", "Select Sub Label Column:", choices = NULL)
+                                        ),
+                                        column(
+                                          width = 6,
+                                          selectInput("OR_feature_label", "Label Features:", choices = NULL)
+                                        ),
+                                        column(
+                                          width = 6,
+                                          selectInput("selected_groups_OR", 
+                                                      "Select Groups:", 
+                                                      choices = NULL, 
+                                                      multiple = TRUE,
+                                                      width = "100%")
+                                        ),
                                       ),
                                       actionButton("run_OR_plot", "Odds Ratio Plot", width = "100%")
                                     )
