@@ -653,9 +653,9 @@ shinyServer(function(session, input, output) {
           main_class = c("Fatty Acid", "Ether Phospholipids","Acylcarnitines", "Ether Glycerophosphocholines", "Ether Diacylglycerols",
                          "Ether Glycerophosphoethanolamines", "Diacylglycerols", "Phosphatidylserines", "Ether Phosphatidylinositol",
                          "Triacylglycerols", "Ether Triacylglycerols", "Cholesterol Esters","Sphingoid bases",
-                         "glycosphingolipids","glycosphingolipids","glycosphingolipids"),
+                         "glycosphingolipids","glycosphingolipids","glycosphingolipids", "Phosphatidylcholines"),
           sub_class = c("FA", "O-LPE", "CAR", "O-PC", "O-DG","O-PE", "DG",
-                        "O-PS", "O-PI", "TG", "O-TG", "CE", "SPB", "HexCer", "Hex2Cer", "Hex3Cer")
+                        "O-PS", "O-PI", "TG", "O-TG", "CE", "SPB", "HexCer", "Hex2Cer", "Hex3Cer", "LPC")
         )
         
         # Combine with abbreviations
@@ -907,8 +907,6 @@ shinyServer(function(session, input, output) {
     sendSweetAlert(session, "Success", "Unnanotated features has been removed.", type = "success")
     message(sample(quotes, 1))
   })
-  
-  
   
   observeEvent(input$editColumns, {
     showModal(
@@ -3001,8 +2999,8 @@ shinyServer(function(session, input, output) {
       
       default_val <- if ("sub_class" %in% columns) {
         "sub_class"
-      } else if ("lipid_group" %in% columns) {
-        "lipid_group"
+      } else if ("Lipid.Abbreviation" %in% columns) {
+        "Lipid.Abbreviation"
       } else {
         columns[1]
       }
@@ -5645,128 +5643,204 @@ shinyServer(function(session, input, output) {
   # Odds Ratio #
   ##############
   
-  # OR plot
-  observeEvent(input$run_OR_plot, {
-    req(input$select_OR_data,
-        input$group1_OR,
-        input$group2_OR)
+  observeEvent(input$select_OR_data, {
+    req(input$select_OR_data)  # Ensure a dataset is selected
     
     if (!is.null(rv$activeFile)) {
+      # Retrieve the appropriate dataset
       if (input$select_OR_data == "Unsaved data") {
         data <- rv$tmpData  # Use the temporary data
-        seq <- rv$tmpSequence  # Use the temporary sequence
-        dataset_name <- "Unsaved data"
       } else {
         # Get the index of the selected dataset
         sd <- which(rv$choices %in% input$select_OR_data)
         data <- rv$data[[sd]]  # Retrieve the selected dataset
-        seq <- rv$sequence[[sd]]  # Retrieve the selected sequence
-        dataset_name <- names(rv$data)[sd]  # Retrieve dataset name
       }
       
-      # make the sequence only contain rows where labels == "Sample"
+      # Extract column names from the selected dataset
+      data_colnames <- colnames(data)
+      
+      # Define the input IDs for the OR select inputs
+      columns <- c("OR_main_label", "OR_sub_label", "OR_feature_label")
+      
+      for (column in columns) {
+        if (column == "OR_main_label") {
+          default_val <- if ("super_class" %in% data_colnames) {
+            "super_class"
+          } else if ("main_class" %in% data_colnames) {
+            "main_class"
+          } else {
+            data_colnames[1]
+          }
+          updateSelectInput(session, column,
+                            choices = data_colnames,
+                            selected = default_val)
+        } else if (column == "OR_sub_label") {
+          default_val <- if ("sub_class" %in% data_colnames) {
+            "sub_class"
+          } else if ("Lipid.Abbreviation" %in% data_colnames) {
+            "Lipid.Abbreviation"
+          } else {
+            data_colnames[1]
+          }
+          updateSelectInput(session, column,
+                            choices = data_colnames,
+                            selected = default_val)
+        } else if (column == "OR_feature_label") {
+          default_val <- if ("Original.annotation" %in% data_colnames) {
+            "Original.annotation"
+          } else if ("Species.Name" %in% data_colnames) {
+            "Species.Name"
+          } else {
+            data_colnames[1]
+          }
+          updateSelectInput(session, column,
+                            choices = data_colnames,
+                            selected = default_val)
+        }
+      }
+    }
+  })
+  
+  observe({
+    req(input$select_OR_data, input$OR_main_label)
+    
+    # Retrieve the selected dataset
+    if (input$select_OR_data == "Unsaved data") {
+      data <- rv$tmpData
+    } else {
+      sd <- which(rv$choices %in% input$select_OR_data)
+      data <- rv$data[[sd]]
+    }
+    
+    # Extract unique groups from the OR_main_label column
+    groups <- sort(unique(data[[input$OR_main_label]]))
+    
+    # Set default selection to the first three groups (or all if fewer than three)
+    default_sel <- if (length(groups) >= 3) groups[1:3] else groups
+    
+    updateSelectInput(session, "selected_groups_OR",
+                      choices = groups,
+                      selected = default_sel)
+  })
+  
+  # OR plot
+  observeEvent(input$run_OR_plot, {
+    req(input$select_OR_data,
+        input$group1_OR,
+        input$group2_OR,
+        input$OR_main_label,
+        input$OR_sub_label,
+        input$OR_feature_label,
+        input$selected_groups_OR)
+    
+    if (!is.null(rv$activeFile)) {
+      if (input$select_OR_data == "Unsaved data") {
+        data <- rv$tmpData  
+        seq  <- rv$tmpSequence     
+        dataset_name <- "Unsaved data"
+      } else {
+        sd <- which(rv$choices %in% input$select_OR_data)
+        data <- rv$data[[sd]]      
+        seq  <- rv$sequence[[sd]]  
+        dataset_name <- names(rv$data)[sd]
+      }
+      
       seq <- seq[seq$labels == "Sample", ]
-      
-      # print(seq)
-      # print(head(data))
-      
-      if ("Original annotation" %in% colnames(data)) {
-        data <- data %>% rename(Original.annotation = "Original annotation")
-      }
-      
-      # columns that must be present 
-      desired_cols <- c("Original.annotation",
-                        "Species.Name",
-                        "Lipid.Abbreviation",
-                        "super_class",
-                        "main_class",
-                        "sub_class")
-      
-      # if the desired_cols is not found in the data, return an error message
-      if (!all(desired_cols %in% colnames(data))) {
-        sendSweetAlert(session, "Error", "The data does not contain all the necessary columns.\n Data must contain the following columns: \n Original.annotation, Species.Name, Lipid.Abbreviation, super_class, main_class, sub_class", type = "error")
-        return()
-      }
-      
-      df_for_or <- data %>% 
-        select(Original.annotation,
-               # Normalized.Name,
-               Species.Name,
-               Lipid.Abbreviation,
-               # refmet_name,
-               super_class,
-               main_class,
-               sub_class,
-               rownames(seq))
-      # head(df_for_or)
-      
-      # remove duplicates based on Original.annotation
-      df_for_or <- df_for_or[!duplicated(df_for_or$Original.annotation),]
-      
-      df_long <- df_for_or %>%
-        pivot_longer(
-          cols = rownames(seq),            # all columns named X1, X2, ...
-          names_to = "sample",                # new column: sample
-          values_to = "intensity"             # new column: intensity
-        )
-      
-      seq <- seq %>%
-        rownames_to_column(var = "sample")
-      
-      df_long <- df_long %>%
-        left_join(seq, by = c("sample" = "sample")) %>% # merges group info from seq
-        select(-batch,-order,-time,-paired,-amount) # remove batch, order and label
-      
-      # omit rows with NA 
-      df_long <- df_long[!is.na(df_long$intensity),]
-
-      df_long$intensity <- log2(df_long$intensity)
-      
-      df_long <- df_long[!is.na(df_long$intensity),]
-      df_long <- df_long[!is.infinite(df_long$intensity),]
       
       group1 <- input$group1_OR
       group2 <- input$group2_OR
+      Main_label <- input$OR_main_label        
+      Sub_label <- input$OR_sub_label          
+      Feature_label <- input$OR_feature_label  
+      Selected_Groups <- input$selected_groups_OR
       
+      message("Inside Odds ratio")
+      message("Group 1: ", group1)
+      message("Group 2: ", group2)
+      message("Main label: ", Main_label)
+      message("Sub label: ", Sub_label)
+      message("Feature label: ", Feature_label)
+      message("Selected features: ", Selected_Groups)
+      
+      # Check if the desired columns are present
+      desired_cols <- c(Main_label, Sub_label, Feature_label)
+      if (!all(desired_cols %in% colnames(data))) {
+        sendSweetAlert(session, "Error", "The data does not contain all the necessary columns.", type = "error")
+        return()
+      }
+      
+      # Assume that the sample columns in data are named as the row names of seq.
+      sample_cols <- rownames(seq)
+      # Dynamically select columns using the input strings; note the use of !!sym() and all_of() for dynamic selection
+      df_for_or <- data %>%
+        select(!!sym(Main_label), !!sym(Sub_label), !!sym(Feature_label), all_of(sample_cols))
+      
+      # Remove rows where the Main_label column does not have the Selected_Groups 
+      df_for_or <- df_for_or %>% filter(!!sym(Main_label) %in% Selected_Groups)
+      
+      print(head(df_for_or))
+      
+      # Remove duplicate rows based on the feature column
+      df_for_or <- df_for_or[!duplicated(df_for_or[[Feature_label]]), ]
+      
+      # Pivot the data from wide to long format using the sample columns
+      df_long <- df_for_or %>%
+        pivot_longer(
+          cols = all_of(sample_cols),
+          names_to = "sample",
+          values_to = "intensity"
+        )
+      
+      # Make the sequence data frame available for joining by converting rownames to a "sample" column
+      seq <- seq %>% rownames_to_column(var = "sample")
+      
+      # Join the sample information from the sequence to the long-format data
+      df_long <- df_long %>%
+        left_join(seq, by = "sample") %>%
+        select(-batch, -order, -time, -paired, -amount)
+      
+      # Remove rows with NA intensity and apply log2 transformation
+      df_long <- df_long %>% filter(!is.na(intensity))
+      df_long$intensity <- log2(df_long$intensity)
+      df_long <- df_long %>% filter(!is.na(intensity), !is.infinite(intensity))
+      
+      # Filter the long data to only include the two groups of interest
       df_long <- df_long %>%
         filter(group %in% c(group1, group2)) %>%
         mutate(group = factor(group, levels = c(group1, group2)))
       
-      # head(df_long)
-      
-      # Calculate odds ratios per feature using logistic regression
+      # Calculate odds ratios for each feature (using the feature column provided by input)
       odds_ratios <- df_long %>%
-        group_by(Original.annotation) %>%
-        # For each feature, fit a logistic model: group (lps vs ctr) ~ intensity.
+        group_by(feature = .data[[Feature_label]]) %>%
         do({
           mod <- glm(group ~ intensity, data = ., family = binomial)
-          tidy(mod)
+          broom::tidy(mod)
         }) %>%
-        # Keep the row corresponding to the intensity coefficient
         filter(term == "intensity") %>%
-        # Exponentiate the estimate to get the odds ratio
         mutate(odds_ratio = exp(estimate),
-               lower_ci = exp(estimate - 1.96 * std.error),
-               upper_ci = exp(estimate + 1.96 * std.error))
-      
-      odds_ratios <- odds_ratios %>%
-        # use left join to append species.name, lipid.abbreviation, super_class, main_class, sub_class
-        left_join(df_for_or, by = "Original.annotation") %>%
-        select(Original.annotation, odds_ratio, lower_ci, upper_ci, Species.Name, Lipid.Abbreviation, super_class, main_class, sub_class)
-      
-      # print(head(odds_ratios))
-      
-      odds_ratios <- odds_ratios %>%
-        mutate(
-          direction = case_when(
-            lower_ci > 1  ~ "Positive",       # entire CI > 1
-            upper_ci < 1  ~ "Negative",       # entire CI < 1
-            TRUE          ~ "Not significant"
-          )
-        )
+               lower_ci   = exp(estimate - 1.96 * std.error),
+               upper_ci   = exp(estimate + 1.96 * std.error))
       
       print(head(odds_ratios))
+      print(head(df_for_or))
       
+      
+      # Join the odds ratios back with the original features for label info
+      odds_ratios <- odds_ratios %>%
+        left_join(df_for_or, by = c("feature" = Feature_label)) %>%
+        select(feature, odds_ratio, lower_ci, upper_ci,
+               main = !!sym(Main_label),
+               sub  = !!sym(Sub_label))
+      
+      # Determine significance based on the confidence interval
+      odds_ratios <- odds_ratios %>%
+        mutate(Significance = case_when(
+          lower_ci > 1 ~ "Positive",
+          upper_ci < 1 ~ "Negative",
+          TRUE         ~ "Not significant"
+        ))
+      
+      print(head(odds_ratios))
       message("Max odds ratio:")
       print(max(odds_ratios$odds_ratio))
       message("Min CI:")
@@ -5774,30 +5848,26 @@ shinyServer(function(session, input, output) {
       message("Max CI:")
       print(max(odds_ratios$upper_ci))
       
-      
+      # Render the plot
       output$OR_plot <- renderPlot({
-        ggplot(odds_ratios, aes(x = odds_ratio, y = sub_class, color = direction)) +
+        ggplot(odds_ratios, aes(x = odds_ratio, y = sub, color = Significance)) +
           geom_point(position = position_dodge(width = 0.5), size = 4) +
+          geom_quasirandom() +
           geom_errorbarh(aes(xmin = lower_ci, xmax = upper_ci),
                          height = 0, alpha = 0.5,
                          position = position_dodge(width = 0.5),
-                         linetype = 3,
-                         linewidth = 2) +
+                         linetype = 3, linewidth = 2) +
           geom_vline(xintercept = 1, linetype = "dashed", color = "gray40") +
           scale_x_log10() +
-          scale_color_manual(values = c("Negative" = "#1f78b4", 
-                                        "Not significant" = "gray60", 
+          scale_color_manual(values = c("Negative" = "#1f78b4",
+                                        "Not significant" = "gray60",
                                         "Positive" = "#e31a1c")) +
-          # Use facet_grid with switch="y" to move strip labels to the left
-          facet_grid(super_class ~ ., 
-                     scales = "free_y",     # let y vary by panel
-                     space  = "free_y",     # each panel's height adjusts to its data
-                     switch = "y") +        # switch facet strips to the left side
+          # Facet by the main label (e.g. super_class or main_class) – labels are now on the left
+          facet_grid(main ~ ., scales = "free_y", space = "free_y", switch = "y") +
           theme_bw(base_size = 12) +
           theme(
-            strip.placement = "outside",     # place facet strips truly outside the plot
-            strip.text.y.left = element_text(angle = 90),  
-            # ^ If you want the facet labels (super_class) to appear horizontally
+            strip.placement = "outside",
+            strip.text.y.left = element_text(angle = 90),
             legend.position = "right"
           ) +
           labs(
@@ -5808,11 +5878,10 @@ shinyServer(function(session, input, output) {
           )
       })
       
-      # print a table with the significant lipids
-      sig_results <- odds_ratios %>% filter(direction != "Not significant")
+      # Create a table of significant lipids
+      sig_results <- odds_ratios %>% filter(Significance != "Not significant")
       sig_results <- sig_results %>%
-        relocate(c(odds_ratio, lower_ci, upper_ci), .after = sub_class)
-      sig_results
+        relocate(c(odds_ratio, lower_ci, upper_ci), .after = sub)
       
       output$OR_table <- renderDataTable({
         datatable(sig_results,
@@ -5824,10 +5893,8 @@ shinyServer(function(session, input, output) {
       })
       
       message(sample(quotes, 1))
-      
     }
   })
-  
   
   ###################
   # Summary of data #
