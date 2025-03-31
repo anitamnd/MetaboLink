@@ -604,7 +604,9 @@ shinyUI(dashboardPage(
                                       collapsible = FALSE,
                                       tagList(
                                         tags$ul(
-                                          tags$li("Add information regarding K-means analysis here.")
+                                          tags$li("Evaluate cluster validity using methods silhouette, WSS, or gap statistic."),
+                                          tags$li("Optionally, restrict clustering to selected groups for enhanced analysis."),
+                                          tags$li("Results are visualized with plots and an outlier table displaying potential anomalies.")
                                         )
                                       )
                                     )
@@ -682,7 +684,10 @@ shinyUI(dashboardPage(
                                       collapsible = FALSE,
                                       tagList(
                                         tags$ul(
-                                          tags$li("Add information regarding Hierarchical analysis here.")
+                                          tags$li("Hierarchical clustering builds a dendrogram based on the distance between samples."),
+                                          tags$li("Users can specify the clustering method, number of clusters, and dendrogram threshold."),
+                                          tags$li("It supports group selection to focus on subsets of the data."),
+                                          tags$li("Dendrogram and cluster plots along with outlier tables help identify unusual samples.")
                                         )
                                       )
                                     )
@@ -760,7 +765,9 @@ shinyUI(dashboardPage(
                                       collapsible = FALSE,
                                       tagList(
                                         tags$ul(
-                                          tags$li("Add information regarding DBSCAN analysis here.")
+                                          tags$li("DBSCAN is a density-based algorithm that groups samples based on local point density."),
+                                          tags$li("Requires setting epsilon(eps) and minimum points (minPts) parameters to define cluster boundaries."),
+                                          tags$li("Filters out samples with low density as potential outliers."),
                                         )
                                       )
                                     )
@@ -834,7 +841,10 @@ shinyUI(dashboardPage(
                                       collapsible = FALSE,
                                       tagList(
                                         tags$ul(
-                                          tags$li("Add information regarding HDBSCAN analysis here.")
+                                          tags$li("HDBSCAN extends DBSCAN by converting it into a hierarchical clustering approach."),
+                                          tags$li("Uses a minimum points parameter and an outlier threshold to classify data points."),
+                                          tags$li("Allows selection of groups to refine the clustering process."),
+                                          tags$li("Plots and outlier tables provide a detailed view of anomalous samples.")
                                         )
                                       )
                                     )
@@ -905,7 +915,10 @@ shinyUI(dashboardPage(
                                       collapsible = FALSE,
                                       tagList(
                                         tags$ul(
-                                          tags$li("Add information regarding OPTICS analysis here.")
+                                          tags$li("OPTICS orders samples based on reachability distances to reveal cluster structure."),
+                                          tags$li("Generates reachability and threshold plots for visualizing cluster boundaries."),
+                                          tags$li("Parameters such as eps, minPts, and eps cl can be adjusted to fine-tune analysis."),
+                                          tags$li("The results help identify outliers and are displayed through multiple visualizations.")
                                         )
                                       )
                                     )
@@ -978,7 +991,10 @@ shinyUI(dashboardPage(
                                       collapsible = FALSE,
                                       tagList(
                                         tags$ul(
-                                          tags$li("Add information regarding LOF analysis here.")
+                                          tags$li("LOF measures the local density deviation of a sample relative to its neighbors."),
+                                          tags$li("Uses a threshold and a k parameter to compute an outlier score for each sample."),
+                                          tags$li("Highlights samples with significantly lower local density as outliers."),
+                                          tags$li("Interactive LOF plots and a summary table help in interpreting and identifying anomalies.")
                                         )
                                       )
                                     )
@@ -1054,9 +1070,9 @@ shinyUI(dashboardPage(
                                collapsible = FALSE,
                                tagList(
                                  tags$ul(
-                                   tags$li("Heatmaps help visualize high-dimensional data and clustering of features."),
-                                   tags$li("Select a dataset and, optionally, specific groups to compare."),
-                                   tags$li("Customize display options to enhance the interpretation of patterns.")
+                                   tags$li("Heatmaps provide a visual representation of high-dimensional data and clustering patterns."),
+                                   tags$li("Select the desired dataset and, optionally, specific groups for comparison."),
+                                   tags$li("Customize clustering, labeling, and display options to best reveal data patterns.")
                                  )
                                )
                              )
@@ -1189,7 +1205,9 @@ shinyUI(dashboardPage(
                                collapsible = FALSE,
                                tagList(
                                  tags$ul(
-                                   tags$li("Add information regarding Circular Barplot analysis here.")
+                                   tags$li("Circular barplots display ranked features in a visually engaging, circular format."),
+                                   tags$li("Select the top features and define groupings to compare differences effectively."),
+                                   tags$li("Customize colors and labels to enhance the visual interpretation of the data.")
                                  )
                                )
                              )
@@ -1501,9 +1519,9 @@ shinyUI(dashboardPage(
                                collapsible = FALSE,
                                tagList(
                                  tags$ul(
-                                   tags$li("Volcano plots help visualize differential expression data (e.g., metabolomics, proteomics)."),
-                                   tags$li("Select two groups to compare, typically an experimental condition vs. a control."),
-                                   tags$li("You can set thresholds for log2 fold change and p-value to highlight significantly changed features.")
+                                   tags$li("Volcano plots highlight statistically significant changes by plotting fold change versus significance."),
+                                   tags$li("Select a dataset, define two distinct groups, and set thresholds for p-values and fold changes."),
+                                   tags$li("Customize colors to easily distinguish between upregulated, downregulated, and non-significant features.")
                                  )
                                )
                              )
@@ -1683,7 +1701,9 @@ shinyUI(dashboardPage(
                                       collapsible = FALSE,
                                       tagList(
                                         tags$ul(
-                                          tags$li("Odds Ratio plots).")
+                                          tags$li("Odds ratio analysis quantifies the association between features and group differences."),
+                                          tags$li("Transform the data and apply logistic regression to compute odds ratios with confidence intervals."),
+                                          tags$li("Visualize the results with plots and tables to interpret significant associations clearly.")
                                         )
                                       )
                                     )
@@ -1767,8 +1787,8 @@ shinyUI(dashboardPage(
                     collapsible = FALSE,
                     tagList(
                       tags$ul(
-                        tags$li("Select a dataset and the column containing compound identifiers. Click 'Run Gather Identifiers' to first update InChI from cached or online sources, then gather chemical identifiers for enrichment analysis."),
-                        tags$li("Once identifiers are gathered, click 'Run Enrichment Analysis' to perform the pathway enrichment.")
+                        tags$li("Pathway enrichment analysis identifies over-represented biological pathways in your data."),
+                        tags$li("Set appropriate thresholds and select the correct groups to reveal significant pathways.")
                       )
                     )
                   )

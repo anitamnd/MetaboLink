@@ -3486,7 +3486,7 @@ shinyServer(function(session, input, output) {
       message(paste0("Number of features after filtering: ", nrow(subset)))
       
       # Set this to TRUE during development and FALSE in production
-      run_development_code <- TRUE
+      run_development_code <- FALSE
       
       if (run_development_code) {
         # Check how many rows query has initially
@@ -3844,7 +3844,7 @@ shinyServer(function(session, input, output) {
     req(input$select_data_for_enrichment)
     
     # Define your desired vector of column names
-    desired_cols <- c("Name", "Normalized.Name", "Species.Name", "lipid_name", "sum_name", "lipid_abbreviation", "lipid_class",
+    desired_cols <- c("Name", "Normalized.Name", "Species.Name" , "Lipid.Abbreviation", "Original.annotation",
                       "Original annotation", "Structure", "InChIKey", "CID", "CanonicalSMILES", "IsomericSMILES",
                       "IUPACName", "refmet_id", "refmet_name", "super_class", "main_class", "sub_class", "chebi_id",
                       "hmdb_id", "lipidmaps_id", "kegg_id")
@@ -3884,7 +3884,7 @@ shinyServer(function(session, input, output) {
       ),
       caption = htmltools::tags$caption(
         style = 'caption-side: top; text-align: left;',
-        HTML(paste0("<b>Total numbers of metabolites: </b>", nrow(data)))
+        HTML(paste0("<b>Total numbers of features: </b>", nrow(data)))
       )
     )
   })
