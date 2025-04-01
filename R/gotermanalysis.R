@@ -10,8 +10,6 @@ library(tibble)
 # library(rcdk)
 # library(KEGGREST)
 
-# GO2heatmap {annotate}	R Documentation !!!!!!!!!!!!!!!!!!!! 
-
 # Function to update InChI in the data frame
 update_inchi <- function(data, compound_column, identifier_column, query) {
   
@@ -229,61 +227,6 @@ get_kegg_pathways <- function(data) {
   
   return(list(data_joined = data_final, pathways_long = pathways_long))
 }
-
-
-# Function to merge data based on the identifier column
-# merge_data <- function(main_df, identifier_df, identifier_column) {
-#   
-#   # Ensure the identifier column has the same name in both data frames
-#   names(identifier_df)[1] <- identifier_column
-#   
-#   # Identify overlapping columns other than the identifier_column
-#   common_cols <- intersect(names(main_df), names(identifier_df))
-#   common_cols <- setdiff(common_cols, identifier_column)
-#   
-#   # Rename overlapping columns in identifier_df to avoid duplication
-#   if(length(common_cols) > 0) {
-#     names(identifier_df)[names(identifier_df) %in% common_cols] <- paste0(common_cols, "_id")
-#   }
-#   
-#   # Debugging
-#   # print(head(identifier_df))
-#   # print(dim(identifier_df))
-#   # print(head(main_df[[identifier_column]]))
-#   # print(dim(main_df))
-#   
-#   # Merge main_df and identifier_df on the identifier column
-#   merged_df <- merge(main_df, identifier_df, by = identifier_column, all.x = TRUE)
-#   
-#   # Get the position of the identifier_column in main_df
-#   identifier_index <- which(names(main_df) == identifier_column)
-#   
-#   # Get the names of the columns from identifier_df (excluding identifier_column)
-#   id_cols <- setdiff(names(identifier_df), identifier_column)
-#   
-#   # Build the new column order
-#   # Start with columns before the identifier_column in main_df
-#   if(identifier_index > 1) {
-#     left_cols <- names(main_df)[1:(identifier_index - 1)]
-#   } else {
-#     left_cols <- character(0)
-#   }
-#   
-#   # Columns after the identifier_column in main_df
-#   if(identifier_index < ncol(main_df)) {
-#     right_cols <- names(main_df)[(identifier_index + 1):ncol(main_df)]
-#   } else {
-#     right_cols <- character(0)
-#   }
-#   
-#   # New column order: left_cols, identifier_column, id_cols (from identifier_df), right_cols
-#   new_col_order <- c(left_cols, identifier_column, id_cols, right_cols)
-#   
-#   # Reorder the merged_df according to new_col_order
-#   final_df <- merged_df[, new_col_order]
-#   
-#   return(final_df)
-# }
 
 # Make a function that take in a df and a column name and insert a new column to the right of the column
 insertColumn <- function(df, column_name, new_column_name, new_column) {

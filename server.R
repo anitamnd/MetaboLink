@@ -4093,6 +4093,7 @@ shinyServer(function(session, input, output) {
     # if the stats_df is only contain Non-Significant then return nothing and let the user know 
     if (all(stats_df$diffexpressed == "Non-Significant")) {
       sendSweetAlert(session, "Error", "No significant results found.", type = "error")
+      remove_modal_spinner()
       return()
     }
     
@@ -4181,6 +4182,7 @@ shinyServer(function(session, input, output) {
                              "The lowest q-value value is", min(res_df_gene_ORA$qvalue),
                              ". Try setting the threshold larger."), 
                        type = "Warning")
+        remove_modal_spinner()
         return()
       }
       
@@ -4270,6 +4272,7 @@ shinyServer(function(session, input, output) {
                              "The lowest q-value value is", min(res_df_module_ORA$qvalue),
                              ". Try setting the threshold larger."), 
                        type = "Warning")
+        remove_modal_spinner()
         return()
       }
       
