@@ -1142,11 +1142,25 @@ shinyUI(dashboardPage(
                                
                                # select input for clustering_distance_rows
                                selectInput("clustering_distance_rows", "Clustering Distance Metric (Rows):",
-                                           choices = c("euclidean", "maximum", "manhattan", "canberra",
-                                                       "binary", "minkowski","pearson","spearman","kendall"),
+                                           choices = c("Euclidean" ="euclidean",
+                                                       "Maximum" = "maximum",
+                                                       "Manhattan" = "manhattan",
+                                                       "Canberra" = "canberra",
+                                                       "Binary" = "binary",
+                                                       "Minkowski" = "minkowski",
+                                                       "Pearson" =  "pearson",
+                                                       "Spearman" = "spearman",
+                                                       "Kendall" = "kendall"),
                                            selected = "euclidean"),
                                selectInput("clustering_method_rows", "Clustering Method (Rows):",
-                                           choices = c("ward.D", "ward.D2", "single", "complete", "average", "mcquitty", "median", "centroid"),
+                                           choices = c("Ward D" = "ward.D",
+                                                       "Ward D2" = "ward.D2",
+                                                       "Single" = "single",
+                                                       "Complete" = "complete",
+                                                       "Average" = "average",
+                                                       "McQuitty" = "mcquitty",
+                                                       "Median" = "median",
+                                                       "Centroid" = "centroid"),
                                            selected = "ward.D2"),
                                
                                checkboxInput("show_column_names", "Show Column Names:", FALSE),
@@ -1257,11 +1271,11 @@ shinyUI(dashboardPage(
                                fluidRow(
                                  column(
                                    width = 6,
-                                   selectInput("group1_cirbar", "Numerator (Group):", choices = NULL, width = "100%")
+                                   selectInput("group1_cirbar", "Group of Interest:", choices = NULL, width = "100%")
                                  ),
                                  column(
                                    width = 6,
-                                   selectInput("group2_cirbar", "Denominator (Group):", choices = NULL, width = "100%")
+                                   selectInput("group2_cirbar", "Reference Group:", choices = NULL, width = "100%")
                                  )
                                ),
                                
@@ -1285,7 +1299,7 @@ shinyUI(dashboardPage(
                                status = "primary",
                                solidHeader = TRUE,
                                collapsible = TRUE,
-                               plotOutput("circular_barplot", height = "600px") %>% withSpinner(color = "steelblue")
+                               plotOutput("circular_barplot", height = "800px") %>% withSpinner(color = "steelblue")
                              )
                            )
                          )
@@ -1304,7 +1318,7 @@ shinyUI(dashboardPage(
                                                tags$ul(
                                                  tags$li("Select the data frame to use."),
                                                  tags$li("Click 'Run Data Processing' to start the analysis."),
-                                                 tags$li("After data processing select the numerator and denominator groups."),
+                                                 tags$li("After data processing select the Group of Interest and Reference Groups."),
                                                  tags$li("Go to the 'Lipid Visualization' tab set thresholds and see the results"),
                                                  tags$li("Have fun!"),
                                                  br(),
@@ -1335,11 +1349,7 @@ shinyUI(dashboardPage(
                                                         actionButton("show_lipid_cal", label = "Calculation Summary", icon = icon("calculator")),
                                                         actionButton("show_lipid_remove", label = "Filtered Summary", icon = icon("filter")),
                                                         actionButton("lipid_contact", label = "Any questions?", icon = icon("question-circle"))
-                                                        
-                                                        
-                                                        
-                                                        
-                                                      )
+                                                        )
                                                )
                                              ))
                                            ),
@@ -1347,12 +1357,12 @@ shinyUI(dashboardPage(
                                            conditionalPanel(
                                              condition = "input.run_process > 0", 
                                              column(6, box(
-                                               title = "Numerator Group Table",
+                                               title = "Group of Interest Table",
                                                width = NULL,
                                                DT::dataTableOutput("numerator_group_table")  
                                              )),
                                              column(6, box(
-                                               title = "Denominator Group Table",
+                                               title = "Reference Group Table",
                                                width = NULL,
                                                DT::dataTableOutput("denominator_group_table")  
                                              ))
@@ -1544,11 +1554,11 @@ shinyUI(dashboardPage(
                                fluidRow(
                                  column(
                                    width = 6,
-                                   selectInput("group1_vol", "Numerator (group):", choices = NULL)
+                                   selectInput("group1_vol", "Group of Interest:", choices = NULL)
                                  ),
                                  column(
                                    width = 6,
-                                   selectInput("group2_vol", "Denominator (group):", choices = NULL)
+                                   selectInput("group2_vol", "Reference Group:", choices = NULL)
                                  )
                                ),
                                
@@ -1723,23 +1733,23 @@ shinyUI(dashboardPage(
                                       fluidRow(
                                         column(
                                           width = 6,
-                                          selectInput("group1_OR", "Numerator (group):", choices = NULL)
+                                          selectInput("group1_OR", "Group of Interest:", choices = NULL)
                                         ),
                                         column(
                                           width = 6,
-                                          selectInput("group2_OR", "Denominator (group):", choices = NULL)
+                                          selectInput("group2_OR", "Reference Group:", choices = NULL)
                                         ),
                                         column(
                                           width = 6,
-                                          selectInput("OR_main_label", "Select Main Label Column:", choices = NULL),
+                                          selectInput("OR_main_label", "Main group Column:", choices = NULL),
                                         ),
                                         column(
                                           width = 6,
-                                          selectInput("OR_sub_label", "Select Sub Label Column:", choices = NULL)
+                                          selectInput("OR_sub_label", "Sub group Column:", choices = NULL)
                                         ),
                                         column(
                                           width = 6,
-                                          selectInput("OR_feature_label", "Label Features:", choices = NULL)
+                                          selectInput("OR_feature_label", "Feature name column:", choices = NULL)
                                         ),
                                         column(
                                           width = 6,
@@ -1821,17 +1831,17 @@ shinyUI(dashboardPage(
                     
                     actionButton("run_gather_identifiers", "Gather Identifiers", width = "100%"),
                     
-                    checkboxInput("showDT", "Display Data Table", value = FALSE),
-                    
-                    conditionalPanel(
-                      condition = "input.showDT == true",
-                      DTOutput("dt_table_path")
-                    ),
+                    # checkboxInput("showDT", "Display Data Table", value = FALSE),
+                    # 
+                    # conditionalPanel(
+                    #   condition = "input.showDT == true",
+                    #   DTOutput("dt_table_path")
+                    # ),
                     
                     fluidRow(
                       column(
                         width = 6,
-                        checkboxInput("gene_selected", "Gene Enrichment", TRUE)
+                        checkboxInput("gene_selected", "Pathway Enrichment", TRUE)
                       ),
                       column(
                         width = 6,
@@ -1842,11 +1852,11 @@ shinyUI(dashboardPage(
                     fluidRow(
                       column(
                         width = 6,
-                        selectInput("group1_enrichment", "Group for Enrichment Analysis", choices = NULL, width = "100%")
+                        selectInput("group1_enrichment", "Group of Interest", choices = NULL, width = "100%")
                       ),
                       column(
                         width = 6,
-                        selectInput("group2_enrichment", "Group to Compare Against", choices = NULL, width = "100%")
+                        selectInput("group2_enrichment", "Reference Group", choices = NULL, width = "100%")
                       )
                     ),
                     

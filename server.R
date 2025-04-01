@@ -3912,12 +3912,12 @@ shinyServer(function(session, input, output) {
     }
   })
   # Render the datatable
-  output$dt_table_path <- renderDT({
-    datatable(dataForPathEnri(),
-              options = list(autoWidth = TRUE,
-                             scrollY = "300px",
-                             pageLength = 50))
-  })
+  # output$dt_table_path <- renderDT({
+  #   datatable(dataForPathEnri(),
+  #             options = list(autoWidth = TRUE,
+  #                            scrollY = "300px",
+  #                            pageLength = 50))
+  # })
   # Extract the selected rows from the dt_table:
   selectedData <- reactive({
     selectedRows <- input$dt_table_path_rows_selected
@@ -3936,8 +3936,8 @@ shinyServer(function(session, input, output) {
         input$top_x_enrich)
     
     
-    print("Selected rows:")
-    print(selectedData())
+    # print("Selected rows:")
+    # print(selectedData())
     
     # Make sure group1_enrichment and group2_enrichment is not the same 
     if (input$group1_enrichment == input$group2_enrichment) {
