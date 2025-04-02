@@ -11,11 +11,6 @@ plot_heatmap <- function(data_subset, data, seq, TOP_X = 50, dataset_name = "",
   # Store original feature labels
   feature_labels <- rownames(data_subset)
   
-  # Debug output
-  print(head(data_subset))
-  print(head(data))
-  print(seq)
-  
   message(paste0("TOP_X: ", TOP_X))
   message(paste0("Show column names: ", show_column_names))
   message(paste0("Show row names: ", show_row_names))
@@ -67,8 +62,11 @@ plot_heatmap <- function(data_subset, data, seq, TOP_X = 50, dataset_name = "",
     message("Using ANOVA for multi-group comparison.")
   }
   
-  stats_df <- data.frame(Feature = rownames(data_matrix), p_value = pvals, stringsAsFactors = FALSE)
-  stats_df <- stats_df[order(stats_df$p_value), ]
+  pvals_adj <- p.adjust(pvals, method = "BH")
+  
+  
+  stats_df <- data.frame(Feature = rownames(data_matrix), pvals.adj = pvals_adj, stringsAsFactors = FALSE)
+  stats_df <- stats_df[order(stats_df$pvals.adj), ]
   
   # Select top X features
   top_features <- head(stats_df$Feature, n = TOP_X)
@@ -95,6 +93,10 @@ plot_heatmap <- function(data_subset, data, seq, TOP_X = 50, dataset_name = "",
   # Add the group information if grouping is enabled
   if (enable_groups) {
     top_stats$group <- as.character(data[[groups]])[match(top_stats$Feature, rownames(data))]
+    row_groups <- as.character(data[[groups]])[match(rownames(data_matrix_top), rownames(data))]
+    row_groups <- factor(row_groups)
+  } else {
+    row_groups <- 2
   }
   
   rownames(top_stats) <- 1:nrow(top_stats)
@@ -157,6 +159,7 @@ plot_heatmap <- function(data_subset, data, seq, TOP_X = 50, dataset_name = "",
     column_title = title_txt,
     column_title_gp = gpar(fontsize = 16, fontface = "bold"),
     row_title = "cluster %s",
+    row_title_rot = 0, 
     col = col_fun,
     show_column_names = show_column_names,
     show_row_names = show_row_names,
@@ -164,7 +167,7 @@ plot_heatmap <- function(data_subset, data, seq, TOP_X = 50, dataset_name = "",
     clustering_distance_rows = clustering_distance_rows,
     clustering_method_rows = clustering_method_rows,
     show_row_dend = show_row_dend,
-    row_split = 2,
+    row_split = row_groups,
     row_gap = unit(0, "mm"),
     cluster_columns = FALSE,
     cluster_column_slices = FALSE,
