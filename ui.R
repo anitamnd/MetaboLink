@@ -215,7 +215,7 @@ shinyUI(dashboardPage(
                                               ),
                                               fluidRow(
                                                 style = "margin-right: 0px;",
-                                                column(12, checkboxInput("newFileNorm", "Save as new file", value = F, width = "100%"), style = "padding: 0px; margin-top: -10px; margin-left: 10px; margin-right: -10px;"),
+                                                column(12, checkboxInput("newFileNorm", "Save as new file", value = T, width = "100%"), style = "padding: 0px; margin-top: -10px; margin-left: 10px; margin-right: -10px;"),
                                                 column(6, bsButton("normalize", "Run", width = "100%"), style = "padding-left:0px;"),
                                                 column(6, bsButton("saveNormalization", "Save", width = "100%"), style = "padding-left:0px;")
                                               )
@@ -349,7 +349,7 @@ shinyUI(dashboardPage(
                 selectInput("identifier_column_refmet", "Select Inchi Column", choices = NULL, width = "100%")
               ),
               checkboxInput("online_refmet", "Online lookup. ", value = FALSE, width = "100%"),
-              width = NULL, title = "Add Refmet Information",
+              width = NULL, title = "Add RefMet Information",
               actionButton("addRefmet", "Add", width = "50%")
             ),
             
@@ -367,7 +367,7 @@ shinyUI(dashboardPage(
                 width = 6,
                 selectInput("name_column_annotate", "Select annotation column", choices = NULL, width = "100%")
               ),
-              width = NULL, title = "Remove unnannotated features",
+              width = NULL, title = "Remove unannotated features",
               actionButton("RemoveUnannotated", "Remove", width = "50%")
             ),
             

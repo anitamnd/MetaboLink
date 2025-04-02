@@ -478,7 +478,6 @@ shinyServer(function(session, input, output) {
           } %>%
           relocate(InChIKey, .after = !!sym(identifier))
         
-        # If you want to consider empty strings ("") as missing values, replace them with NA
         data_final[data_final == ""] <- NA
         data_final <- data_final[order(data_final$super_class),]
       }
@@ -620,16 +619,13 @@ shinyServer(function(session, input, output) {
       data <- data %>%
         rename(Lipid.Abbreviation = Extended.Species.Name)
       
-      # Make an if statement if any NA is in the normalized.name column
-
-      
       if (any(is.na(data$Normalized.Name))) {
         
         message("some normalized names is NA")
         
         # Define known abbreviations to ensure complete coverage
         abbreviations_list <- c(
-          "Hex2Cer", "HexCer", "GlcCer", "GalCer", "LacCer", "C1P", "S1P", "SPH",
+          "Hex3Cer", "Hex2Cer", "HexCer", "GlcCer", "GalCer", "LacCer", "C1P", "S1P", "SPH",
           "PGM", "PIP", "CDCA", "UDCA", "HDCA",
           "FA", "MG", "DG", "TG", "BMP", "CL", "PA", "PC", "PE", "PG",
           "PI", "PS", "Cer", "SM", "St", "SE", "FC", "CE", "CA", "CAR", "DCA",
@@ -755,8 +751,6 @@ shinyServer(function(session, input, output) {
             }
           }, .data[[identifier]], lipid_abbreviation)) %>%
           relocate(sum_name, .after = .data[[identifier]])
-        
-        # data_sub$sum_name <- coalesce(data_sub$sum_name,)
         
         # Fix O- notation dynamically
         data_sub$lipid_abbreviation <- ifelse(
@@ -1157,9 +1151,9 @@ shinyServer(function(session, input, output) {
       p <- data_sub %>%
         arrange(.data[[colname]]) %>%
         mutate(!!colname := factor(.data[[colname]], levels = unique(.data[[colname]]))) %>%
-        ggplot(aes_string(x = colname)) +
+        ggplot(aes(x = !!sym(colname))) +
         geom_bar(fill = "steelblue", color = "black", width = 0.4) +
-        geom_text(stat = "count", aes(label = after_stat(count)), vjust = -4, size = 3, color = "black") +
+        geom_text(stat = "count", aes(label = after_stat(count)), vjust = -4, size = 4.5, color = "red") +
         labs(
           title = paste0("Distribution of ", colname, " - number of features: ", nrow(data)),
           x = colname,
@@ -1198,6 +1192,8 @@ shinyServer(function(session, input, output) {
     sequence <- rv$sequence[[rv$activeFile]]
     
     output$histogram <- renderPlotly({
+      
+      message("Inside group histogram")
       # Filter sample columns based on sequence labels
       samples <- data[, sequence[, "labels"] %in% "Sample"]
       
@@ -1227,19 +1223,20 @@ shinyServer(function(session, input, output) {
           )
         
         # Create a grouped bar chart with distinct group colors
-        p <- ggplot(median_data, aes(x = Sample, y = Median, fill = Group)) +
-          geom_col(position = position_dodge(width = 0.8), color = "black", width = 0.7) +
+        p <- ggplot(median_data,
+                    aes(x = Sample,
+                        y = Median,
+                        fill = Group)) +
+          geom_col(color = "black", width = 0.7) +
           labs(x = "Samples", y = "Median", fill = "Group") +
-          facet_wrap(~Group, scales = "free_x", nrow = 1) + # Group samples by their groups
+          facet_wrap(~Group, scales = "free_x", nrow = 1) + 
           theme_minimal() +
           theme(
             axis.text.x = element_text(angle = 45, hjust = 1),
             legend.position = "right",
-            strip.text = element_text(size = 12, face = "bold") # Style facet labels
+            strip.text = element_text(size = 12, face = "bold")
           )
       } else {
-        # No group information: Use default "skyblue" for all bars
-        
         # Ensure samples are sorted naturally (numeric first, then lexicographical)
         median_data <- median_data %>%
           arrange(mixedorder(Sample)) %>% # Use mixedorder for natural sorting
@@ -1303,7 +1300,7 @@ shinyServer(function(session, input, output) {
       # Create the base plot
       violin_layer <- ggplot(data_long, aes(x = myaxis, y = value, fill = group)) +
         geom_violin(width = 1.4) + 
-        scale_fill_viridis(discrete = TRUE) +
+        # scale_fill_viridis(discrete = TRUE) +
         theme_bw() +
         theme(
           legend.position = "none",
@@ -1875,23 +1872,14 @@ shinyServer(function(session, input, output) {
   #TODO
   observeEvent(input$run_pca1, {
     if (!is.null(rv$activeFile)) { 
-      # cat("rv$activeFile is not NULL.\n")
       if (input$selectpca1 == "Unsaved data") {
-        # cat("Input selectpca1 is 'Unsaved data'.\n")
         data <- rv$tmpData       # Set data to the temporary data
         seq <- rv$tmpSequence    # Set sequence to the temporary sequence
-        # cat("Temporary data and sequence have been assigned.\n")
       } else { 
-        # cat("Input selectpca1 is:", input$selectpca1, "\n")
         selectchoices <- paste(seq_along(rv$data), ": ", names(rv$data)) # Get the selected dataset
-        # cat("Select choices are:", selectchoices, "\n")
-        # Ensure rv$choices is up to date
-        # cat("rv$choices are:", rv$choices, "\n")
         sd <- which(rv$choices %in% input$selectpca1) # Get the index of the selected dataset
-        # cat("Selected dataset index (sd):", sd, "\n")
         data <- rv$data[[sd]]    # Set data to the selected dataset
         seq <- rv$sequence[[sd]] # Set sequence to the selected sequence
-        # cat("Data and sequence have been assigned from rv$data and rv$sequence.\n")
       }
       
       if ("Sample"  %in% seq[, "labels"]) { # Check if the sequence file contains a "Sample" column
@@ -2198,29 +2186,6 @@ shinyServer(function(session, input, output) {
       updateSelectInput(session, input_id, choices = choices)
     })
   })
-  
-  # TODO delete at somepoint. 
-  # output$group_selection_ui_kmeans <- renderUI({
-  #   if (is.null(rv$activeFile)) {
-  #     showNotification("No data", type = "error")
-  #   } else {
-  #     data <- rv$data[[rv$activeFile]]
-  #     sequence <- rv$sequence[[rv$activeFile]]
-  #     
-  #     seq <- sequence[sequence$labels %in% c("Sample", "QC"), ]
-  #     data <- data[,rownames(seq), drop = FALSE]
-  #     
-  #     if (input$select_groups_kmeans) {  # Only render if the checkbox is checked
-  #       selectInput(
-  #         "selected_groups_heatmap", 
-  #         "Select Groups:", 
-  #         choices = seq$group, 
-  #         selected = seq$group[1],  # Default to the first group
-  #         multiple = TRUE,          # Allow multiple selections
-  #         width = "100%"
-  #       )
-  #     }}
-  # })
   
   # Function to generate selectInput UI for a given input ID
   create_group_selection_ui <- function(input_id) {
@@ -2840,9 +2805,9 @@ shinyServer(function(session, input, output) {
       
       # Generate the heatmap
       result <- plot_heatmap(data_subset, data, seq_subset, TOP_X, savedDatasetNameHeatmap(),
-                                   clustering_distance_rows, clustering_method_rows, 
-                                   show_column_names, show_row_names, cluster_rows,
-                                   show_row_dend, labels, enable_groups, groups)
+                             clustering_distance_rows, clustering_method_rows, 
+                             show_column_names, show_row_names, cluster_rows,
+                             show_row_dend, labels, enable_groups, groups)
       
       heatmap_plot <- result$heatmap
       top_stats <- result$top_stats
@@ -5705,25 +5670,32 @@ shinyServer(function(session, input, output) {
   })
   
   observe({
-    req(input$select_OR_data, input$OR_main_label)
+    req(input$select_OR_data,
+        input$OR_main_label)
     
     # Retrieve the selected dataset
-    if (input$select_OR_data == "Unsaved data") {
-      data <- rv$tmpData
-    } else {
-      sd <- which(rv$choices %in% input$select_OR_data)
-      data <- rv$data[[sd]]
+    if (!is.null(rv$activeFile)) {
+      if (input$select_OR_data == "Unsaved data") {
+        data <- rv$tmpData  # Use the temporary data
+        seq <- rv$tmpSequence  # Use the temporary sequence
+      } else {
+        # Get the index of the selected dataset
+        sd <- which(rv$choices %in% input$select_OR_data)
+        data <- rv$data[[sd]]  # Retrieve the selected dataset
+        seq <- rv$sequence[[sd]]  # Retrieve the selected sequence
+      }
+    
+      # Extract unique groups from the OR_main_label column
+      groups <- sort(unique(data[[input$OR_main_label]]))
+      
+      # Set default selection to the first three groups if available
+      default_sel <- if (length(groups) >= 3) groups[1:3] else groups
+      
+      updateSelectizeInput(session, "selected_groups_OR",
+                           choices = groups,
+                           selected = default_sel,
+                           server = TRUE)
     }
-    
-    # Extract unique groups from the OR_main_label column
-    groups <- sort(unique(data[[input$OR_main_label]]))
-    
-    # Set default selection to the first three groups (or all if fewer than three)
-    default_sel <- if (length(groups) >= 3) groups[1:3] else groups
-    
-    updateSelectInput(session, "selected_groups_OR",
-                      choices = groups,
-                      selected = default_sel)
   })
   
   # OR plot

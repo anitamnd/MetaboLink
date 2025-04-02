@@ -235,13 +235,17 @@ merge_duplicates <- function(data) {
   # Ensure the first column is treated as the Compound Name
   compound_name_col <- names(data)[1]
   
-  # Group by the first column and then summarise all other columns by summing
+  # Identify numeric columns, excluding the first (group by) column
+  numeric_cols <- names(data)[sapply(data, is.numeric) & names(data) != compound_name_col]
+  
+  # Group by compound name and sum only numeric columns
   data_merged <- data %>%
     group_by(.data[[compound_name_col]]) %>%
-    summarise(across(everything(), sum, na.rm = TRUE), .groups = 'drop')
+    summarise(across(all_of(numeric_cols), sum, na.rm = TRUE), .groups = 'drop')
   
   return(data_merged)
 }
+
 
 
 
