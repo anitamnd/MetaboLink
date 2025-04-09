@@ -34,7 +34,8 @@ shinyUI(dashboardPage(
                        choices = NULL, width = "100%",
                        options = list(placeholder = "Please upload a file to start")
         ) %>% 
-          bsTooltip("Switch between the different uploaded/saved datsets.", placement = "bottom", trigger = "hover")
+          bsTooltip("Switch between the different uploaded/saved datsets.",
+                    placement = "right", trigger = "hover")
       ),
       bsCollapse(
         id = "menu", multiple = FALSE, open = "Data input",
@@ -68,7 +69,7 @@ shinyUI(dashboardPage(
                           ),
                           column(6, style = "padding-left:0px;",
                                  bsButton("example", "Load example", width = "100%")  %>% 
-                                   bsTooltip("Load example metabolomics datasets in positive and negative ion mode and respective metadata files. More examples available on GitHub.", placement = "bottom", trigger = "hover")
+                                   bsTooltip("Load example metabolomics datasets in positive and negative ion mode and respective metadata files. More examples available on GitHub.", placement = "right", trigger = "hover")
                           )
                         )
         ),
@@ -106,7 +107,7 @@ shinyUI(dashboardPage(
                           )
                         )
         )  %>% 
-          bsTooltip("Requires columns labeled 'Blank' and 'QC'.", placement = "bottom", trigger = "hover"),
+          bsTooltip("Requires columns labeled 'Blank' and 'QC'.", placement = "right", trigger = "hover"),
         bsCollapsePanel("Missing value filtration",
                         style = "primary",
                         fluidRow(
@@ -168,7 +169,7 @@ shinyUI(dashboardPage(
                                               fluidRow(
                                                 style = "margin-right: 0px;",
                                                 column(12, actionLink("removeIS", "Remove IS", width = "50%") %>% 
-                                                         bsTooltip("Remove internal standards.", placement = "bottom", trigger = "hover")
+                                                         bsTooltip("Remove internal standards.", placement = "right", trigger = "hover")
                                                 )),
                                               fluidRow(
                                                 style = "margin-right: 0px;",
@@ -220,7 +221,7 @@ shinyUI(dashboardPage(
                                                 column(6, bsButton("saveNormalization", "Save", width = "100%"), style = "padding-left:0px;")
                                               )
                               ) %>% 
-                                bsTooltip("Press for more normalization options.", placement = "bottom", trigger = "hover")
+                                bsTooltip("Press for more normalization options.", placement = "right", trigger = "hover")
                             ))
         ),
         bsCollapsePanel("Log transform and scaling",
@@ -229,7 +230,7 @@ shinyUI(dashboardPage(
                           style = "margin-right: 0px;",
                           column(6, style = "padding-left:0px;",
                                  selectInput("logTransform", "Log transform", choices = c("None", "log2", "log10", "ln"), width = "100%") %>%
-                                   bsTooltip("Do not use log transformation for negative values.", placement = "top", trigger = "hover")
+                                   bsTooltip("Do not use log transformation for negative values.", placement = "right", trigger = "hover")
                           ),
                           column(6, selectInput("scaling", "Data scaling", choices = c("None", "Mean center", "Auto scale"), width = "100%"), style = "padding-left:0px;")
                         ),
@@ -242,7 +243,7 @@ shinyUI(dashboardPage(
                           column(6, bsButton("transform", "Run", width = "100%"), style = "padding-left:0px;"),
                           column(6, bsButton("saveTransform", "Save", width = "100%"), style = "padding-left:0px;")
                         )
-        ) %>% bsTooltip("Some features will be removed after transforming the data if Inf values are introduced.", placement = "bottom", trigger = "hover"),
+        ) %>% bsTooltip("Some features will be removed after transforming the data if Inf values are introduced.", placement = "right", trigger = "hover"),
         bsCollapsePanel("Merge datasets",
                         style = "primary",
                         fluidRow(selectInput("mergeFile", "Select dataset to merge with", choices = NULL, width = "100%")),
@@ -259,7 +260,7 @@ shinyUI(dashboardPage(
                           column(6, bsButton("editRankings", "Edit priorities", width = "100%"), style = "padding-left:0px;"),
                           column(6, bsButton("mergeDatasets", "Run", width = "100%"), style = "padding-left:0px;")
                         )
-        ) %>% bsTooltip("Merge datasets with same samples and different ion mode. The datasets must have the same number of samples.", placement = "bottom", trigger = "hover"),
+        ) %>% bsTooltip("Merge datasets with same samples and different ion mode. The datasets must have the same number of samples.", placement = "right", trigger = "hover"),
         bsCollapsePanel("Remove files",
                         style = "primary",
                         fluidRow(
@@ -500,7 +501,7 @@ shinyUI(dashboardPage(
                                 selectInput("selectpca1", "", choices = NULL, width = "100%"),
                                 checkboxInput("pca1_islog", "Data is log-transformed.", value = FALSE, width = "100%"),
                                 actionButton("run_pca1", "Run PCA", width = "50%") %>%
-                                  bsTooltip("Check box if the data is log-transformed!", placement = "bottom", trigger = "hover"),
+                                  bsTooltip("Check box if the data is log-transformed!", placement = "right", trigger = "hover"),
                                 plotlyOutput("plotpca1", width = "100%"),
                                 br(),
                                 htmlOutput("pca1Details")
@@ -2071,29 +2072,49 @@ shinyUI(dashboardPage(
                 )
               ),
               
-              # Enrichment Plots
+              # Enrichment Heatmap Plots
               fluidRow(
                 column(
                   width = 12,
                   box(
-                    title = "Enrichment",
+                    title = "Enrichment Heatmap",
                     width = NULL,
                     status = "primary",
                     solidHeader = TRUE,
                     collapsible = TRUE,
                     fluidRow(
                       column(
-                        width = 12,
-                        plotOutput("enrichment_heatmap", height = "600px") %>% withSpinner(color = "steelblue")
-                      ) #,
-                      # column(
-                      #   width = 12,
-                      #   plotOutput("enrichment_ridge", height = "600px") %>% withSpinner(color = "steelblue")
-                      # )
+                        width = 6,
+                        plotOutput("enrichment_heatmap_down", height = "600px") %>% withSpinner(color = "steelblue")
+                      ),
+                      column(
+                        width = 6,
+                        plotOutput("enrichment_heatmap_up", height = "600px") %>% withSpinner(color = "steelblue")
+                      )
                     )
                   )
                 )
               ),
+              
+              # Enrichment Heatmap Plots
+              # fluidRow(
+              #   column(
+              #     width = 12,
+              #     box(
+              #       title = "Enrichment Treeplot",
+              #       width = NULL,
+              #       status = "primary",
+              #       solidHeader = TRUE,
+              #       collapsible = TRUE,
+              #       fluidRow(
+              #         column(
+              #           width = 12,
+              #           plotOutput("enrichment_treeplot", height = "600px") %>% withSpinner(color = "steelblue")
+              #         )
+              #       )
+              #     )
+              #   )
+              # ),
               
               # Enrichment Network Graph
               fluidRow(
