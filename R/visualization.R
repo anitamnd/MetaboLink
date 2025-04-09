@@ -206,10 +206,6 @@ calculate_stats <- function(data, meta,
   #         and a factor (or character) column 'Group' (or group_col) for group labels
   # 'min_reps': if you want to ensure at least 2 replicates per group
   
-  # library(limma)
-  
-  # on.exit(detach("package:limma", unload = TRUE))
-  
   # --- Match sample order between 'data' and 'meta' ---
   sampleIDs_data <- colnames(data)
   sampleIDs_meta <- rownames(meta)
@@ -218,7 +214,7 @@ calculate_stats <- function(data, meta,
     data <- data[, sampleIDs_meta, drop = FALSE]
     # Check again
     if (!identical(colnames(data), rownames(meta))) {
-      stop("Could not match columns of 'data' to row names of 'meta'.")
+      return()
     }
   }
   
@@ -245,26 +241,23 @@ calculate_stats <- function(data, meta,
   fit <- limma::lmFit(data, design)
   
   # --- Construct all pairwise contrasts automatically ---
-  # For example, if groups are c("A","B","C"), we want: B-A, C-A, C-B, etc.
   group_levels <- levels(groups)
   # Generate all combinations of factor levels taken 2 at a time
   all_pairs <- t(combn(group_levels, 2))
-  # each row of 'all_pairs' is like c("A","B"), c("A","C"), c("B","C"), ...
   
   # Build a named list/vector of contrast strings, e.g. "B - A", "C - A", etc.
-  # We'll also give them a name like "B_vs_A", "C_vs_A", ...
   contrast_list <- apply(all_pairs, 1, function(x) {
     g1 <- x[1]
     g2 <- x[2]
     paste0(g2, " - ", g1)
   })
   
-  # We'll create nice names for each contrast
+  # Create names for each contrast
   contrast_names <- apply(all_pairs, 1, function(x) {
     paste0(x[2], "_vs_", x[1])
   })
   
-  # Now build the contrast matrix
+  # Build the contrast matrix
   contrast.matrix <- limma::makeContrasts(
     contrasts = contrast_list,
     levels = design

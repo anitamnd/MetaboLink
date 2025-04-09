@@ -14,10 +14,8 @@ shinyServer(function(session, input, output) {
                        pca_results = list(), # List of PCA results
                        outlier_df = list(), # List of outlier data frames
                        identifier_df = list(), # List of identifier data frames
-                       timer_active = NULL, # Timer active status
-                       start_time = NULL, # Start time for time tracking
-                       index = NULL,
-                       multipleLipidNamesDf = NULL) # Index for volcano plot
+                       index = NULL, # Index for volcano plot
+                       multipleLipidNamesDf = NULL) 
   
   userConfirmation <- reactiveVal(FALSE)
   disable("upload")
@@ -190,6 +188,9 @@ shinyServer(function(session, input, output) {
         inputFile <- inputFile[, c("name", setdiff(colnames(inputFile), "name"))]
       }
       
+      # Remove the special charactor special ± character (Unicode U+00B1) from data[,1]
+      inputFile[,1] <- iconv(inputFile[,1], "WINDOWS-1252", "UTF-8", sub = "")
+      inputFile[,1] <- gsub("\\(±\\)", "", inputFile[,1])
       
       # TODO: maybe used for data type in future
       # inputFile$Data_Type <- ifelse(length(input$dataType) > 0,
@@ -3038,7 +3039,8 @@ shinyServer(function(session, input, output) {
     tagList(ui_list)
   })
   observeEvent(input$volcano_group_column, {
-    req(input$volcano_group_column, input$select_volcano_data)  # Ensure valid inputs
+    req(input$volcano_group_column,
+        input$select_volcano_data)  # Ensure valid inputs
     
     if (!is.null(rv$activeFile)) {
       if (input$select_volcano_data == "Unsaved data") {
@@ -3093,7 +3095,7 @@ shinyServer(function(session, input, output) {
       input$color_down_outline,
       input$color_ns_fill,
       input$color_ns_outline
-    ) 
+    )
 
     if (!is.null(rv$activeFile)) {
       if (input$select_volcano_data == "Unsaved data") {
@@ -3436,16 +3438,6 @@ shinyServer(function(session, input, output) {
       
       message(paste0("Number of features: ", nrow(data)))
       
-      # Subset the data based on the compound column
-      # subset <- data %>%
-      #   filter(
-      #     !is.na(.data[[compound]]),
-      #     .data[[compound]] != "",
-      #     .data[[compound]] != " ",
-      #     .data[[compound]] != "N/A",
-      #     .data[[compound]] != "NA"
-      #   )
-      
       subset <- data
       
       message(paste0("Number of features after filtering: ", nrow(subset)))
@@ -3672,8 +3664,6 @@ shinyServer(function(session, input, output) {
         relocate(all_of(colnames_refmet), .after = IUPACName) %>%
         select(-c(pubchem_cid, inchi_key))
       
-      # print(head(final_data))
-      
       message(paste0("Number of features after merge with refmet: ", nrow(final_data)))
       
       update_modal_spinner(
@@ -3686,13 +3676,6 @@ shinyServer(function(session, input, output) {
       
       pathways_long <- data_updated_list$pathways_long
       data_updated_pathways <- data_updated_list$data_joined
-      
-      # Print outputs for verification
-      # cat("\n--- Long format (pathways_long) ---\n")
-      # print(head(pathways_long))
-      
-      # cat("\n--- Merged dataset ---\n")
-      # print(head(data_updated_pathways))
       
       data_updated_pathways <- data_updated_pathways %>%
         select(-join_key)
@@ -3729,7 +3712,8 @@ shinyServer(function(session, input, output) {
       for(key in additional_keys) {
         if(key %in% names(final_data_updated)) {
           final_data_updated <- final_data_updated %>%
-            left_join(refmet, by = setNames("refmet_name", key), suffix = c("", paste0(".", key))) %>%
+            left_join(refmet, by = setNames("refmet_name", key),
+                      suffix = c("", paste0(".", key))) %>%
             mutate(across(
               .cols = all_of(common_cols),
               .fns = ~ coalesce(get(paste0(cur_column(), ".", key)), .x)
@@ -3799,8 +3783,6 @@ shinyServer(function(session, input, output) {
     
     message(sample(quotes, 1))
     
-    # Stop the timer and remove the spinner
-    rv$timer_active <- FALSE
     remove_modal_spinner()
   })
   
@@ -3853,7 +3835,6 @@ shinyServer(function(session, input, output) {
       )
     )
   })
-  
   
   # Create a reactive expression to store the data used in dt_table
   dataForPathEnri <- reactive({
@@ -4055,7 +4036,7 @@ shinyServer(function(session, input, output) {
     message("Stats df: ")
     print(head(stats_df))
     
-    # if the stats_df is only contain Non-Significant then return nothing and let the user know 
+    # If the stats_df is only contain Non-Significant then return nothing and let the user know 
     if (all(stats_df$diffexpressed == "Non-Significant")) {
       sendSweetAlert(session, "Error", "No significant results found.", type = "error")
       remove_modal_spinner()
@@ -4066,7 +4047,7 @@ shinyServer(function(session, input, output) {
     
     def_results_list <- split(stat_df_signi, stat_df_signi$diffexpressed)
     
-    # from the def_results_list print the head of each df in the list 
+    # From the def_results_list print the head of each df in the list 
     for (i in names(def_results_list)) {
       message(paste0("Head of ", i, " dataframe:"))
       print(head(def_results_list[[i]]))
@@ -4074,17 +4055,23 @@ shinyServer(function(session, input, output) {
     
     bg_genes <- as.data.frame(unique(data$kegg_id))
     colnames(bg_genes) <- "unique_kegg_id"
-    # remove rows where NA, "", " " or "NA". This will give the number of identifiers
-    universe <- bg_genes[!is.na(bg_genes$unique_kegg_id) & bg_genes$unique_kegg_id != "" & bg_genes$unique_kegg_id != " " & bg_genes$unique_kegg_id != "NA" & bg_genes$unique_kegg_id != "N/A", ]
+    # remove rows where NA, "", " " or "NA".
+    universe <- bg_genes[!is.na(bg_genes$unique_kegg_id) &
+                           bg_genes$unique_kegg_id != "" &
+                           bg_genes$unique_kegg_id != " " &
+                           bg_genes$unique_kegg_id != "NA" &
+                           bg_genes$unique_kegg_id != "N/A", ]
+    
+    print(universe)
     
     # Run enrichment analysis based on selection
     if (input$gene_selected) {
       update_modal_spinner(
         session = session,
-        text = "Gene enrichment analysis in progress... Please be patient."
+        text = "Pathway enrichment analysis in progress... Please be patient."
       )
       
-      title_name <- "Gene Enrichment Analysis"
+      title_name <- "Pathway Enrichment Analysis"
       print(paste0("#---", title_name, " ", dataset_name, "---#"))
       
       res_geneCentric_ORA <- lapply(names(def_results_list),
@@ -4103,15 +4090,13 @@ shinyServer(function(session, input, output) {
       )
       names(res_geneCentric_ORA) <- names(def_results_list)
       
-      # print("Enrichment results:")
-      # print(head(res_geneCentric))
+      # Extract first element of the res_geneCentric_ORA list 
+      enrichRes1 <- res_geneCentric_ORA[[1]]
+      enrichRes2 <- res_geneCentric_ORA[[2]]
       
       res_df_gene_ORA <- lapply(names(res_geneCentric_ORA), function(x) rbind(res_geneCentric_ORA[[x]]@result))
       names(res_df_gene_ORA) <- names(res_geneCentric_ORA)
       res_df_gene_ORA <- do.call(rbind, res_df_gene_ORA)
-      
-      # message("res_df_gene_ORA troubleshooting")
-      # print(head(res_df_gene_ORA))
 
       # Convert rownames to a column
       res_df_gene_ORA <- res_df_gene_ORA %>%
@@ -4128,7 +4113,7 @@ shinyServer(function(session, input, output) {
       message("Enrichment results DF:")
       print(head(res_df_gene_ORA))
       
-      # I want to display here a message to the user that if the all res_df_gene_ORA$p.adjust are larger than the threshhold let the user know to set the threhold larger
+      # Display message if all p.adjust values are larger than the threshold
       if (all(res_df_gene_ORA$p.adjust > p_value_thresh)) {
         sendSweetAlert(session,
                        "Warning",
@@ -4150,8 +4135,6 @@ shinyServer(function(session, input, output) {
         remove_modal_spinner()
         return()
       }
-      
-      # geneSets <- list()
       
       message("EnrichRes")
       # Define the new enrichResult object
@@ -4196,10 +4179,15 @@ shinyServer(function(session, input, output) {
       )
       names(res_moduleCentric_ORA) <- names(def_results_list)
       
+      # Extract first element of the res_moduleCentric_ORA list 
+      enrichRes1 <- res_moduleCentric_ORA[[1]]
+      enrichRes2 <- res_moduleCentric_ORA[[2]]
+      
       print("Enrich results:")
       print(head(res_moduleCentric_ORA))
       
-      res_df_module_ORA <- lapply(names(res_moduleCentric_ORA), function(x) rbind(res_moduleCentric_ORA[[x]]@result))
+      res_df_module_ORA <- lapply(names(res_moduleCentric_ORA),
+                                  function(x) rbind(res_moduleCentric_ORA[[x]]@result))
       names(res_df_module_ORA) <- names(res_moduleCentric_ORA)
       res_df_module_ORA <- do.call(rbind, res_df_module_ORA)
       
@@ -4218,7 +4206,7 @@ shinyServer(function(session, input, output) {
       message("Enrichment results DF:")
       print(head(res_df_module_ORA))
       
-      # I want to display here a message to the user that if the all res_df_gene_ORA$p.adjust are larger than the threshhold let the user know to set the threhold larger
+      # Display message if all p.adjust values are larger than the threshold
       if (all(res_df_module_ORA$p.adjust > p_value_thresh)) {
         sendSweetAlert(session,
                        "Warning",
@@ -4244,7 +4232,7 @@ shinyServer(function(session, input, output) {
       # Define the new enrichResult object
       enrichres <- new("enrichResult",
                        result = res_df_module_ORA,  # The data frame of enrichment results
-                       organism = "cpd",  # If analyzing KEGG compounds
+                       organism = "cpd",
                        keytype = "kegg",
                        ontology = "UNKNOWN",
                        gene = universe,
@@ -4257,7 +4245,6 @@ shinyServer(function(session, input, output) {
       print(enrichres)
       
       plots <- bar_dot_plot(enrichres, title_name, top_x_features, color_con)
-
     }
     
     output$enrichment_barplot <- renderPlot({
@@ -4271,8 +4258,6 @@ shinyServer(function(session, input, output) {
     # Extract sample names belonging to the selected group
     selected_group_samples <- rownames(seq[seq$group == group_of_interest & seq$labels == "Sample",])
     
-    # print(head(data$main_class))
-    
     # Filter KEGG data based on group samples
     filtered_kegg_data <- data %>%
       filter(!is.na(kegg_id), kegg_id != "", kegg_id != " ") %>%
@@ -4280,9 +4265,6 @@ shinyServer(function(session, input, output) {
       select(Name, 'Original annotation', refmet_name, kegg_id, super_class, main_class, sub_class, all_of(selected_group_samples))
     
     enrichres_df <- as.data.frame(enrichres)
-    
-    # message("EnrichRes DF: ")
-    # print(head(enrichres_df))
     
     enrichres_df_down <- enrichres_df[enrichres_df$Regulation == "Downregulated",]
     enrichres_df_up <- enrichres_df[enrichres_df$Regulation == "Upregulated",]
@@ -4306,9 +4288,7 @@ shinyServer(function(session, input, output) {
                                edge_width_scale = input$edge_width_scale,
                                node_color_by = input$node_color_by) 
       }, error = function(err) {
-        # Create a new blank plot
         plot.new()
-        # Add a message in the middle of the plot
         text(0.5, 0.5, "Plot failed to generate.\n
              No significant pathways detected.\n Please check your criteria or adjust the thresholds.\n.", 
              cex = 1.2, col = "red", adj = 0.5)
@@ -4325,44 +4305,87 @@ shinyServer(function(session, input, output) {
                                edge_width_scale = input$edge_width_scale,
                                node_color_by = input$node_color_by)
       }, error = function(err) {
-        # Create a new blank plot
         plot.new()
-        # Add a message in the middle of the plot
         text(0.5, 0.5, "Plot failed to generate.\n
              No significant pathways detected.\n Please check your criteria or adjust the thresholds.\n.", 
              cex = 1.2, col = "red", adj = 0.5)
       })
     })
     
-    # output$enrichment_cnetplot <- renderPlot({
-    #   NetGraphPlotWithGgraph(enrichres_df, filtered_kegg_data, title = title_up,
-    #                          layout_option = input$layout_option,
-    #                          node_size_mult = input$node_size_mult,
-    #                          node_text_size = input$node_text_size,
-    #                          edge_alpha = input$edge_alpha,
-    #                          edge_width_scale = input$edge_width_scale,
-    #                          node_color_by = input$node_color_by)  # Directly call the function
-    # })
-    
-    enrich_df_long <- enrichres_df %>% 
-      separate_rows(geneID, sep = "/")
-    
-    # Example heatmap: rows as enriched terms (using Description) and columns as compound IDs,
-    # with the fill representing, say, the Count or another metric.
-    output$enrichment_heatmap <- renderPlot({
-      ggplot(enrich_df_long, aes(x = geneID, y = Description, fill = FoldEnrichment)) +
-        geom_tile() +
-        theme_minimal() +
-        labs(x = "Compound ID", y = "Enriched Term")
+    output$enrichment_heatmap_down <- renderPlot({
+      tryCatch({
+        # Check if enrichRes1 is NULL or empty
+        if (is.null(enrichRes1) || nrow(as.data.frame(enrichRes1)) == 0) {
+          plot.new()
+          text(0.5, 0.5, "Plot failed to generate.\n
+             No significant pathways detected.\n Please check your criteria or adjust the thresholds.\n.", 
+               cex = 1.2, col = "red", adj = 0.5)
+        } else {
+          p <- heatplot(enrichRes1, showCategory = top_x_features) +
+            ggplot2::ggtitle("Downregulated")
+          p
+        }
+      }, error = function(err) {
+        plot.new()
+        text(0.5, 0.5, "Plot failed to generate.\n
+             No significant pathways detected.\n Please check your criteria or adjust the thresholds.\n.", 
+             cex = 1.2, col = "red", adj = 0.5)
+      })
     })
     
-    # output$enrichment_ridge <- renderPlot({
-    #   ggplot(enrichres_df, aes(x = FoldEnrichment, y = Description)) +
-    #     geom_density_ridges() +
-    #     theme_minimal() +
-    #     labs(x = "Fold Enrichment", y = "Enriched Term")
+    output$enrichment_heatmap_up <- renderPlot({
+      tryCatch({
+        if (is.null(enrichRes2) || nrow(as.data.frame(enrichRes2)) == 0) {
+          plot.new()
+          text(0.5, 0.5,
+               "No significant pathways detected for Upregulated.\nPlease check criteria or thresholds.",
+               cex = 1.2, col = "red", adj = 0.5)
+        } else {
+          p <- heatplot(enrichRes2, showCategory = top_x_features) +
+            ggplot2::ggtitle("Upregulated")
+          p
+        }
+      }, error = function(err) {
+        plot.new()
+        text(0.5, 0.5,
+             "Plot failed to generate for Upregulated.\nNo significant pathways detected.\nCheck criteria or thresholds.",
+             cex = 1.2, col = "red", adj = 0.5)
+      })
+    })
+    
+    
+    # output$enrichment_heatmap <- renderPlot({
+    #   hp1 <- 
+    #   hp2 <- heatplot(enrichRes2, showCategory = top_x_features)
+    #   cowplot::plot_grid(hp1, hp2, ncol=1, labels= c("Downregulated", "Upregulated"))
     # })
     
+    # output$enrichment_heatmap <- renderPlot({
+    #   # Attempt to generate the downregulated heatplot
+    #   hp1 <- tryCatch({
+    #     heatplot(enrichRes1, showCategory = top_x_features)
+    #   }, error = function(err) {
+    #     NULL  # Return NULL if it fails
+    #   })
+    #   
+    #   # Attempt to generate the upregulated heatplot
+    #   hp2 <- tryCatch({
+    #     heatplot(enrichRes2, showCategory = top_x_features)
+    #   }, error = function(err) {
+    #     NULL  # Return NULL if it fails
+    #   })
+    #   
+    #   # If both heatplots fail, display a message
+    #   if (is.null(hp1) && is.null(hp2)) {
+    #     plot.new()
+    #     text(0.5, 0.5, "Plot failed to generate.\nNo significant pathways detected.\nPlease check your criteria or adjust the thresholds.",
+    #          cex = 1.2, col = "red", adj = 0.5)
+    #   } else {
+    #     # Use cowplot::plot_grid to arrange what is available, with labels
+    #     cowplot::plot_grid(hp1, hp2, ncol = 2,
+    #                        labels = c("Downregulated", "Upregulated"))
+    #   }
+    # })
     
     # output$enrichment_cnetplot <- renderPlot({
     #   cnetplot(enrichres)  # Directly call the function
@@ -5611,92 +5634,154 @@ shinyServer(function(session, input, output) {
   # Odds Ratio #
   ##############
   
-  observeEvent(input$select_OR_data, {
-    req(input$select_OR_data)  # Ensure a dataset is selected
+  
+  observeEvent({
+    list(input$select_OR_data, input$OR_main_label)
+  }, {
+    req(input$select_OR_data)
     
     if (!is.null(rv$activeFile)) {
-      # Retrieve the appropriate dataset
+      # Retrieve the dataset and sequence based on selection
       if (input$select_OR_data == "Unsaved data") {
-        data <- rv$tmpData  # Use the temporary data
+        data <- rv$tmpData    # Use temporary data
+        seq  <- rv$tmpSequence
       } else {
-        # Get the index of the selected dataset
-        sd <- which(rv$choices %in% input$select_OR_data)
-        data <- rv$data[[sd]]  # Retrieve the selected dataset
+        # Find the index of the selected dataset
+        sd   <- which(rv$choices %in% input$select_OR_data)
+        data <- rv$data[[sd]]
+        seq  <- rv$sequence[[sd]]
       }
       
       # Extract column names from the selected dataset
       data_colnames <- colnames(data)
       
-      # Define the input IDs for the OR select inputs
-      columns <- c("OR_main_label", "OR_sub_label", "OR_feature_label")
+      # Define default values based on data columns
+      main_default    <- if ("super_class" %in% data_colnames) "super_class" else if ("main_class" %in% data_colnames) "main_class" else data_colnames[1]
+      sub_default     <- if ("sub_class" %in% data_colnames) "sub_class" else if ("Lipid.Abbreviation" %in% data_colnames) "Lipid.Abbreviation" else data_colnames[1]
+      feature_default <- if ("Original.annotation" %in% data_colnames) "Original.annotation" else if ("Species.Name" %in% data_colnames) "Species.Name" else data_colnames[1]
       
-      for (column in columns) {
-        if (column == "OR_main_label") {
-          default_val <- if ("super_class" %in% data_colnames) {
-            "super_class"
-          } else if ("main_class" %in% data_colnames) {
-            "main_class"
-          } else {
-            data_colnames[1]
-          }
-          updateSelectInput(session, column,
-                            choices = data_colnames,
-                            selected = default_val)
-        } else if (column == "OR_sub_label") {
-          default_val <- if ("sub_class" %in% data_colnames) {
-            "sub_class"
-          } else if ("Lipid.Abbreviation" %in% data_colnames) {
-            "Lipid.Abbreviation"
-          } else {
-            data_colnames[1]
-          }
-          updateSelectInput(session, column,
-                            choices = data_colnames,
-                            selected = default_val)
-        } else if (column == "OR_feature_label") {
-          default_val <- if ("Original.annotation" %in% data_colnames) {
-            "Original.annotation"
-          } else if ("Species.Name" %in% data_colnames) {
-            "Species.Name"
-          } else {
-            data_colnames[1]
-          }
-          updateSelectInput(session, column,
-                            choices = data_colnames,
-                            selected = default_val)
-        }
-      }
+      # Update the select inputs using the data columns;
+      # If a valid input value exists, keep it, otherwise choose the computed default.
+      updateSelectInput(session, "OR_main_label",
+                        choices  = data_colnames,
+                        selected = if (input$OR_main_label %in% data_colnames) input$OR_main_label else main_default)
+      
+      updateSelectInput(session, "OR_sub_label",
+                        choices  = data_colnames,
+                        selected = if (input$OR_sub_label %in% data_colnames) input$OR_sub_label else sub_default)
+      
+      updateSelectInput(session, "OR_feature_label",
+                        choices  = data_colnames,
+                        selected = if (input$OR_feature_label %in% data_colnames) input$OR_feature_label else feature_default)
+      
+      # Determine which main label to use for computing groups:
+      # If the current input$OR_main_label is valid, use it; otherwise, use the default.
+      selected_main_label <- if (input$OR_main_label %in% data_colnames) input$OR_main_label else main_default
+      
+      # Extract unique groups from the determined main label column
+      groups <- sort(unique(data[[selected_main_label]]))
+      
+      # Set the default selection for groups (first three groups if available)
+      default_sel <- if (length(groups) >= 3) groups[1:3] else groups
+      
+      # Update the selectize input for groups
+      updateSelectizeInput(session, "selected_groups_OR",
+                           choices  = groups,
+                           selected = default_sel,
+                           server   = TRUE)
     }
   })
   
-  observe({
-    req(input$select_OR_data,
-        input$OR_main_label)
-    
-    # Retrieve the selected dataset
-    if (!is.null(rv$activeFile)) {
-      if (input$select_OR_data == "Unsaved data") {
-        data <- rv$tmpData  # Use the temporary data
-        seq <- rv$tmpSequence  # Use the temporary sequence
-      } else {
-        # Get the index of the selected dataset
-        sd <- which(rv$choices %in% input$select_OR_data)
-        data <- rv$data[[sd]]  # Retrieve the selected dataset
-        seq <- rv$sequence[[sd]]  # Retrieve the selected sequence
-      }
-    
-      # Extract unique groups from the OR_main_label column
-      groups <- sort(unique(data[[input$OR_main_label]]))
-      
-      # Set default selection to the first three groups if available
-      default_sel <- if (length(groups) >= 3) groups[1:3] else groups
-      
-      updateSelectizeInput(session, "selected_groups_OR",
-                           choices = groups,
-                           selected = default_sel,
-                           server = TRUE)
-    }
-  })
+  
+  # observeEvent(input$select_OR_data, {
+  #   req(input$select_OR_data)  # Ensure a dataset is selected
+  #   
+  #   if (!is.null(rv$activeFile)) {
+  #     # Retrieve the appropriate dataset
+  #     if (input$select_OR_data == "Unsaved data") {
+  #       data <- rv$tmpData  # Use the temporary data
+  #     } else {
+  #       # Get the index of the selected dataset
+  #       sd <- which(rv$choices %in% input$select_OR_data)
+  #       data <- rv$data[[sd]]  # Retrieve the selected dataset
+  #     }
+  #     
+  #     # Extract column names from the selected dataset
+  #     data_colnames <- colnames(data)
+  #     
+  #     # Define the input IDs for the OR select inputs
+  #     columns <- c("OR_main_label", "OR_sub_label", "OR_feature_label")
+  #     
+  #     for (column in columns) {
+  #       if (column == "OR_main_label") {
+  #         default_val <- if ("super_class" %in% data_colnames) {
+  #           "super_class"
+  #         } else if ("main_class" %in% data_colnames) {
+  #           "main_class"
+  #         } else {
+  #           data_colnames[1]
+  #         }
+  #         updateSelectInput(session, column,
+  #                           choices = data_colnames,
+  #                           selected = default_val)
+  #         
+  #         
+  #         
+  #       } else if (column == "OR_sub_label") {
+  #         default_val <- if ("sub_class" %in% data_colnames) {
+  #           "sub_class"
+  #         } else if ("Lipid.Abbreviation" %in% data_colnames) {
+  #           "Lipid.Abbreviation"
+  #         } else {
+  #           data_colnames[1]
+  #         }
+  #         updateSelectInput(session, column,
+  #                           choices = data_colnames,
+  #                           selected = default_val)
+  #       } else if (column == "OR_feature_label") {
+  #         default_val <- if ("Original.annotation" %in% data_colnames) {
+  #           "Original.annotation"
+  #         } else if ("Species.Name" %in% data_colnames) {
+  #           "Species.Name"
+  #         } else {
+  #           data_colnames[1]
+  #         }
+  #         updateSelectInput(session, column,
+  #                           choices = data_colnames,
+  #                           selected = default_val)
+  #       }
+  #     }
+  #   }
+  # })
+  # 
+  # observe({
+  #   req(input$select_OR_data,
+  #       input$OR_main_label)
+  #   
+  #   # Retrieve the selected dataset
+  #   if (!is.null(rv$activeFile)) {
+  #     if (input$select_OR_data == "Unsaved data") {
+  #       data <- rv$tmpData  # Use the temporary data
+  #       seq <- rv$tmpSequence  # Use the temporary sequence
+  #     } else {
+  #       # Get the index of the selected dataset
+  #       sd <- which(rv$choices %in% input$select_OR_data)
+  #       data <- rv$data[[sd]]  # Retrieve the selected dataset
+  #       seq <- rv$sequence[[sd]]  # Retrieve the selected sequence
+  #     }
+  #   
+  #     # Extract unique groups from the OR_main_label column
+  #     groups <- sort(unique(data[[input$OR_main_label]]))
+  #     
+  #     # Set default selection to the first three groups if available
+  #     default_sel <- if (length(groups) >= 3) groups[1:3] else groups
+  #     
+  #     updateSelectizeInput(session, "selected_groups_OR",
+  #                          choices = groups,
+  #                          selected = default_sel,
+  #                          server = TRUE)
+  #   }
+  # })
   
   # OR plot
   observeEvent(input$run_OR_plot, {

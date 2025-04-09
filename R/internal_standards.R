@@ -86,6 +86,7 @@ normalizationIS_2 <- function(data, sequence, internalStandards, method, qc) {
 
 
 findInternalStandards <- function(data) {
+  
   isIndex <- grepl("\\(IS\\)", toupper(data[, 1]))
 
   if (sum(isIndex) > 0) {
