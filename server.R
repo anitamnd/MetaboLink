@@ -3145,6 +3145,7 @@ shinyServer(function(session, input, output) {
       message(paste0("label column: ", label_column))
       message(paste0("numerator: ", numerator))
       message(paste0("denominator: ", denominator))
+      message(paste0("log2FC input: ", 2^(log2FC_tresh)))
       message(paste0("log2FC tresh: ", log2FC_tresh))
       message(paste0("pval tresh: ", pval_tresh))
       message(paste0("show legend: ", show_legend))
@@ -3158,8 +3159,7 @@ shinyServer(function(session, input, output) {
     
 
       enable_feature_selection <- input$enable_feature_selection
-      message("Feature Selection Enabled:")
-      print(enable_feature_selection)
+      message(paste0("Feature Selection Enabled: ", enable_feature_selection))
       if (enable_feature_selection) {
         available_features <- input$selected_features_volcano
         message("Available Features:")
@@ -3167,8 +3167,7 @@ shinyServer(function(session, input, output) {
       }
       
       enable_group_selection <- input$enable_group_selection
-      message("Group Selection Enabled:")
-      print(enable_group_selection)
+      message(paste0("Group Selection Enabled: ", enable_group_selection))
       if (enable_group_selection) {
         available_groups <- input$selected_group_volcano
         message("Available Groups:")
@@ -3259,8 +3258,6 @@ shinyServer(function(session, input, output) {
       rownames(data_subset) <- make.unique(selected_labels)
       rownames(data) <- make.unique(selected_labels)
       
-      # print(head(data_subset[,1:5]))
-      
       stat_results <- calculate_stats(data_subset, seq_subset)
       
       target_contrast   <- paste0(numerator, "_vs_", denominator)
@@ -3308,20 +3305,9 @@ shinyServer(function(session, input, output) {
           relocate(Group, .before = "Contrast")
       }
       
-      print(head(sub_df))
-      
       # assign the sub_df a name for debugging
       volcano_df_name <- paste0(dataset_name, "_volcano_df")
       assign(volcano_df_name, sub_df)
-      
-      # vlcn <- pretty_volcano_plot(sub_df,savedDatasetNameVolcano(),
-      #                             log2FC_tresh, pval_tresh,
-      #                             fill_up, outline_up,
-      #                             fill_down, outline_down,
-      #                             fill_ns, outline_ns,
-      #                             enable_feature_selection, enable_group_selection,
-      #                             available_features, available_groups,
-      #                             group_color_df,x_param,y_param, apply_axis_limits)
       
       pvp <- reactive(pretty_volcano_plot(
         sub_df,savedDatasetNameVolcano(),
@@ -3333,24 +3319,22 @@ shinyServer(function(session, input, output) {
         available_features, available_groups,
         group_color_df,x_param,y_param, apply_axis_limits))
       
+      # Render the volcano plot
       output$volcano_plot <- renderPlotly({
         pvp()$plot
       })
       
-      # Download handler that exports the plot using orca()
-      # output$downloadPlot_volcano <- downloadHandler(
-      #   filename = function(){
-      #     paste("VolcanoPlot", "png", sep = ".")
-      #   },
-      #   content = function(file){
-      #     # Save the Plotly plot as a PNG using Kaleido via save_image()
-      #     plotly::save_image(pvp()$plot, file = file)
-      #   }
-      # )
-      
       # Render the table of top features
       output$volcano_table <- DT::renderDataTable({
-        DT::datatable(pvp()$df, 
+        # Extract the data frame from pvp()
+        df <- pvp()$df
+        
+        # Remove the column "hover_text"
+        df <- df %>%
+          select(-c(hover_text,Contrast))
+        
+        # Render the datatable using the modified df
+        DT::datatable(df, 
                       rownames = FALSE,
                       options = list(scrollX = TRUE,
                                      pageLength = 20,
@@ -5675,113 +5659,26 @@ shinyServer(function(session, input, output) {
                         selected = if (input$OR_feature_label %in% data_colnames) input$OR_feature_label else feature_default)
       
       # Determine which main label to use for computing groups:
-      # If the current input$OR_main_label is valid, use it; otherwise, use the default.
-      selected_main_label <- if (input$OR_main_label %in% data_colnames) input$OR_main_label else main_default
+      selected_main_label <- if (input$OR_main_label %in% data_colnames) {
+        input$OR_main_label
+      } else {
+        main_default
+      }
       
-      # Extract unique groups from the determined main label column
+      # Extract unique groups from the determined main label column and remove empty strings
       groups <- sort(unique(data[[selected_main_label]]))
+      groups <- groups[nzchar(groups)]
       
-      # Set the default selection for groups (first three groups if available)
-      default_sel <- if (length(groups) >= 3) groups[1:3] else groups
+      # Create a choices vector with an "All" option as the first element.
+      choices <- c("All", groups)
       
-      # Update the selectize input for groups
+      # Update the selectize input for groups with "All" as the default selection.
       updateSelectizeInput(session, "selected_groups_OR",
-                           choices  = groups,
-                           selected = default_sel,
+                           choices  = choices,
+                           selected = "All",
                            server   = TRUE)
     }
   })
-  
-  
-  # observeEvent(input$select_OR_data, {
-  #   req(input$select_OR_data)  # Ensure a dataset is selected
-  #   
-  #   if (!is.null(rv$activeFile)) {
-  #     # Retrieve the appropriate dataset
-  #     if (input$select_OR_data == "Unsaved data") {
-  #       data <- rv$tmpData  # Use the temporary data
-  #     } else {
-  #       # Get the index of the selected dataset
-  #       sd <- which(rv$choices %in% input$select_OR_data)
-  #       data <- rv$data[[sd]]  # Retrieve the selected dataset
-  #     }
-  #     
-  #     # Extract column names from the selected dataset
-  #     data_colnames <- colnames(data)
-  #     
-  #     # Define the input IDs for the OR select inputs
-  #     columns <- c("OR_main_label", "OR_sub_label", "OR_feature_label")
-  #     
-  #     for (column in columns) {
-  #       if (column == "OR_main_label") {
-  #         default_val <- if ("super_class" %in% data_colnames) {
-  #           "super_class"
-  #         } else if ("main_class" %in% data_colnames) {
-  #           "main_class"
-  #         } else {
-  #           data_colnames[1]
-  #         }
-  #         updateSelectInput(session, column,
-  #                           choices = data_colnames,
-  #                           selected = default_val)
-  #         
-  #         
-  #         
-  #       } else if (column == "OR_sub_label") {
-  #         default_val <- if ("sub_class" %in% data_colnames) {
-  #           "sub_class"
-  #         } else if ("Lipid.Abbreviation" %in% data_colnames) {
-  #           "Lipid.Abbreviation"
-  #         } else {
-  #           data_colnames[1]
-  #         }
-  #         updateSelectInput(session, column,
-  #                           choices = data_colnames,
-  #                           selected = default_val)
-  #       } else if (column == "OR_feature_label") {
-  #         default_val <- if ("Original.annotation" %in% data_colnames) {
-  #           "Original.annotation"
-  #         } else if ("Species.Name" %in% data_colnames) {
-  #           "Species.Name"
-  #         } else {
-  #           data_colnames[1]
-  #         }
-  #         updateSelectInput(session, column,
-  #                           choices = data_colnames,
-  #                           selected = default_val)
-  #       }
-  #     }
-  #   }
-  # })
-  # 
-  # observe({
-  #   req(input$select_OR_data,
-  #       input$OR_main_label)
-  #   
-  #   # Retrieve the selected dataset
-  #   if (!is.null(rv$activeFile)) {
-  #     if (input$select_OR_data == "Unsaved data") {
-  #       data <- rv$tmpData  # Use the temporary data
-  #       seq <- rv$tmpSequence  # Use the temporary sequence
-  #     } else {
-  #       # Get the index of the selected dataset
-  #       sd <- which(rv$choices %in% input$select_OR_data)
-  #       data <- rv$data[[sd]]  # Retrieve the selected dataset
-  #       seq <- rv$sequence[[sd]]  # Retrieve the selected sequence
-  #     }
-  #   
-  #     # Extract unique groups from the OR_main_label column
-  #     groups <- sort(unique(data[[input$OR_main_label]]))
-  #     
-  #     # Set default selection to the first three groups if available
-  #     default_sel <- if (length(groups) >= 3) groups[1:3] else groups
-  #     
-  #     updateSelectizeInput(session, "selected_groups_OR",
-  #                          choices = groups,
-  #                          selected = default_sel,
-  #                          server = TRUE)
-  #   }
-  # })
   
   # OR plot
   observeEvent(input$run_OR_plot, {
@@ -5813,6 +5710,13 @@ shinyServer(function(session, input, output) {
       Sub_label <- input$OR_sub_label          
       Feature_label <- input$OR_feature_label  
       Selected_Groups <- input$selected_groups_OR
+      
+      # When processing the selected groups:
+      Selected_Groups <- if ("All" %in% input$selected_groups_OR) {
+        data[[Main_label]] %>% unique() %>% sort()
+      } else {
+        input$selected_groups_OR
+      }
       
       message("Inside Odds ratio")
       message("Group 1: ", group1)

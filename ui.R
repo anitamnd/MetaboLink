@@ -1770,7 +1770,7 @@ shinyUI(dashboardPage(
                                     status = "primary",
                                     solidHeader = TRUE,
                                     collapsible = TRUE,
-                                    plotOutput("OR_plot", height = "600px") %>% withSpinner(color="steelblue")
+                                    plotOutput("OR_plot", height = "1000px") %>% withSpinner(color="steelblue")
                                   ),
                                   box(width = 12,
                                       title = "OR results table",
