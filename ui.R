@@ -2073,28 +2073,28 @@ shinyUI(dashboardPage(
               ),
               
               # Enrichment Heatmap Plots
-              fluidRow(
-                column(
-                  width = 12,
-                  box(
-                    title = "Enrichment Heatmap",
-                    width = NULL,
-                    status = "primary",
-                    solidHeader = TRUE,
-                    collapsible = TRUE,
-                    fluidRow(
-                      column(
-                        width = 6,
-                        plotOutput("enrichment_heatmap_down", height = "600px") %>% withSpinner(color = "steelblue")
-                      ),
-                      column(
-                        width = 6,
-                        plotOutput("enrichment_heatmap_up", height = "600px") %>% withSpinner(color = "steelblue")
-                      )
-                    )
-                  )
-                )
-              ),
+              # fluidRow(
+              #   column(
+              #     width = 12,
+              #     box(
+              #       title = "Enrichment Heatmap",
+              #       width = NULL,
+              #       status = "primary",
+              #       solidHeader = TRUE,
+              #       collapsible = TRUE,
+              #       fluidRow(
+              #         column(
+              #           width = 6,
+              #           plotOutput("enrichment_heatmap_down", height = "600px") %>% withSpinner(color = "steelblue")
+              #         ),
+              #         column(
+              #           width = 6,
+              #           plotOutput("enrichment_heatmap_up", height = "600px") %>% withSpinner(color = "steelblue")
+              #         )
+              #       )
+              #     )
+              #   )
+              # ),
               
               # Enrichment Heatmap Plots
               # fluidRow(

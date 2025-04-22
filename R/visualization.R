@@ -109,7 +109,8 @@ plot_heatmap <- function(data_subset, data, seq, TOP_X = 50, dataset_name = "",
     grouping_vector <- grouping_vector[m]
     grouping_vector <- factor(grouping_vector)  # Ensure it's a factor
     unique_groups2 <- levels(grouping_vector)
-    group_colors <- setNames(rainbow(length(unique_groups2)), unique_groups2)
+    n <- length(unique_groups2)
+    group_colors <- setNames( hue_pal()(n), unique_groups2 )
     
     second_heatmap <- Heatmap(
       grouping_vector,
@@ -299,7 +300,7 @@ calculate_stats <- function(data, meta,
   return(final_res)
 }
 
-pretty_volcano_plot <- function(data, volcano_df_name = "volcano",
+volcano_plot <- function(data, volcano_df_name = "volcano",
                                 log2FC_tresh, pval_tresh,
                                 fill_up, outline_up,
                                 fill_down, outline_down,

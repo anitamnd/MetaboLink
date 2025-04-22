@@ -14,7 +14,6 @@ shinyServer(function(session, input, output) {
                        pca_results = list(), # List of PCA results
                        outlier_df = list(), # List of outlier data frames
                        identifier_df = list(), # List of identifier data frames
-                       index = NULL, # Index for volcano plot
                        multipleLipidNamesDf = NULL) 
   
   userConfirmation <- reactiveVal(FALSE)
@@ -629,7 +628,7 @@ shinyServer(function(session, input, output) {
           "Hex3Cer", "Hex2Cer", "HexCer", "GlcCer", "GalCer", "LacCer", "C1P", "S1P", "SPH",
           "PGM", "PIP", "CDCA", "UDCA", "HDCA",
           "FA", "MG", "DG", "TG", "BMP", "CL", "PA", "PC", "PE", "PG",
-          "PI", "PS", "Cer", "SM", "St", "SE", "FC", "CE", "CA", "CAR", "DCA",
+          "PI", "PS", "Cer", "SM", "ST", "SE", "FC", "CE", "CA", "CAR", "DCA",
           "LCA", "GCA", "TCA", "LPE", "LNAPE"
         )
         
@@ -650,9 +649,9 @@ shinyServer(function(session, input, output) {
           main_class = c("Fatty Acid", "Ether Phospholipids","Acylcarnitines", "Ether Glycerophosphocholines", "Ether Diacylglycerols",
                          "Ether Glycerophosphoethanolamines", "Diacylglycerols", "Phosphatidylserines", "Ether Phosphatidylinositol",
                          "Triacylglycerols", "Ether Triacylglycerols", "Cholesterol Esters","Sphingoid bases",
-                         "glycosphingolipids","glycosphingolipids","glycosphingolipids", "Phosphatidylcholines"),
+                         "glycosphingolipids","glycosphingolipids","glycosphingolipids", "Phosphatidylcholines","Sterols", "Phosphatidylglycerol"),
           sub_class = c("FA", "O-LPE", "CAR", "O-PC", "O-DG","O-PE", "DG",
-                        "O-PS", "O-PI", "TG", "O-TG", "CE", "SPB", "HexCer", "Hex2Cer", "Hex3Cer", "LPC")
+                        "O-PS", "O-PI", "TG", "O-TG", "CE", "SPB", "HexCer", "Hex2Cer", "Hex3Cer", "LPC", "ST", "PG")
         )
         
         # Combine with abbreviations
@@ -742,7 +741,7 @@ shinyServer(function(session, input, output) {
           return(sum_name)
         }
         
-        # Now, apply the function only when lipid_abbreviation is not NA:
+        # Apply the function only when lipid_abbreviation is not NA:
         data_sub <- data_sub %>%
           mutate(sum_name = mapply(function(name, abbr) {
             if (is.na(abbr)) {
@@ -794,9 +793,11 @@ shinyServer(function(session, input, output) {
         mutate(
           Normalized.Name   = coalesce(Normalized.Name, sum_name),
           Species.Name      = coalesce(Species.Name, sum_name),
-          Lipid.Abbreviation = coalesce(Lipid.Abbreviation, lipid_class)
+          Lipid.Abbreviation = coalesce(Lipid.Abbreviation, lipid_abbreviation)
         ) %>%
-        select(-sum_name, -lipid_abbreviation, -lipid_class)
+        rename(Lipid.Class = lipid_class) %>% 
+        relocate(Lipid.Class, .after = Lipid.Abbreviation) %>%
+        select(-sum_name, -lipid_abbreviation, -Lipid.Class)
 
       colnames_cleaned <- setdiff(colnames(data), original_colnames)
       
@@ -1154,7 +1155,7 @@ shinyServer(function(session, input, output) {
         mutate(!!colname := factor(.data[[colname]], levels = unique(.data[[colname]]))) %>%
         ggplot(aes(x = !!sym(colname))) +
         geom_bar(fill = "steelblue", color = "black", width = 0.4) +
-        geom_text(stat = "count", aes(label = after_stat(count)), vjust = -4, size = 4.5, color = "red") +
+        geom_text(stat = "count", aes(label = after_stat(count)), vjust = -15, size = 4.5, color = "red") +
         labs(
           title = paste0("Distribution of ", colname, " - number of features: ", nrow(data)),
           x = colname,
@@ -2822,7 +2823,7 @@ shinyServer(function(session, input, output) {
       
       # Render the table of top features
       output$heatmap_table <- DT::renderDataTable({
-        DT::datatable(top_stats, options = list(pageLength = 10))
+        DT::datatable(top_stats, options = list(pageLength = 20))
       })
       
       
@@ -3309,7 +3310,7 @@ shinyServer(function(session, input, output) {
       volcano_df_name <- paste0(dataset_name, "_volcano_df")
       assign(volcano_df_name, sub_df)
       
-      pvp <- reactive(pretty_volcano_plot(
+      pvp <- reactive(volcano_plot(
         sub_df,savedDatasetNameVolcano(),
         log2FC_tresh, pval_tresh,
         fill_up, outline_up,
@@ -3326,14 +3327,9 @@ shinyServer(function(session, input, output) {
       
       # Render the table of top features
       output$volcano_table <- DT::renderDataTable({
-        # Extract the data frame from pvp()
         df <- pvp()$df
-        
-        # Remove the column "hover_text"
         df <- df %>%
           select(-c(hover_text,Contrast))
-        
-        # Render the datatable using the modified df
         DT::datatable(df, 
                       rownames = FALSE,
                       options = list(scrollX = TRUE,
@@ -3402,7 +3398,7 @@ shinyServer(function(session, input, output) {
     show_modal_spinner(
       spin = "atom",
       color = "#0A4F8F",
-      text = "Gathering Identifiers... This may take a few minutes."
+      text = paste("Gathering Identifiers... This may take a few minutes.")
     )
     
     # Process logic
@@ -3431,6 +3427,12 @@ shinyServer(function(session, input, output) {
       
       if (run_development_code) {
         # Check how many rows query has initially
+        
+        update_modal_spinner(
+          session = session,
+          text = paste("Updateing query file... Please be patient. \n (1/5)")
+        )
+        
         query_start <- nrow(query)
         message(paste0("Number of established features: ", query_start))
         
@@ -3453,7 +3455,6 @@ shinyServer(function(session, input, output) {
           new_compounds <- gsub(";.*", "", new_compounds)
         }
         message(paste("Number of features not in query:", length(new_compounds)))
-        
         
         if (length(new_compounds) > 0) {
           num_rows <- length(new_compounds)
@@ -3568,7 +3569,7 @@ shinyServer(function(session, input, output) {
       
       update_modal_spinner(
         session = session,
-        text = "Updating InChI... Please be patient."
+        text = paste("Updating InChI... Please be patient. \n (2/5)")
       )
       
       old_columns <- colnames(subset)
@@ -3605,7 +3606,7 @@ shinyServer(function(session, input, output) {
       
       update_modal_spinner(
         session = session,
-        text = "Looking for CID's... Please be patient."
+        text = paste("Looking for CID's... Please be patient. \n (3/5)")
       )
       
       # Gather CID's after InChI update
@@ -3614,6 +3615,11 @@ shinyServer(function(session, input, output) {
       # message("DATA UPDATED with CID INFO: ")
       # print(head(data_updated))
       message("Update cid function completed.")
+      
+      update_modal_spinner(
+        session = session,
+        text = paste("Adding refmet information... Please be patient. \n (4/5)")
+      )
       
       refmet_updated <- refmet %>%
         filter(
@@ -3652,7 +3658,7 @@ shinyServer(function(session, input, output) {
       
       update_modal_spinner(
         session = session,
-        text = "Looking for pathways... Please be patient."
+        text = paste("Looking for pathways... Please be patient. \n (5/5)")
       )
       
       # add pathways to final_data 
@@ -3661,8 +3667,8 @@ shinyServer(function(session, input, output) {
       pathways_long <- data_updated_list$pathways_long
       data_updated_pathways <- data_updated_list$data_joined
       
-      data_updated_pathways <- data_updated_pathways %>%
-        select(-join_key)
+      # data_updated_pathways <- data_updated_pathways %>%
+      #   select(-join_key)
       
       # add new columns to data_updated_pathways
       new_cols <- setdiff(colnames(data_updated_pathways), old_columns)
@@ -3691,7 +3697,7 @@ shinyServer(function(session, input, output) {
         # Remove the temporary columns from refmet (those ending in ".refmet")
         select(-ends_with(".refmet"))
       
-      additional_keys <- c("lipid_name", "sum_name", "Normalized.Name", "Species.Name")  # example additional keys
+      additional_keys <- c("lipid_name", "sum_name", "Normalized.Name", "Species.Name")  # additional keys
       
       for(key in additional_keys) {
         if(key %in% names(final_data_updated)) {
@@ -3841,7 +3847,8 @@ shinyServer(function(session, input, output) {
       data
     }
   })
-  # Render the datatable
+  #TODO: Might be relevant to extract single or several features to quickly identify in plots. 
+  # Render the datatable 
   # output$dt_table_path <- renderDT({
   #   datatable(dataForPathEnri(),
   #             options = list(autoWidth = TRUE,
@@ -3874,14 +3881,13 @@ shinyServer(function(session, input, output) {
       sendSweetAlert(session, "Error", "Select different groups for comparison.", type = "error")
       return()
     }
-    
-    
+
     # Ensure only one of gene/module is selected
     if (input$gene_selected && input$module_selected) {
-      sendSweetAlert(session, "Error", "Select only one: Gene or Module.", type = "error")
+      sendSweetAlert(session, "Error", "Select only one: Pathway or Module.", type = "error")
       return()
     } else if (!input$gene_selected && !input$module_selected) {
-      sendSweetAlert(session, "Error", "Please select either Gene or Module.", type = "error")
+      sendSweetAlert(session, "Error", "Please select either Pathway or Module.", type = "error")
       return()
     }
     
@@ -3950,7 +3956,9 @@ shinyServer(function(session, input, output) {
     print(head(filtered_sequence))
     
     selected_labels <- as.character(filtered_data[["kegg_id"]])
-    fallback <- if ("Name" %in% colnames(data)) {
+    fallback <- if ("Original.annotation" %in% colnames(data)) {
+      as.character(data[["Original.annotation"]])
+    } else if ("Name" %in% colnames(data)) {
       as.character(data[["Name"]])
     } else if ("name" %in% colnames(data)) {
       as.character(data[["name"]])
@@ -4046,7 +4054,7 @@ shinyServer(function(session, input, output) {
                            bg_genes$unique_kegg_id != "NA" &
                            bg_genes$unique_kegg_id != "N/A", ]
     
-    print(universe)
+    # print(universe)
     
     # Run enrichment analysis based on selection
     if (input$gene_selected) {
@@ -4255,8 +4263,7 @@ shinyServer(function(session, input, output) {
     
     title_down <- paste0(title_name," ", dataset_name, " Downregulated")
     title_up <- paste0(title_name," ", dataset_name, " Upregulated")
-    title_combo <- paste0(title_name," ", dataset_name, " Combined")
-    
+
     update_modal_spinner(
       session = session,
       text = "Plotting... Please be patient."
@@ -4264,7 +4271,7 @@ shinyServer(function(session, input, output) {
     
     output$enrichment_cnetplot_down <- renderPlot({
       tryCatch({
-        NetGraphPlotWithGgraph(enrichres_df_down, filtered_kegg_data, title = title_down,
+        NetGraphPlot(enrichres_df_down, filtered_kegg_data, title = title_down,
                                layout_option = input$layout_option,
                                node_size_mult = input$node_size_mult,
                                node_text_size = input$node_text_size,
@@ -4281,7 +4288,7 @@ shinyServer(function(session, input, output) {
     
     output$enrichment_cnetplot_up <- renderPlot({
       tryCatch({
-        NetGraphPlotWithGgraph(enrichres_df_up, filtered_kegg_data, title = title_up,
+        NetGraphPlot(enrichres_df_up, filtered_kegg_data, title = title_up,
                                layout_option = input$layout_option,
                                node_size_mult = input$node_size_mult,
                                node_text_size = input$node_text_size,
@@ -4296,83 +4303,50 @@ shinyServer(function(session, input, output) {
       })
     })
     
-    output$enrichment_heatmap_down <- renderPlot({
-      tryCatch({
-        # Check if enrichRes1 is NULL or empty
-        if (is.null(enrichRes1) || nrow(as.data.frame(enrichRes1)) == 0) {
-          plot.new()
-          text(0.5, 0.5, "Plot failed to generate.\n
-             No significant pathways detected.\n Please check your criteria or adjust the thresholds.\n.", 
-               cex = 1.2, col = "red", adj = 0.5)
-        } else {
-          p <- heatplot(enrichRes1, showCategory = top_x_features) +
-            ggplot2::ggtitle("Downregulated")
-          p
-        }
-      }, error = function(err) {
-        plot.new()
-        text(0.5, 0.5, "Plot failed to generate.\n
-             No significant pathways detected.\n Please check your criteria or adjust the thresholds.\n.", 
-             cex = 1.2, col = "red", adj = 0.5)
-      })
-    })
-    
-    output$enrichment_heatmap_up <- renderPlot({
-      tryCatch({
-        if (is.null(enrichRes2) || nrow(as.data.frame(enrichRes2)) == 0) {
-          plot.new()
-          text(0.5, 0.5,
-               "No significant pathways detected for Upregulated.\nPlease check criteria or thresholds.",
-               cex = 1.2, col = "red", adj = 0.5)
-        } else {
-          p <- heatplot(enrichRes2, showCategory = top_x_features) +
-            ggplot2::ggtitle("Upregulated")
-          p
-        }
-      }, error = function(err) {
-        plot.new()
-        text(0.5, 0.5,
-             "Plot failed to generate for Upregulated.\nNo significant pathways detected.\nCheck criteria or thresholds.",
-             cex = 1.2, col = "red", adj = 0.5)
-      })
-    })
-    
-    
-    # output$enrichment_heatmap <- renderPlot({
-    #   hp1 <- 
-    #   hp2 <- heatplot(enrichRes2, showCategory = top_x_features)
-    #   cowplot::plot_grid(hp1, hp2, ncol=1, labels= c("Downregulated", "Upregulated"))
-    # })
-    
-    # output$enrichment_heatmap <- renderPlot({
-    #   # Attempt to generate the downregulated heatplot
-    #   hp1 <- tryCatch({
-    #     heatplot(enrichRes1, showCategory = top_x_features)
+    # TODO: might be helpfull in the future 
+    # output$enrichment_heatmap_down <- renderPlot({
+    #   tryCatch({
+    #     # Check if enrichRes1 is NULL or empty
+    #     if (is.null(enrichRes1) || nrow(as.data.frame(enrichRes1)) == 0) {
+    #       plot.new()
+    #       text(0.5, 0.5, "Plot failed to generate.\n
+    #          No significant pathways detected.\n Please check your criteria or adjust the thresholds.\n.", 
+    #            cex = 1.2, col = "red", adj = 0.5)
+    #     } else {
+    #       p <- heatplot(enrichRes1,
+    #                     showCategory = top_x_features,
+    #                     foldChange = enrichRes1$FoldEnrichment) +
+    #         ggplot2::ggtitle("Downregulated")
+    #       p
+    #     }
     #   }, error = function(err) {
-    #     NULL  # Return NULL if it fails
-    #   })
-    #   
-    #   # Attempt to generate the upregulated heatplot
-    #   hp2 <- tryCatch({
-    #     heatplot(enrichRes2, showCategory = top_x_features)
-    #   }, error = function(err) {
-    #     NULL  # Return NULL if it fails
-    #   })
-    #   
-    #   # If both heatplots fail, display a message
-    #   if (is.null(hp1) && is.null(hp2)) {
     #     plot.new()
-    #     text(0.5, 0.5, "Plot failed to generate.\nNo significant pathways detected.\nPlease check your criteria or adjust the thresholds.",
+    #     text(0.5, 0.5, "Plot failed to generate.\n
+    #          No significant pathways detected.\n Please check your criteria or adjust the thresholds.\n.", 
     #          cex = 1.2, col = "red", adj = 0.5)
-    #   } else {
-    #     # Use cowplot::plot_grid to arrange what is available, with labels
-    #     cowplot::plot_grid(hp1, hp2, ncol = 2,
-    #                        labels = c("Downregulated", "Upregulated"))
-    #   }
+    #   })
     # })
-    
-    # output$enrichment_cnetplot <- renderPlot({
-    #   cnetplot(enrichres)  # Directly call the function
+    # 
+    # output$enrichment_heatmap_up <- renderPlot({
+    #   tryCatch({
+    #     if (is.null(enrichRes2) || nrow(as.data.frame(enrichRes2)) == 0) {
+    #       plot.new()
+    #       text(0.5, 0.5,
+    #            "No significant pathways detected for Upregulated.\nPlease check criteria or thresholds.",
+    #            cex = 1.2, col = "red", adj = 0.5)
+    #     } else {
+    #       p <- heatplot(enrichRes2,
+    #                     showCategory = top_x_features,
+    #                     foldChange = enrichRes2$FoldEnrichment) +
+    #         ggplot2::ggtitle("Upregulated")
+    #       p
+    #     }
+    #   }, error = function(err) {
+    #     plot.new()
+    #     text(0.5, 0.5,
+    #          "Plot failed to generate for Upregulated.\nNo significant pathways detected.\nCheck criteria or thresholds.",
+    #          cex = 1.2, col = "red", adj = 0.5)
+    #   })
     # })
     
     output$enrichment_table <- renderDT({
@@ -5618,7 +5592,6 @@ shinyServer(function(session, input, output) {
   # Odds Ratio #
   ##############
   
-  
   observeEvent({
     list(input$select_OR_data, input$OR_main_label)
   }, {
@@ -5645,7 +5618,6 @@ shinyServer(function(session, input, output) {
       feature_default <- if ("Original.annotation" %in% data_colnames) "Original.annotation" else if ("Species.Name" %in% data_colnames) "Species.Name" else data_colnames[1]
       
       # Update the select inputs using the data columns;
-      # If a valid input value exists, keep it, otherwise choose the computed default.
       updateSelectInput(session, "OR_main_label",
                         choices  = data_colnames,
                         selected = if (input$OR_main_label %in% data_colnames) input$OR_main_label else main_default)
@@ -5726,6 +5698,12 @@ shinyServer(function(session, input, output) {
       message("Feature label: ", Feature_label)
       message("Selected features: ", Selected_Groups)
       
+      # Main_label, Sub_label and Feature_label must not be identical 
+      if (Main_label == Sub_label || Main_label == Feature_label || Sub_label == Feature_label) {
+        sendSweetAlert(session, "Error", "Main label, Sub label and Feature label must not be identical.", type = "error")
+        return()
+      }
+      
       # Check if the desired columns are present
       desired_cols <- c(Main_label, Sub_label, Feature_label)
       if (!all(desired_cols %in% colnames(data))) {
@@ -5733,9 +5711,9 @@ shinyServer(function(session, input, output) {
         return()
       }
       
-      # Assume that the sample columns in data are named as the row names of seq.
+      
       sample_cols <- rownames(seq)
-      # Dynamically select columns using the input strings; note the use of !!sym() and all_of() for dynamic selection
+      # Dynamically select columns using the input strings
       df_for_or <- data %>%
         select(!!sym(Main_label), !!sym(Sub_label), !!sym(Feature_label), all_of(sample_cols))
       
@@ -5745,7 +5723,10 @@ shinyServer(function(session, input, output) {
       print(head(df_for_or))
       
       # Remove duplicate rows based on the feature column
-      df_for_or <- df_for_or[!duplicated(df_for_or[[Feature_label]]), ]
+      # df_for_or <- df_for_or[!duplicated(df_for_or[[Feature_label]]), ]
+      
+      # Make the feature names unique 
+      df_for_or[[Feature_label]] <- make.unique(as.character(df_for_or[[Feature_label]]))
       
       # Pivot the data from wide to long format using the sample columns
       df_long <- df_for_or %>%
@@ -5777,17 +5758,13 @@ shinyServer(function(session, input, output) {
       odds_ratios <- df_long %>%
         group_by(feature = .data[[Feature_label]]) %>%
         do({
-          mod <- glm(group ~ intensity, data = ., family = binomial)
-          broom::tidy(mod)
+          mod <- glm(group ~ intensity, data = ., family = binomial) # Logistic regression
+          broom::tidy(mod) # Extract coefficients
         }) %>%
         filter(term == "intensity") %>%
         mutate(odds_ratio = exp(estimate),
                lower_ci   = exp(estimate - 1.96 * std.error),
                upper_ci   = exp(estimate + 1.96 * std.error))
-      
-      print(head(odds_ratios))
-      print(head(df_for_or))
-      
       
       # Join the odds ratios back with the original features for label info
       odds_ratios <- odds_ratios %>%
@@ -5847,12 +5824,11 @@ shinyServer(function(session, input, output) {
       sig_results <- sig_results %>%
         relocate(c(odds_ratio, lower_ci, upper_ci), .after = sub)
       
-      output$OR_table <- renderDataTable({
-        datatable(sig_results,
+      output$OR_table <- DT::renderDataTable({
+        DT::datatable(sig_results,
                   options = list(
-                    dom = 't',
                     scrollX = TRUE,
-                    autoWidth = TRUE
+                    pageLength = 20
                   ))
       })
       
