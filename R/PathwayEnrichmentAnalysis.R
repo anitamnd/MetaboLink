@@ -228,8 +228,8 @@ bar_dot_plot <- function(data, title = NULL, top_x = 20, color_conditions = NULL
   bar <- barplot(data,
                  col = color_conditions,
                  title = paste0("Barplot ", title),
-                 showCategory = top_x) + 
-    facet_grid(~ Regulation)
+                 showCategory = top_x) 
+  # + facet_grid(~ Regulation)
   
   dot <- enrichplot::dotplot(data,
                  x = "GeneRatio",
@@ -237,8 +237,8 @@ bar_dot_plot <- function(data, title = NULL, top_x = 20, color_conditions = NULL
                  showCategory = top_x,
                  font.size = 12,
                  label_format = 30,
-                 title = paste0("Dotplot ", title)) + 
-     facet_grid(~ Regulation)
+                 title = paste0("Dotplot ", title)) 
+  # + facet_grid(~ Regulation)
   
   
   return(list(bar = bar, dot = dot))
@@ -247,17 +247,24 @@ bar_dot_plot <- function(data, title = NULL, top_x = 20, color_conditions = NULL
 NetGraphPlot <- function(enrichment_data, data, title = "Network Graph",
                                    layout_option = "nicely", node_size_mult = 1,
                                    node_text_size = 3, edge_alpha = 0.5,
-                                   edge_width_scale = 1, node_color_by = "super_class" ) {
-  
+                                   edge_width_scale = 1, node_color_by = "super_class") {
+
   message("Inside NetGraphPlotWithGgraph:: ")
   # Convert enrichment data to a DataFrame
   df <- as.data.frame(enrichment_data)
-  
+
   message("Enrichment Data: ")
   print(head(df))
   message("Original Data: ")
   print(head(data))
   
+  valid_cols <- c("super_class", "main_class", "sub_class")
+  if (node_color_by %in% valid_cols && !(node_color_by %in% colnames(data))) {
+    node_color_by <- "type"
+  }
+  
+  print(node_color_by)
+
   # Construct Edge List
   edge_list <- df %>%
     mutate(geneID = str_split(geneID, "/")) %>%
@@ -265,10 +272,10 @@ NetGraphPlot <- function(enrichment_data, data, title = "Network Graph",
     select(ID, Regulation, geneID, GeneRatio, BgRatio, RichFactor, FoldEnrichment, zScore, pvalue, p.adjust, qvalue, Count) %>%
     rename(from = ID, to = geneID) %>%
     relocate(Regulation, .after = Count)
-  
+
   message("Edge List: ")
   print(edge_list)
-  
+
   # Create Graph
   graph <- as_tbl_graph(edge_list) %>%
     mutate(
@@ -278,43 +285,98 @@ NetGraphPlot <- function(enrichment_data, data, title = "Network Graph",
       # Make a total that if the inDegree is zero use Outdegree and vice versa
       TotalDegree = ifelse(InDegree == 0, OutDegree, InDegree)
     )
-  
+
   message("Graph Node Names: ")
   print(graph %>% activate(nodes) %>% as_tibble())
-  
+
   # Merge node metadata and assign a node_color based on user selection.
   graph <- graph %>%
-    left_join(data %>% select(Name, 'Original annotation', kegg_id, refmet_name, super_class, main_class, sub_class),
+    left_join(data %>% select(any_of(c("Name",
+                                     "name",
+                                     'Original annotation',
+                                     "kegg_id",
+                                     "refmet_name",
+                                     "super_class",
+                                     "main_class",
+                                     "sub_class"))),
               by = c("name" = "kegg_id")) %>%
     left_join(df %>% select(ID, Description), by = c("name" = "ID")) %>%
     mutate(
       # For any missing metadata, default to "Module"
-      super_class = coalesce(super_class, "Module"),
-      main_class  = coalesce(main_class, "Module"),
-      sub_class   = coalesce(sub_class, "Module"),
+      super_class = if ("super_class" %in% colnames(data)) {
+        coalesce(super_class, "Module")
+      } else {
+        NA
+      },
+      main_class = if ("main_class" %in% colnames(data)) {
+        coalesce(main_class, "Module")
+      } else {
+        NA
+      },
+      sub_class = if ("sub_class" %in% colnames(data)) {
+        coalesce(sub_class, "Module")
+      } else {
+        NA
+      },
       
+      # OLD 
+      # super_class = coalesce(super_class, "Module"),
+      # main_class  = coalesce(main_class, "Module"),
+      # sub_class   = coalesce(sub_class, "Module"),
+
       # Determine node_color based on the user's choice:
       node_color = case_when(
         node_color_by == "super_class" ~ super_class,
-        node_color_by == "main_class" ~ main_class,
-        node_color_by == "sub_class" ~ sub_class,
-        TRUE ~ super_class
+        node_color_by == "main_class"  ~ main_class,
+        node_color_by == "sub_class"   ~ sub_class,
+        node_color_by == "type"        ~ type,
+        TRUE                           ~ type
       ),
-      
+
       # Assign labels based on type and clean them up
-      label = ifelse(type == "Compound", refmet_name, Description),
-      label = coalesce(label, `Original annotation`, Name),
-      label = str_trunc(label, width = 30, side = "right")
+      base_label = if ("refmet_name" %in% colnames(data)) {
+        ifelse(type == "Compound", refmet_name, Description)
+      } else if ("Original annotation" %in% colnames(data)) {
+        ifelse(type == "Compound", `Original annotation`, Description)
+      } else if ("Name" %in% colnames(data)) {
+        ifelse(type == "Compound", Name, Description)
+      } else {
+        ifelse(type == "Compound", 'name', Description)
+      },
+      label = coalesce(
+        base_label,
+        if ("Original annotation" %in% colnames(data)) `Original annotation` else NA_character_,
+        if ("Name"               %in% colnames(data)) Name                    else NA_character_,
+        name
+      ),
+      label = str_trunc(label, width = 30, side = "right"),
+      label = gsub(",.*", "", label)
+      
+      # OLD
+      # label = ifelse(type == "Compound", refmet_name, Description),
+      # label = coalesce(label, Original annotation, Name),
+      # label = str_trunc(label, width = 30, side = "right"),
+      # label = gsub(",.*", "", label)
+      
     ) %>%
-    select(-refmet_name, -Description, -`Original annotation`, -Name) %>%
-    mutate(label = gsub(",.*", "", label))
+  select( -any_of(c(
+      "refmet_name",
+      "Description",
+      "Original annotation",
+      "Name",
+      "base_label")))
   
   print(graph)
-  
+
   Graph_plot <- ggraph(graph, layout = layout_option) +
-    geom_edge_link0(aes(color = -log10(p.adjust),
+    geom_edge_link0(aes(color = p.adjust,
                         width = edge_width_scale),
                     alpha = edge_alpha) +
+    scale_edge_colour_gradient(
+      low  = "#d16d67",
+      high = "#477cb5"
+    ) + 
+    
     geom_node_point(aes(color = node_color,
                         size = TotalDegree * node_size_mult,
                         shape = type)) +
@@ -336,6 +398,6 @@ NetGraphPlot <- function(enrichment_data, data, title = "Network Graph",
       size = "Node Importance",
       shape = "Node Type"
     )
-  
+
   return(plot = Graph_plot)
 }

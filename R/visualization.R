@@ -2,11 +2,121 @@
 # Visualization #
 # ------------- #
 
+# statistical test ----
+calculate_stats <- function(data, meta,
+                            group_col = "group",
+                            adjust.method = "BH",
+                            min_reps = 2) {
+  # 'data': a matrix or data.frame of intensities, rows = features, columns = samples
+  # 'meta': a data.frame with rownames=sample IDs (matching colnames(data))
+  #         and a factor (or character) column 'Group' (or group_col) for group labels
+  # 'min_reps': if you want to ensure at least 2 replicates per group
+  
+  # --- Match sample order between 'data' and 'meta' ---
+  sampleIDs_data <- colnames(data)
+  sampleIDs_meta <- rownames(meta)
+  if (!identical(sampleIDs_data, sampleIDs_meta)) {
+    # Attempt to reorder 'data' columns to match rownames of 'meta'
+    data <- data[, sampleIDs_meta, drop = FALSE]
+    # Check again
+    if (!identical(colnames(data), rownames(meta))) {
+      return()
+    }
+  }
+  
+  # --- Convert group column to factor, if not already ---
+  meta[[group_col]] <- as.factor(meta[[group_col]])
+  groups <- meta[[group_col]]
+  n_groups <- nlevels(groups)
+  
+  # --- Basic sanity checks ---
+  if (n_groups < 2) {
+    stop("You must have at least 2 groups to do differential analysis.")
+  }
+  # Optionally check each group has >= min_reps
+  group_counts <- table(groups)
+  if (any(group_counts < min_reps)) {
+    warning("Some groups have fewer than 'min_reps' samples. This may affect the analysis.")
+  }
+  
+  # --- Create design matrix (no intercept => one column per group) ---
+  design <- model.matrix(~ 0 + groups)
+  colnames(design) <- levels(groups)
+  
+  # --- Fit model ---
+  fit <- limma::lmFit(data, design)
+  
+  # --- Construct all pairwise contrasts automatically ---
+  group_levels <- levels(groups)
+  # Generate all combinations of factor levels taken 2 at a time
+  all_pairs <- t(combn(group_levels, 2))
+  
+  # Build a named list/vector of contrast strings, e.g. "B - A", "C - A", etc.
+  contrast_list <- apply(all_pairs, 1, function(x) {
+    g1 <- x[1]
+    g2 <- x[2]
+    paste0(g2, " - ", g1)
+  })
+  
+  # Create names for each contrast
+  contrast_names <- apply(all_pairs, 1, function(x) {
+    paste0(x[2], "_vs_", x[1])
+  })
+  
+  # Build the contrast matrix
+  contrast.matrix <- limma::makeContrasts(
+    contrasts = contrast_list,
+    levels = design
+  )
+  
+  # --- Apply contrasts and empirical Bayes ---
+  fit2 <- limma::contrasts.fit(fit, contrast.matrix)
+  fit2 <- limma::eBayes(fit2)
+  
+  # --- Extract results for each contrast ---
+  # We'll combine them into one big data.frame with a "Contrast" column
+  final_list <- list()
+  
+  for (i in seq_along(contrast_list)) {
+    contrast_label <- contrast_names[i]
+    tmp <- limma::topTable(fit2, coef = i, number = Inf, adjust.method = adjust.method)
+    
+    # rename columns for clarity
+    names(tmp)[names(tmp) == "logFC"]   <- "log2FC"
+    names(tmp)[names(tmp) == "P.Value"] <- "p.value"
+    names(tmp)[names(tmp) == "adj.P.Val"] <- "p.adj"
+    
+    # add normal fold change
+    tmp$FC <- 2^tmp$log2FC
+    # add a column indicating which contrast this row belongs to
+    tmp$Contrast <- contrast_label
+    
+    # reorder columns or select which columns to keep
+    tmp <- tmp[, c("Contrast", "FC", "log2FC", "p.value", "p.adj", 
+                   "AveExpr", "t", "B")]
+    
+    final_list[[contrast_label]] <- tmp
+  }
+  
+  # Combine all results into one data.frame
+  final_res <- do.call(rbind, final_list)
+  
+  message("Stats results: ")
+  print(head(final_res))
+  
+  final_res <- final_res[order(final_res$p.adj), ]
+  message("Sorted stats results: ")
+  print(head(final_res))
+  
+  # Return final results
+  return(final_res)
+}
+
 # Heatmap ----
 plot_heatmap <- function(data_subset, data, seq, TOP_X = 50, dataset_name = "", 
                          clustering_distance_rows = "euclidean", clustering_method_rows = "ward.D2",
                          show_column_names = FALSE, show_row_names = FALSE, cluster_rows = FALSE,
-                         show_row_dend = FALSE, labels = "", enable_groups = FALSE, groups = "") {
+                         show_row_dend = FALSE, labels = "", enable_groups = FALSE, groups = "", islog = FALSE) {
   
   # Store original feature labels
   feature_labels <- rownames(data_subset)
@@ -19,6 +129,7 @@ plot_heatmap <- function(data_subset, data, seq, TOP_X = 50, dataset_name = "",
   message(paste0("labels: ", labels))
   message(paste0("enable groups: ", enable_groups))
   message(paste0("groups: ", groups))
+  message(paste0("islog: ", islog))
   
   # Make the dataset name more readable
   dataset_name_readable <- gsub("_", " ", dataset_name)
@@ -33,16 +144,21 @@ plot_heatmap <- function(data_subset, data, seq, TOP_X = 50, dataset_name = "",
   # Process data_subset: convert columns to numeric, log-transform and autoscale
   data_subset <- apply(data_subset, 2, as.numeric)
   rownames(data_subset) <- feature_labels
-  data_subset <- log10(data_subset + 1e-6)
+  # If statement if islog is true 
+  if (!islog) {
+    data_subset <- log10(data_subset + 1e-6)
+  }
+  
   # Save the unscaled log10 data for fold-change calculation
   data_log <- data_subset
   data_matrix <- as.matrix(data_subset)
-  data_matrix <- t(scale(t(data_matrix)))
+  data_matrix <- t(scale(t(data_matrix))) # Z-score for plotting 
   
   # Omit rows with NA values
   initial_row_count <- nrow(data_matrix)
   data_matrix <- data_matrix[complete.cases(data_matrix), ]
   final_row_count <- nrow(data_matrix)
+  message(paste0("Initial row count: ", initial_row_count))
   message(paste0("Removed ", initial_row_count - final_row_count, " rows containing NA values."))
   
   # Perform statistical testing (T-test if 2 groups, ANOVA if >=3)
@@ -67,6 +183,9 @@ plot_heatmap <- function(data_subset, data, seq, TOP_X = 50, dataset_name = "",
   
   stats_df <- data.frame(Feature = rownames(data_matrix), pvals.adj = pvals_adj, stringsAsFactors = FALSE)
   stats_df <- stats_df[order(stats_df$pvals.adj), ]
+  
+  print(head(stats_df))
+  
   
   # Select top X features
   top_features <- head(stats_df$Feature, n = TOP_X)
@@ -198,116 +317,15 @@ plot_heatmap <- function(data_subset, data, seq, TOP_X = 50, dataset_name = "",
 }
 
 # Volcano ----
-calculate_stats <- function(data, meta,
-                            group_col = "group",
-                            adjust.method = "BH",
-                            min_reps = 2) {
-  # 'data': a matrix or data.frame of intensities, rows = features, columns = samples
-  # 'meta': a data.frame with rownames=sample IDs (matching colnames(data))
-  #         and a factor (or character) column 'Group' (or group_col) for group labels
-  # 'min_reps': if you want to ensure at least 2 replicates per group
-  
-  # --- Match sample order between 'data' and 'meta' ---
-  sampleIDs_data <- colnames(data)
-  sampleIDs_meta <- rownames(meta)
-  if (!identical(sampleIDs_data, sampleIDs_meta)) {
-    # Attempt to reorder 'data' columns to match rownames of 'meta'
-    data <- data[, sampleIDs_meta, drop = FALSE]
-    # Check again
-    if (!identical(colnames(data), rownames(meta))) {
-      return()
-    }
-  }
-  
-  # --- Convert group column to factor, if not already ---
-  meta[[group_col]] <- as.factor(meta[[group_col]])
-  groups <- meta[[group_col]]
-  n_groups <- nlevels(groups)
-  
-  # --- Basic sanity checks ---
-  if (n_groups < 2) {
-    stop("You must have at least 2 groups to do differential analysis.")
-  }
-  # Optionally check each group has >= min_reps
-  group_counts <- table(groups)
-  if (any(group_counts < min_reps)) {
-    warning("Some groups have fewer than 'min_reps' samples. This may affect the analysis.")
-  }
-  
-  # --- Create design matrix (no intercept => one column per group) ---
-  design <- model.matrix(~ 0 + groups)
-  colnames(design) <- levels(groups)
-  
-  # --- Fit model ---
-  fit <- limma::lmFit(data, design)
-  
-  # --- Construct all pairwise contrasts automatically ---
-  group_levels <- levels(groups)
-  # Generate all combinations of factor levels taken 2 at a time
-  all_pairs <- t(combn(group_levels, 2))
-  
-  # Build a named list/vector of contrast strings, e.g. "B - A", "C - A", etc.
-  contrast_list <- apply(all_pairs, 1, function(x) {
-    g1 <- x[1]
-    g2 <- x[2]
-    paste0(g2, " - ", g1)
-  })
-  
-  # Create names for each contrast
-  contrast_names <- apply(all_pairs, 1, function(x) {
-    paste0(x[2], "_vs_", x[1])
-  })
-  
-  # Build the contrast matrix
-  contrast.matrix <- limma::makeContrasts(
-    contrasts = contrast_list,
-    levels = design
-  )
-  
-  # --- Apply contrasts and empirical Bayes ---
-  fit2 <- limma::contrasts.fit(fit, contrast.matrix)
-  fit2 <- limma::eBayes(fit2)
-  
-  # --- Extract results for each contrast ---
-  # We'll combine them into one big data.frame with a "Contrast" column
-  final_list <- list()
-  
-  for (i in seq_along(contrast_list)) {
-    contrast_label <- contrast_names[i]
-    tmp <- limma::topTable(fit2, coef = i, number = Inf, adjust.method = adjust.method)
-    
-    # rename columns for clarity
-    names(tmp)[names(tmp) == "logFC"]   <- "log2FC"
-    names(tmp)[names(tmp) == "P.Value"] <- "p.value"
-    names(tmp)[names(tmp) == "adj.P.Val"] <- "p.adj"
-    
-    # add normal fold change
-    tmp$FC <- 2^tmp$log2FC
-    # add a column indicating which contrast this row belongs to
-    tmp$Contrast <- contrast_label
-    
-    # reorder columns or select which columns to keep
-    tmp <- tmp[, c("Contrast", "FC", "log2FC", "p.value", "p.adj", 
-                   "AveExpr", "t", "B")]
-    
-    final_list[[contrast_label]] <- tmp
-  }
-  
-  # Combine all results into one data.frame
-  final_res <- do.call(rbind, final_list)
-  
-  # Return final results
-  return(final_res)
-}
-
 volcano_plot <- function(data, volcano_df_name = "volcano",
-                                log2FC_tresh, pval_tresh,
-                                fill_up, outline_up,
-                                fill_down, outline_down,
-                                fill_ns, outline_ns,
-                                enable_feature_selection = FALSE, enable_group_selection = FALSE,
-                                available_features = "", available_groups = "", group_color_df = NULL,
-                                x_param = 5 , y_param = 5, apply_axis_limits = FALSE) {
+                         log2FC_tresh, pval_tresh,
+                         fill_up, outline_up,
+                         fill_down, outline_down,
+                         fill_ns, outline_ns,
+                         enable_feature_selection = FALSE, enable_group_selection = FALSE,
+                         available_features = "", available_groups = "", group_color_df = NULL,
+                         x_param = 5 , y_param = 5, apply_axis_limits = FALSE,
+                         pval_col = "p.adj") {
   
   library(ggplot2)
   library(plotly)
@@ -327,7 +345,8 @@ volcano_plot <- function(data, volcano_df_name = "volcano",
   }
   # Convert columns to numeric
   data$log2FC <- as.numeric(as.character(data$log2FC))
-  data$p.adj  <- as.numeric(as.character(data$p.adj))
+  data[[pval_col]] <- as.numeric(as.character(data[[pval_col]]))
+  
   
   if(any(is.na(data$log2FC)) | any(is.na(data$p.adj))) {
     warning(paste("NA values found in numeric columns for", volcano_df_name))
@@ -336,8 +355,9 @@ volcano_plot <- function(data, volcano_df_name = "volcano",
   
   # Define significance based on thresholds
   data$Significance <- "Non Sig"
-  data$Significance[data$log2FC > log2FC_tresh & data$p.adj < pval_tresh] <- "Up"
-  data$Significance[data$log2FC < -log2FC_tresh & data$p.adj < pval_tresh] <- "Down"
+  is_sig  <- data[[pval_col]] < pval_tresh
+  data$Significance[data$log2FC >  log2FC_tresh & is_sig] <- "Up"
+  data$Significance[data$log2FC < -log2FC_tresh & is_sig] <- "Down"
   data$Significance <- factor(data$Significance, levels = c("Non Sig", "Up", "Down"))
   
   print(head(data))
@@ -405,13 +425,15 @@ volcano_plot <- function(data, volcano_df_name = "volcano",
       # First layer: non-selected groups (not in group_color_df)
       geom_point(
         data = subset(data, !(Group %in% group_color_df$Group)),
-        aes(x = log2FC, y = -log10(p.adj), color = Significance, fill = Significance, text = hover_text),
+        aes(x = log2FC, y = -log10( .data[[pval_col]]),
+            color = Significance, fill = Significance, text = hover_text),
         shape = 21, size = 3, alpha = 0.7
       ) +
       # Second layer: selected groups (in group_color_df)
       geom_point(
         data = subset(data, Group %in% group_color_df$Group),
-        aes(x = log2FC, y = -log10(p.adj), color = Group, fill = Group, text = hover_text),
+        aes(x = log2FC, y = -log10( .data[[pval_col]] ),
+            color = Group, fill = Group, text = hover_text),
         shape = 21, size = 3, alpha = 0.7
       ) + 
       scale_color_manual(values = final_outline) +
@@ -424,7 +446,7 @@ volcano_plot <- function(data, volcano_df_name = "volcano",
       labs(
         title = paste(clean_dataset_name, ":", gsub("_", " ", unique(data$Contrast))),
         x     = "Log2FC",
-        y     = "-Log10(p-value)"
+        y = paste0("-Log10(", pval_col, ")")
       ) +
       theme(
         plot.title = element_text(hjust = 0.5),
@@ -446,7 +468,7 @@ volcano_plot <- function(data, volcano_df_name = "volcano",
   # Base volcano plot using Significance for color and fill
   p <- ggplot(data, aes(
     x = log2FC,
-    y = -log10(p.adj),
+    y = -log10( .data[[pval_col]] ),
     color = Significance,
     fill = Significance,
     text = hover_text
@@ -470,7 +492,7 @@ volcano_plot <- function(data, volcano_df_name = "volcano",
     labs(
       title = paste(clean_dataset_name, ":", gsub("_", " ", unique(data$Contrast))),
       x     = "Log2FC",
-      y     = "-Log10(p-value)"
+      y = paste0("-Log10(", pval_col, ")")
     ) +
     theme(
       plot.title = element_text(hjust = 0.5),
@@ -488,7 +510,7 @@ volcano_plot <- function(data, volcano_df_name = "volcano",
     p <- p +
       geom_text_repel(
         data = subset(data, Feature_ID %in% available_features),
-        aes(x = log2FC, y = -log10(p.adj), label = Feature_ID),
+        aes(x = log2FC, y = -log10( .data[[pval_col]] ), label = Feature_ID),
         size = 3,
         max.overlaps = Inf
       )
