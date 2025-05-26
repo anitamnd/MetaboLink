@@ -104,7 +104,7 @@ cleanData <- function(data) {
 
 transformation <- function(data, sequence, logMethod, scaleMethod) {
   filtered <- data[, sequence[, 1] %in% c("QC", "Sample")]
-  filtered[is.na(filtered)] <- 0
+  filtered[is.na(filtered)] <- 0 # TODO: BAD practise 
 
   transformed <- selectLogMethod(filtered, logMethod)
   transformed <- cleanData(transformed)

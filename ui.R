@@ -338,7 +338,7 @@ shinyUI(dashboardPage(
           column(
             width = 4,
             box(
-              width = NULL, title = "Upload sequence file", status = "danger",
+              width = NULL, title = "Upload Sequence File", status = "danger",
               fileInput("inputSequence", "Select file", accept = c("txt/csv", "text/comma-seperated-values,text/plain", ".csv"), width = "100%"),
               column(6, style = "padding-left: 0px;", actionButton("updateSequence", label = "Update", width = "100%")), 
               column(6, style = "padding-right: 0px;", actionButton("reuseSequence", label = "Re-use sequence", width = "100%"))
@@ -366,23 +366,23 @@ shinyUI(dashboardPage(
             box(
               column(
                 width = 6,
-                selectInput("name_column_annotate", "Select annotation column", choices = NULL, width = "100%")
+                selectInput("name_column_annotate", "Select Annotation Column", choices = NULL, width = "100%")
               ),
-              width = NULL, title = "Remove unannotated features",
+              width = NULL, title = "Remove Unannotated Features",
               actionButton("RemoveUnannotated", "Remove", width = "50%")
             ),
             
             box(
-              width = NULL, title = "Edit data columns",
+              width = NULL, title = "Edit Data Columns",
               actionButton("editColumns", "Edit", width = "50%")
             ),
             box(
-              width = NULL, title = "Group nicknames",
+              width = NULL, title = "Group Nicknames",
               p("Only use letters and numbers."),
               actionButton("editGroups", "Edit", width = "50%")
             ),
             box(
-              width = NULL, title = "Download sequence file",
+              width = NULL, title = "Download Sequence File",
               downloadButton("downloadSequence", " Download")
             )
           )
@@ -404,14 +404,14 @@ shinyUI(dashboardPage(
                      fluidRow(
                        column(12,
                               box(width = 12,
-                                  title = "Median across samples",
+                                  title = "Median Across Samples",
                                   status = "primary",
                                   solidHeader = TRUE,
                                   collapsible = TRUE,
                                   plotlyOutput("histogram", height = "600px") %>% withSpinner(color="steelblue")
                               )),
                        column(12,
-                              box(width = 12, title = "Median across QCs",
+                              box(width = 12, title = "Median Across QCs",
                                   status = "primary",
                                   solidHeader = TRUE,
                                   collapsible = TRUE,
@@ -452,7 +452,7 @@ shinyUI(dashboardPage(
                        column(12, 
                               box(
                                 width = 12,
-                                title = "Violin plot",
+                                title = "Violin Plot",
                                 status = "primary",
                                 solidHeader = TRUE,
                                 collapsible = TRUE,
@@ -462,7 +462,7 @@ shinyUI(dashboardPage(
                        ,
                        column(12,
                               box(width = 12,
-                                  title = "Median across groups",
+                                  title = "Median Across Groups",
                                   status = "primary",
                                   solidHeader = TRUE,
                                   collapsible = TRUE,
@@ -562,7 +562,7 @@ shinyUI(dashboardPage(
                      fluidRow(
                        column(3, box(
                          width = NULL, 
-                         title = "Select feature", 
+                         title = "Select Feature", 
                          DTOutput("dt_boxplot_panel")
                        )),
                        column(9, box(width = NULL, title = "Settings",
@@ -1117,11 +1117,13 @@ shinyUI(dashboardPage(
                                ),
                                # Dynamic UI for Group Selection (appears when 'select_groups_heatmap' is TRUE)
                                uiOutput("group_selection_ui_heatmap"),
+                               checkboxInput("heatmap_islog", "Data is log-transformed.", value = FALSE, width = "100%"),
+                               helpText("Check if the data is log-transformed."),
                                # Top Features Selection
                                numericInput(
                                  inputId = "top_x",
                                  label = "Number of Top Features:",
-                                 value = 20,
+                                 value = 25,
                                  min = 1,
                                  step = 1
                                ),
@@ -1250,6 +1252,17 @@ shinyUI(dashboardPage(
                                fluidRow(
                                  column(
                                    width = 6,
+                                   selectInput("group1_cirbar", "Group of Interest:", choices = NULL, width = "100%")
+                                 ),
+                                 column(
+                                   width = 6,
+                                   selectInput("group2_cirbar", "Reference Group:", choices = NULL, width = "100%")
+                                 )
+                               ),
+                               
+                               fluidRow(
+                                 column(
+                                   width = 6,
                                    selectInput("name_column_cirbar", "Select Naming Column", choices = NULL, width = "100%")
                                  ),
                                  column(
@@ -1266,17 +1279,6 @@ shinyUI(dashboardPage(
                                  column(
                                    width = 6,
                                    selectInput("feature_cirbar", "Select Plotting Feature:", choices = NULL, width = "100%")
-                                 )
-                               ),
-                               
-                               fluidRow(
-                                 column(
-                                   width = 6,
-                                   selectInput("group1_cirbar", "Group of Interest:", choices = NULL, width = "100%")
-                                 ),
-                                 column(
-                                   width = 6,
-                                   selectInput("group2_cirbar", "Reference Group:", choices = NULL, width = "100%")
                                  )
                                ),
                                
@@ -1566,6 +1568,31 @@ shinyUI(dashboardPage(
                                fluidRow(
                                  column(
                                    width = 6,
+                                   selectInput("pAdjustMethod_volcano", "P-Adjust Method:",
+                                               choices = c("Holm" = "holm",
+                                                           "Hochberg" = "hochberg",
+                                                           "Hommel" = "hommel",
+                                                           "Bonferroni" = "bonferroni",
+                                                           "Benjamini & Hochberg" = "BH",
+                                                           "Benjamini & Yekutieli" = "BY",
+                                                           "FDR" = "fdr",
+                                                           "None" = "none"),
+                                               selected = "fdr"
+                                   )
+                                 ),
+                                 column(width = 6,
+                                        selectInput("pval_col_volcano",
+                                                    "Display p-value column:",
+                                                    choices = c("P-value" = "p.value",
+                                                                "Adjusted P-value" = "p.adj"),
+                                                    selected = "p.adj"
+                                        )
+                                 )
+                               ),
+                               
+                               fluidRow(
+                                 column(
+                                   width = 6,
                                    numericInput("log2fc_threshold", "Log2 FC Threshold:", value = 2, min = 0)
                                  ),
                                  column(
@@ -1700,7 +1727,7 @@ shinyUI(dashboardPage(
                          )
                        ),
                        
-                       tabPanel(title = "Odds Ratio plots",
+                       tabPanel(title = "Odds Ratio Plot",
                                 fluidRow(
                                   column(
                                     width = 12,
@@ -1766,14 +1793,14 @@ shinyUI(dashboardPage(
                                   ),
                                   box(
                                     width = 12,
-                                    title = "OR plot",
+                                    title = "OR Plot",
                                     status = "primary",
                                     solidHeader = TRUE,
                                     collapsible = TRUE,
                                     plotOutput("OR_plot", height = "1000px") %>% withSpinner(color="steelblue")
                                   ),
                                   box(width = 12,
-                                      title = "OR results table",
+                                      title = "OR Results Table",
                                       status = "primary",
                                       solidHeader = TRUE,
                                       collapsible = TRUE,
@@ -1782,380 +1809,283 @@ shinyUI(dashboardPage(
                        )
                      )
             ),
-            # UI for Pathway Enrichment Analysis
+            # UI for Pathway Analysis
             tabPanel(
-              "Pathway Enrichment",
-              
-              # Information Box
-              fluidRow(
-                column(
-                  width = 12,
-                  box(
-                    width = NULL,
-                    title = "Pathway Enrichment Information",
-                    status = "info",
-                    solidHeader = TRUE,
-                    collapsible = FALSE,
-                    tagList(
-                      tags$ul(
-                        tags$li("Pathway enrichment analysis identifies over-represented biological pathways in your data."),
-                        tags$li("Set appropriate thresholds and select the correct groups to reveal significant pathways.")
-                      )
-                    )
-                  )
-                )
-              ),
-              
-              # Data & Selection UI
-              fluidRow(
-                column(
-                  width = 6,
-                  box(
-                    width = 12,
-                    title = "Data & Identifier Selection",
-                    status = "primary",
-                    solidHeader = TRUE,
-                    collapsible = FALSE,
-                    
-                    selectInput("select_data_for_enrichment", "Select Dataset for Identifier Gathering", choices = NULL, width = "100%"),
-                    
-                    fluidRow(
-                      column(
-                        width = 6,
-                        selectInput("identifier_column", "Select InChI Column", choices = NULL, width = "100%")
-                      ),
-                      column(
-                        width = 6,
-                        selectInput("compound_column", "Select Compound Column", choices = NULL, width = "100%")
-                      )
-                    ),
-                    
-                    actionButton("run_gather_identifiers", "Gather Identifiers", width = "100%"),
-                    
-                    # checkboxInput("showDT", "Display Data Table", value = FALSE),
-                    # 
-                    # conditionalPanel(
-                    #   condition = "input.showDT == true",
-                    #   DTOutput("dt_table_path")
-                    # ),
-                    
-                    fluidRow(
-                      column(
-                        width = 6,
-                        checkboxInput("gene_selected", "Pathway Enrichment", TRUE)
-                      ),
-                      column(
-                        width = 6,
-                        checkboxInput("module_selected", "Module Enrichment", FALSE)
-                      )
-                    ),
-                    
-                    fluidRow(
-                      column(
-                        width = 6,
-                        selectInput("group1_enrichment", "Group of Interest", choices = NULL, width = "100%")
-                      ),
-                      column(
-                        width = 6,
-                        selectInput("group2_enrichment", "Reference Group", choices = NULL, width = "100%")
-                      )
-                    ),
-                    
-                    actionButton("run_enrichment_analysis", "Run Enrichment Analysis", width = "100%")
-                  )
-                ),
-                
-                fluidRow(
-                  # Enrichment Settings Panel
-                  column(
-                    width = 6,
-                    box(
-                      title = "Enrichment Settings",
+              "Pathway Analysis",
+              tabsetPanel(
+                # Over-Representation Analysis tab
+                tabPanel(
+                  "Over-Representation Analysis (ORA)",
+                  
+                  # Information Box
+                  fluidRow(
+                    column(
                       width = 12,
-                      status = "primary",
-                      solidHeader = TRUE,
-                      collapsible = TRUE,
-                      fluidRow(
-                        column(
-                          width = 6,
-                          numericInput(
-                            inputId = "top_x_enrich",
-                            label = "Number of Top Features:",
-                            value = 20,
-                            min = 1,
-                            step = 1
-                          ),
-                          numericInput(
-                            inputId = "p_value_threshold_enrich",
-                            label = "P-value Threshold:",
-                            value = 0.05,
-                            min = 0,
-                            max = 1,
-                            step = 0.01
-                          )
-                        ),
-                        column(
-                          width = 6,
-                          selectInput(
-                            inputId = "pAdjustMethod_enrich",
-                            label = "P-Adjust Method:",
-                            choices = c("holm", "hochberg", "hommel", "bonferroni", "BH", "BY", "fdr", "none"),
-                            selected = "fdr"
-                          ),
-                          selectInput(
-                            inputId = "color_con_enrich",
-                            label = "Color based on Method:",
-                            choices = c("p.adjust", "pvalue", "qvalue"),
-                            selected = "p.adjust"
-                          )
-                        )
-                      ),
-                      fluidRow(
-                        column(
-                          width = 6,
-                          numericInput(
-                            inputId = "minGSSize_enrich",
-                            label = "min GS Size Threshold:",
-                            value = 1,
-                            min = 0,
-                            max = 1000000,
-                            step = 1
-                          )
-                        ),
-                        column(
-                          width = 6,
-                          numericInput(
-                            inputId = "maxGSSize_enrich",
-                            label = "max GS Size Threshold:",
-                            value = 500,
-                            min = 0,
-                            max = 1000000,
-                            step = 1
-                          )
-                        )
-                      ),
-                      fluidRow(
-                        column(
-                          width = 6,
-                          numericInput(
-                            inputId = "qvalueCutoff_enrich",
-                            label = "Q-value Threshold:",
-                            value = 0.05,
-                            min = 0,
-                            max = 1,
-                            step = 0.01
+                      box(
+                        width = NULL,
+                        title = "Pathway Enrichment Information",
+                        status = "info",
+                        solidHeader = TRUE,
+                        collapsible = FALSE,
+                        tagList(
+                          tags$ul(
+                            tags$li("Pathway enrichment analysis identifies over-represented biological pathways in your data."),
+                            tags$li("Set appropriate thresholds and select the correct groups to reveal significant pathways.")
                           )
                         )
                       )
                     )
                   ),
-                  # Network Graph Customizations Panel
-                  column(
-                    width = 6,
-                    box(
-                      title = "Network Graph Customizations",
-                      width = 12,
-                      status = "info",
-                      solidHeader = TRUE,
-                      collapsible = TRUE,
-                      fluidRow(
-                        column(
-                          width = 6,
-                          selectInput(
-                            inputId = "layout_option",
-                            label = "Choose Layout:",
-                            choices <- c(
-                              "Nicely" = "nicely",
-                              "Kamada-Kawai" = "kk",
-                              "Fruchterman-Reingold" = "fr",
-                              "DrL Layout" = "drl",
-                              "Linear" = "linear",
-                              "Star" = "star",
-                              "Circular" = "circle",
-                              "Davidson-Harel" = "dh",
-                              "Graph Optimization" = "graphopt",
-                              "Grid Layout" = "grid",
-                              "Multidimensional Scaling" = "mds",
-                              "Random" = "randomly"
-                            ),
-                            selected = "nicely"
+                  
+                  # Data & Selection UI
+                  fluidRow(
+                    column(
+                      width = 6,
+                      box(
+                        width = 12,
+                        title = "Data & Identifier Selection",
+                        status = "primary",
+                        solidHeader = TRUE,
+                        collapsible = FALSE,
+                        
+                        selectInput("select_data_for_enrichment", "Select Dataset for Identifier Gathering", choices = NULL, width = "100%"),
+                        
+                        fluidRow(
+                          column(
+                            width = 6,
+                            selectInput("identifier_column", "Select InChI Column", choices = NULL, width = "100%")
                           ),
-                          sliderInput(
-                            inputId = "node_size_mult",
-                            label = "Node Size Multiplier:",
-                            min = 0.5,
-                            max = 3,
-                            value = 1,
-                            step = 0.1
+                          column(
+                            width = 6,
+                            selectInput("compound_column", "Select Compound Column", choices = NULL, width = "100%")
                           )
                         ),
-                        column(
-                          width = 6,
-                          sliderInput(
-                            inputId = "node_text_size",
-                            label = "Node Text Size:",
-                            min = 1,
-                            max = 6,
-                            value = 3,
-                            step = 0.5
+                        
+                        actionButton("run_gather_identifiers", "Gather Identifiers", width = "100%"),
+                        
+                        fluidRow(
+                          column(
+                            width = 6,
+                            checkboxInput("gene_selected", "Pathway Enrichment", TRUE)
                           ),
-                          sliderInput(
-                            inputId = "edge_alpha",
-                            label = "Edge Transparency:",
-                            min = 0,
-                            max = 1,
-                            value = 0.5,
-                            step = 0.1
-                          )
-                        )
-                      ),
-                      fluidRow(
-                        column(
-                          width = 6,
-                          sliderInput(
-                            inputId = "edge_width_scale",
-                            label = "Edge Width Scale:",
-                            min = 0.5,
-                            max = 5,
-                            value = 1,
-                            step = 0.1
+                          column(
+                            width = 6,
+                            checkboxInput("module_selected", "Module Enrichment", FALSE)
                           )
                         ),
-                        column(
-                          width = 6,
-                          selectInput("node_color_by", "Color Nodes By:",
-                                      choices = c("super_class", "main_class", "sub_class"),
-                                      selected = "super_class")
-                        )
+                        
+                        fluidRow(
+                          column(
+                            width = 6,
+                            selectInput("group1_enrichment", "Group of Interest", choices = NULL, width = "100%")
+                          ),
+                          column(
+                            width = 6,
+                            selectInput("group2_enrichment", "Reference Group", choices = NULL, width = "100%")
+                          )
+                        ),
+                        
+                        actionButton("run_enrichment_analysis", "Run ORA", width = "100%")
                       )
-                    )
-                  )
-                ),
-                
-                # Identifiers Count
-                column(
-                  width = 12,
-                  box(
-                    width = 12,
-                    title = "Identifiers Gathered",
-                    status = "primary",
-                    solidHeader = TRUE,
-                    collapsible = TRUE,
+                    ),
                     
-                    textOutput("identifier_count_text"),
-                    DTOutput("identifier_count_table")
-                  )
-                )
-              ),
-              
-              # Enrichment Plots
-              fluidRow(
-                column(
-                  width = 12,
-                  box(
-                    title = "Enrichment Barplot and Dotplot",
-                    width = NULL,
-                    status = "primary",
-                    solidHeader = TRUE,
-                    collapsible = TRUE,
-                    fluidRow(
-                      column(
-                        width = 6,
-                        plotOutput("enrichment_barplot", height = "600px") %>% withSpinner(color = "steelblue")
+                    # Enrichment Settings & Network Customizations
+                    column(
+                      width = 6,
+                      box(
+                        title = "Enrichment Settings",
+                        width = 12,
+                        status = "primary",
+                        solidHeader = TRUE,
+                        collapsible = TRUE,
+                        fluidRow(
+                          column(
+                            width = 6,
+                            numericInput("top_x_enrich", "Number of Top Features:", value = 20, min = 1, step = 1),
+                            numericInput("p_value_threshold_enrich", "Adjusted P-value Threshold:", value = 0.05, min = 0, max = 1, step = 0.01)
+                          ),
+                          column(
+                            width = 6,
+                            selectInput("pAdjustMethod_enrich", "P-Adjust Method:",
+                                        choices = c("Holm" = "holm",
+                                                    "Hochberg" = "hochberg",
+                                                    "Hommel" = "hommel",
+                                                    "Bonferroni" = "bonferroni",
+                                                    "Benjamini & Hochberg" = "BH",
+                                                    "Benjamini & Yekutieli" = "BY",
+                                                    "FDR" = "fdr",
+                                                    "None" = "none"),
+                                        selected = "fdr"
+                            ),
+                            selectInput("color_con_enrich", "Color based on Method:",
+                                        choices = c("Adjusted P value" = "p.adjust",
+                                                    "P-value" = "pvalue",
+                                                    "Q-value" = "qvalue"),
+                                        selected = "p.adjust"
+                            )
+                          )
+                        ),
+                        fluidRow(
+                          column(
+                            width = 6,
+                            numericInput("minGSSize_enrich", "min GS Size Threshold:", value = 1, min = 0, max = 1e6, step = 1)
+                          ),
+                          column(
+                            width = 6,
+                            numericInput("maxGSSize_enrich", "max GS Size Threshold:", value = 500, min = 0, max = 1e6, step = 1)
+                          )
+                        ),
+                        fluidRow(
+                          column(
+                            width = 6,
+                            numericInput("qvalueCutoff_enrich", "Q-value Threshold:", value = 0.05, min = 0, max = 1, step = 0.01)
+                          )
+                        )
                       ),
-                      column(
-                        width = 6,
-                        plotOutput("enrichment_dotplot", height = "600px") %>% withSpinner(color = "steelblue")
+                      box(
+                        title = "Network Graph Customizations",
+                        width = 12,
+                        status = "info",
+                        solidHeader = TRUE,
+                        collapsible = TRUE,
+                        fluidRow(
+                          column(
+                            width = 6,
+                            selectInput("layout_option", "Choose Layout:",
+                                        choices = c(
+                                          "Nicely" = "nicely",
+                                          "Kamada-Kawai" = "kk",
+                                          "Fruchterman-Reingold" = "fr",
+                                          "DrL Layout" = "drl",
+                                          "Linear" = "linear",
+                                          "Star" = "star",
+                                          "Circular" = "circle",
+                                          "Davidson-Harel" = "dh",
+                                          "Graph Optimization" = "graphopt",
+                                          "Grid Layout" = "grid",
+                                          "Multidimensional Scaling" = "mds",
+                                          "Random" = "randomly"
+                                        ),
+                                        selected = "nicely"
+                            ),
+                            sliderInput("node_size_mult", "Node Size Multiplier:", min = 0.5, max = 3, value = 1, step = 0.1)
+                          ),
+                          column(
+                            width = 6,
+                            sliderInput("node_text_size", "Node Text Size:", min = 1, max = 6, value = 3, step = 0.5),
+                            sliderInput("edge_alpha", "Edge Transparency:", min = 0, max = 1, value = 0.5, step = 0.1)
+                          )
+                        ),
+                        fluidRow(
+                          column(
+                            width = 6,
+                            sliderInput("edge_width_scale", "Edge Width Scale:", min = 0.5, max = 5, value = 1, step = 0.1)
+                          ),
+                          column(
+                            width = 6,
+                            selectInput("node_color_by", "Color Nodes By:",
+                                        choices = c("super_class", "main_class", "sub_class"),
+                                        selected = "super_class"
+                            )
+                          )
+                        )
+                      )
+                    ),
+                    
+                    # Identifiers Count
+                    column(
+                      width = 12,
+                      box(
+                        width = 12,
+                        title = "Data summary",
+                        status = "primary",
+                        solidHeader = TRUE,
+                        collapsible = TRUE,
+                        
+                        textOutput("identifier_count_text"),
+                        DTOutput("identifier_count_table")
+                      )
+                    )
+                  ),
+                  
+                  # Enrichment Plots
+                  fluidRow(
+                    column(
+                      width = 12,
+                      box(
+                        title = "Enrichment Barplot and Dotplot",
+                        width = NULL,
+                        status = "primary",
+                        solidHeader = TRUE,
+                        collapsible = TRUE,
+                        fluidRow(
+                          column(
+                            width = 6,
+                            plotOutput("enrichment_barplot", height = "600px") %>% withSpinner(color = "steelblue")
+                          ),
+                          column(
+                            width = 6,
+                            plotOutput("enrichment_dotplot", height = "600px") %>% withSpinner(color = "steelblue")
+                          )
+                        )
+                      )
+                    )
+                  ),
+                  
+                  # Enrichment Network Graph
+                  fluidRow(
+                    column(
+                      width = 12,
+                      box(
+                        title = "Enrichment Network Graph",
+                        width = NULL,
+                        status = "primary",
+                        solidHeader = TRUE,
+                        collapsible = TRUE,
+                        fluidRow(
+                          column(
+                            width = 12,
+                            plotOutput("enrichment_cnetplot", height = "700px") %>% withSpinner(color = "steelblue")
+                          )
+                        )
+                      )
+                    )
+                  ),
+                  
+                  # Enrichment Table
+                  fluidRow(
+                    column(
+                      width = 12,
+                      box(
+                        width = NULL,
+                        title = "Enrichment Table",
+                        status = "primary",
+                        solidHeader = TRUE,
+                        collapsible = TRUE,
+                        DTOutput("enrichment_table")
                       )
                     )
                   )
                 )
-              ),
-              
-              # Enrichment Heatmap Plots
-              # fluidRow(
-              #   column(
-              #     width = 12,
-              #     box(
-              #       title = "Enrichment Heatmap",
-              #       width = NULL,
-              #       status = "primary",
-              #       solidHeader = TRUE,
-              #       collapsible = TRUE,
-              #       fluidRow(
-              #         column(
-              #           width = 6,
-              #           plotOutput("enrichment_heatmap_down", height = "600px") %>% withSpinner(color = "steelblue")
-              #         ),
-              #         column(
-              #           width = 6,
-              #           plotOutput("enrichment_heatmap_up", height = "600px") %>% withSpinner(color = "steelblue")
-              #         )
-              #       )
-              #     )
-              #   )
-              # ),
-              
-              # Enrichment Heatmap Plots
-              # fluidRow(
-              #   column(
-              #     width = 12,
-              #     box(
-              #       title = "Enrichment Treeplot",
-              #       width = NULL,
-              #       status = "primary",
-              #       solidHeader = TRUE,
-              #       collapsible = TRUE,
-              #       fluidRow(
-              #         column(
-              #           width = 12,
-              #           plotOutput("enrichment_treeplot", height = "600px") %>% withSpinner(color = "steelblue")
-              #         )
-              #       )
-              #     )
-              #   )
-              # ),
-              
-              # Enrichment Network Graph
-              fluidRow(
-                column(
-                  width = 12,
-                  box(
-                    title = "Enrichment Network Graph",
-                    width = NULL,
-                    status = "primary",
-                    solidHeader = TRUE,
-                    collapsible = TRUE,
-                    fluidRow(
-                      column(
-                        width = 6,
-                        plotOutput("enrichment_cnetplot_down", height = "600px") %>% withSpinner(color = "steelblue")
-                      ),
-                      column(
-                        width = 6,
-                        plotOutput("enrichment_cnetplot_up", height = "600px") %>% withSpinner(color = "steelblue")
-                      )
-                    ) #,
-                    # plotOutput("enrichment_cnetplot", height = "600px") %>% withSpinner(color = "steelblue")
-                  )
-                )
-              ),
-              
-              # Enrichment Table
-              fluidRow(
-                column(
-                  width = 12,
-                  box(
-                    width = NULL,
-                    title = "Enrichment Table",
-                    status = "primary",
-                    solidHeader = TRUE,
-                    collapsible = TRUE,
-                    DTOutput("enrichment_table")
-                  )
-                )
+                
+                # ,
+                # TODO # Add tabs for other types of pathway enrichment analysis
+                # # Functional Class Scoring tab
+                # tabPanel(
+                #   "FCS"
+                #   # (FCS-specific UI components go here)
+                # ),
+                # 
+                # # Topology-based Analysis tab
+                # tabPanel(
+                #   "TO"
+                #   # (TO-specific UI components go here)
+                # )
+                
               )
-            ),
+            )
+            
+            ,
             
             # Summary tab
             tabPanel("Summary",
