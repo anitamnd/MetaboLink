@@ -875,7 +875,6 @@ shinyServer(function(session, input, output) {
       
       num_feature_after <- nrow(data)
       
-      
       colnames_cleaned <- setdiff(colnames(data), original_colnames)
       
       # Debug
@@ -1327,6 +1326,9 @@ shinyServer(function(session, input, output) {
         left_join(sample_size, by = "group") %>%
         mutate(myaxis = paste0(group, "\n", "n=", num))
       
+      print(head(data_long))
+      print(head(sample_size))
+      
       # Create the base plot
       violin_layer <- ggplot(data_long, aes(x = myaxis, y = value, fill = group)) +
         geom_violin(width = 1.4) + 
@@ -1596,9 +1598,9 @@ shinyServer(function(session, input, output) {
   })
   
   
-  ###########################
-  # Missing value filtration#
-  ###########################
+  ############################
+  # Missing value filtration #
+  ############################
   
   observeEvent(input$runFilterNA, {
     if(is.null(rv$activeFile)) {
@@ -4081,8 +4083,8 @@ shinyServer(function(session, input, output) {
     
     stats_df <- stats_df %>%
       mutate(diffexpressed = case_when(
-        log2FC > 0 & p.adj < 0.05 ~ "Upregulated",
-        log2FC < 0 & p.adj < 0.05 ~ "Downregulated",
+        log2FC > 0.585 & p.adj < 0.05 ~ "Upregulated", #TODO fix such that user defines
+        log2FC < 0.585 & p.adj < 0.05 ~ "Downregulated", # TODO fix such that user defines
         p.adj > 0.05 ~ "Non-Significant"
       ))
     
@@ -4578,6 +4580,9 @@ shinyServer(function(session, input, output) {
       output$circular_barplot <- renderPlot({
         cirbar_plot
       })
+      
+      # TODO: return plotting_data as DF to investigate the data used for the plot
+      
     }
   })
   

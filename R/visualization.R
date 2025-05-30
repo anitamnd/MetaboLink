@@ -7,12 +7,9 @@ calculate_stats <- function(data, meta,
                             group_col = "group",
                             adjust.method = "BH",
                             min_reps = 2) {
-  # 'data': a matrix or data.frame of intensities, rows = features, columns = samples
-  # 'meta': a data.frame with rownames=sample IDs (matching colnames(data))
-  #         and a factor (or character) column 'Group' (or group_col) for group labels
-  # 'min_reps': if you want to ensure at least 2 replicates per group
+
   
-  # --- Match sample order between 'data' and 'meta' ---
+  # Match sample order between 'data' and 'meta'
   sampleIDs_data <- colnames(data)
   sampleIDs_meta <- rownames(meta)
   if (!identical(sampleIDs_data, sampleIDs_meta)) {
@@ -24,34 +21,34 @@ calculate_stats <- function(data, meta,
     }
   }
   
-  # --- Convert group column to factor, if not already ---
+  # Convert group column to factor
   meta[[group_col]] <- as.factor(meta[[group_col]])
   groups <- meta[[group_col]]
   n_groups <- nlevels(groups)
   
-  # --- Basic sanity checks ---
+  # Basic sanity checks
   if (n_groups < 2) {
     stop("You must have at least 2 groups to do differential analysis.")
   }
-  # Optionally check each group has >= min_reps
+  # Check each group has >= min_reps
   group_counts <- table(groups)
   if (any(group_counts < min_reps)) {
     warning("Some groups have fewer than 'min_reps' samples. This may affect the analysis.")
   }
   
-  # --- Create design matrix (no intercept => one column per group) ---
+  # Create design matrix (no intercept => one column per group)
   design <- model.matrix(~ 0 + groups)
   colnames(design) <- levels(groups)
   
-  # --- Fit model ---
+  # Fit model 
   fit <- limma::lmFit(data, design)
   
-  # --- Construct all pairwise contrasts automatically ---
+  # Construct all pairwise contrasts automatically
   group_levels <- levels(groups)
   # Generate all combinations of factor levels taken 2 at a time
   all_pairs <- t(combn(group_levels, 2))
   
-  # Build a named list/vector of contrast strings, e.g. "B - A", "C - A", etc.
+  # Build a named list/vector of contrast strings
   contrast_list <- apply(all_pairs, 1, function(x) {
     g1 <- x[1]
     g2 <- x[2]
@@ -69,12 +66,11 @@ calculate_stats <- function(data, meta,
     levels = design
   )
   
-  # --- Apply contrasts and empirical Bayes ---
+  # Apply contrasts and empirical Bayes
   fit2 <- limma::contrasts.fit(fit, contrast.matrix)
   fit2 <- limma::eBayes(fit2)
   
-  # --- Extract results for each contrast ---
-  # We'll combine them into one big data.frame with a "Contrast" column
+  # Extract results for each contrast 
   final_list <- list()
   
   for (i in seq_along(contrast_list)) {
