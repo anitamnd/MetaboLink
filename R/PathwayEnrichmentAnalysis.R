@@ -269,7 +269,8 @@ NetGraphPlot <- function(enrichment_data, data, title = "Network Graph",
   edge_list <- df %>%
     mutate(geneID = str_split(geneID, "/")) %>%
     unnest(cols = geneID) %>%
-    select(ID, Regulation, geneID, GeneRatio, BgRatio, RichFactor, FoldEnrichment, zScore, pvalue, p.adjust, qvalue, Count) %>%
+    select(ID, Regulation, geneID, GeneRatio, BgRatio, RichFactor, FoldEnrichment,
+           zScore, pvalue, p.adjust, qvalue, Count) %>%
     rename(from = ID, to = geneID) %>%
     relocate(Regulation, .after = Count)
 
