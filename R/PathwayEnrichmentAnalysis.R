@@ -147,6 +147,9 @@ update_cid <- function(data, compound_column, identifier_column, query) {
 
 # Function to get KEGG pathways
 get_kegg_pathways <- function(data) {
+  
+  print(data[["kegg_id"]])
+
   # Extract KEGG IDs from data
   kegg_ids <- data[["kegg_id"]]
   
@@ -203,6 +206,8 @@ get_kegg_pathways <- function(data) {
       ),
       .groups = "drop"
     )
+  
+  print(head(pathways_summary))
   
   # Merge concatenated pathways back to the original dataset
   data_merged <- data %>%
