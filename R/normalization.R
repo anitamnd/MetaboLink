@@ -41,10 +41,10 @@ normalization <- function(data, sequence, qualityControls, method) {
 
 # Transformation
 meanCenter <- function(x) {
-  x - mean(x)
+  x - mean(x, na.rm = T)
 }
 autoNorm <- function(x) {
-  (x - mean(x))/sd(x, na.rm=T)
+  (x - mean(x, na.rm = T))/sd(x, na.rm=T)
 }
 
 selectLogMethod <- function(data, method) {
@@ -104,14 +104,13 @@ cleanData <- function(data) {
 
 transformation <- function(data, sequence, logMethod, scaleMethod) {
   filtered <- data[, sequence[, 1] %in% c("QC", "Sample")]
-  filtered[is.na(filtered)] <- 0 # TODO: BAD practise 
 
   transformed <- selectLogMethod(filtered, logMethod)
-  transformed <- cleanData(transformed)
-  scaled <- selectScalingMethod(transformed, scaleMethod)
-  clean <- cleanData(scaled)
-  rownames(clean) <- rownames(filtered)
-  colnames(clean) <- colnames(filtered)
   
-  return(clean)
+  scaled <- selectScalingMethod(transformed, scaleMethod)
+  
+  rownames(scaled) <- rownames(filtered)
+  colnames(scaled) <- colnames(filtered)
+  
+  return(scaled)
 }

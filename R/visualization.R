@@ -157,6 +157,10 @@ plot_heatmap <- function(data_subset, data, seq, TOP_X = 50, dataset_name = "",
   message(paste0("Initial row count: ", initial_row_count))
   message(paste0("Removed ", initial_row_count - final_row_count, " rows containing NA values."))
   
+  # TODO: Statistical testing should be done on the original data, not the scaled one!!!
+  # TODO: Statistical testing should be done on the original data, not the scaled one!!!
+  # TODO: Statistical testing should be done on the original data, not the scaled one!!!
+  
   # Perform statistical testing (T-test if 2 groups, ANOVA if >=3)
   cat("\n--- Statistical Testing ---\n")
   if (nlevels(group_factor) == 2) {

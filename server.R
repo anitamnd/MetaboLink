@@ -294,9 +294,12 @@ shinyServer(function(session, input, output) {
       
       data_query <- data %>%
         left_join(
-          query %>% 
-            select(CID, InChI, CanonicalSMILES, IsomericSMILES, InChIKey, IUPACName),
-          by = setNames("InChI", identifier),
+          query %>%
+            select(
+              any_of(
+                c(
+                  "CID", "InChI","CanonicalSMILES", "IsomericSMILES",  "InChIKey", "IUPACName"))),                                 # close select(...)
+          by           = setNames("InChI", identifier),
           relationship = "many-to-many"
         )
       
@@ -308,7 +311,7 @@ shinyServer(function(session, input, output) {
       }
       
       data_query <- data_query %>%
-        relocate(all_of(c("InChIKey", "CID", "CanonicalSMILES", "IsomericSMILES", "IUPACName")), .after = identifier)
+        relocate(any_of(c("InChIKey", "CID", "CanonicalSMILES", "IsomericSMILES", "IUPACName")), .after = identifier)
       
       
       # Remove duplicated columns based on InChI 
@@ -321,7 +324,7 @@ shinyServer(function(session, input, output) {
         left_join(refmet,
                   by = c("InChIKey" = "inchi_key"),
                   relationship = "many-to-many") %>%
-        relocate(all_of(colnames_refmet), .after = all_of(identifier))
+        relocate(any_of(colnames_refmet), .after = all_of(identifier))
       
       if (input$online_refmet) {
         print("Online RefMet")
@@ -433,29 +436,32 @@ shinyServer(function(session, input, output) {
           select(-ends_with(".x"), -ends_with(".y")) %>%
           relocate(c("CanonicalSMILES", "InChIKey"), .after = identifier)
         
+        ref_cols <- c(
+          "refmet_id", "refmet_name", "super_class", "main_class", 
+          "sub_class", "formula", "exactmass", "pubchem_cid", 
+          "chebi_id", "hmdb_id", "lipidmaps_id", "kegg_id"
+        )
+        
         data_final <- data_query_online %>%
           left_join(refmet,
                     by = c("InChIKey" = "inchi_key"),
                     relationship = "many-to-many") %>%
           mutate(
-            refmet_id = coalesce(refmet_id.x, refmet_id.y),
-            refmet_name = coalesce(refmet_name.x, refmet_name.y),
-            super_class = coalesce(super_class.x, super_class.y),
-            main_class = coalesce(main_class.x, main_class.y),
-            sub_class = coalesce(sub_class.x, sub_class.y),
-            formula = coalesce(formula.x, formula.y),
-            exactmass = coalesce(exactmass.x, exactmass.y),
-            pubchem_cid = coalesce(pubchem_cid.x, pubchem_cid.y),
-            chebi_id = coalesce(chebi_id.x, chebi_id.y),
-            hmdb_id = coalesce(hmdb_id.x, hmdb_id.y),
-            lipidmaps_id = coalesce(lipidmaps_id.x, lipidmaps_id.y),
-            kegg_id = coalesce(kegg_id.x, kegg_id.y),
+            across(
+              .cols = any_of(ref_cols),
+              .fns = ~ coalesce(
+                .data[[ paste0(cur_column(), ".x") ]],
+                .data[[ paste0(cur_column(), ".y") ]]
+              ),
+              .names = "{.col}"
+            )
           ) %>%
+          # then drop all the .x and .y helper columns
           select(-ends_with(".x"), -ends_with(".y")) %>%
-          relocate(c("refmet_id", "refmet_name", "super_class",
+          relocate(any_of(c("refmet_id", "refmet_name", "super_class",
                      "main_class","sub_class", "formula",
                      "exactmass", "pubchem_cid", "chebi_id",
-                     "hmdb_id", "lipidmaps_id", "kegg_id"), .after = InChIKey)
+                     "hmdb_id", "lipidmaps_id", "kegg_id")), .after = InChIKey)
         
         data_final[data_final == ""] <- NA
         data_final <- data_final[order(data_final$super_class),]
@@ -2791,7 +2797,7 @@ shinyServer(function(session, input, output) {
       }
       
       # Subset data for "Sample" labels
-      seq_subset <- seq[seq[, "labels"] %in% c("Sample"), ]  # Restrict to "Sample" rows
+      seq_subset <- seq[seq[, "labels"] %in% c("Sample", 2), ]  # Restrict to "Sample" rows
       data_subset <- data[, rownames(seq_subset), drop = FALSE]  # Use row names of seq_subset to filter columns
       
       # Check group selection
@@ -3393,7 +3399,7 @@ shinyServer(function(session, input, output) {
   ######################
   # Pathway Enrichment #
   ######################
-  # Pathway Enrichment Analysis 
+  # Over representation analysis (ORA) ----
   observeEvent(input$select_data_for_enrichment, {
     req(input$select_data_for_enrichment)  # Ensure a dataset is selected
     
@@ -3472,7 +3478,7 @@ shinyServer(function(session, input, output) {
       message(paste0("Number of features after filtering: ", nrow(subset)))
       
       # Set this to TRUE during development and FALSE in production
-      run_development_code <- FALSE
+      run_development_code <- TRUE
       
       if (run_development_code) {
         # Check how many rows query has initially
@@ -3700,7 +3706,7 @@ shinyServer(function(session, input, output) {
         )
       
       final_data <- final_data %>%
-        relocate(all_of(colnames_refmet), .after = IUPACName) %>%
+        relocate(any_of(colnames_refmet), .after = IUPACName) %>%
         select(-c(pubchem_cid, inchi_key))
       
       message(paste0("Number of features after merge with refmet: ", nrow(final_data)))
@@ -3709,6 +3715,8 @@ shinyServer(function(session, input, output) {
         session = session,
         text = paste("Looking for pathways... Please be patient. \n (5/5)")
       )
+      
+      print(head(final_data))
       
       # add pathways to final_data 
       data_updated_list <- get_kegg_pathways(final_data)
@@ -5750,7 +5758,7 @@ shinyServer(function(session, input, output) {
       
       # Remove rows with NA intensity and apply log2 transformation
       df_long <- df_long %>% filter(!is.na(intensity))
-      df_long$intensity <- log2(df_long$intensity)
+      # df_long$intensity <- log2(df_long$intensity)
       df_long <- df_long %>% filter(!is.na(intensity), !is.infinite(intensity))
       
       # Filter the long data to only include the two groups of interest
@@ -5766,9 +5774,12 @@ shinyServer(function(session, input, output) {
           broom::tidy(mod) # Extract coefficients
         }) %>%
         filter(term == "intensity") %>%
-        mutate(odds_ratio = exp(estimate),
-               lower_ci   = exp(estimate - 1.96 * std.error),
-               upper_ci   = exp(estimate + 1.96 * std.error))
+        mutate(odds_ratio = estimate,
+               lower_ci   = (estimate - 1.96 * std.error),
+               upper_ci   = (estimate + 1.96 * std.error)) #%>% 
+        # mutate(odds_ratio = exp(estimate),
+        #        lower_ci   = exp(estimate - 1.96 * std.error),
+        #        upper_ci   = exp(estimate + 1.96 * std.error))
       
       # Join the odds ratios back with the original features for label info
       odds_ratios <- odds_ratios %>%
@@ -6074,6 +6085,9 @@ shinyServer(function(session, input, output) {
     } else {
       data <- rv$data[[rv$activeFile]]
       sequence <- rv$sequence[[rv$activeFile]]
+      
+      cat("Selected transformation method:", input$logTransform, "\n")
+      cat("Selected scaling method:", input$scaling, "\n")
       
       transformed <- transformation(data, sequence, input$logTransform, input$scaling)
       

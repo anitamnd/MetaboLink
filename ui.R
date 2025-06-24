@@ -1821,44 +1821,25 @@ shinyUI(dashboardPage(
                   fluidRow(
                     column(
                       width = 12,
-                      box(
-                        width = NULL,
-                        title = "Pathway Enrichment Information",
-                        status = "info",
-                        solidHeader = TRUE,
-                        collapsible = FALSE,
+                      box(width = NULL, title = "Pathway Enrichment Information", status = "info",
+                        solidHeader = TRUE, collapsible = FALSE,
                         tagList(
                           tags$ul(
                             tags$li("Pathway enrichment analysis identifies over-represented biological pathways in your data."),
-                            tags$li("Set appropriate thresholds and select the correct groups to reveal significant pathways.")
-                          )
-                        )
-                      )
-                    )
-                  ),
+                            tags$li("Set appropriate thresholds and select the correct groups to reveal significant pathways.")))))),
                   
                   # Data & Selection UI
-                  fluidRow(
-                    column(
-                      width = 6,
-                      box(
-                        width = 12,
-                        title = "Data & Identifier Selection",
-                        status = "primary",
-                        solidHeader = TRUE,
-                        collapsible = FALSE,
+                  fluidRow(column(width = 6,
+                      box(width = 12, title = "Data & Identifier Selection", status = "primary",
+                        solidHeader = TRUE, collapsible = FALSE,
                         
                         selectInput("select_data_for_enrichment", "Select Dataset for Identifier Gathering", choices = NULL, width = "100%"),
                         
                         fluidRow(
-                          column(
-                            width = 6,
-                            selectInput("identifier_column", "Select InChI Column", choices = NULL, width = "100%")
-                          ),
-                          column(
-                            width = 6,
-                            selectInput("compound_column", "Select Compound Column", choices = NULL, width = "100%")
-                          )
+                          column(width = 6, selectInput("identifier_column", "Select InChI Column",
+                                                        choices = NULL, width = "100%")),
+                          column(width = 6, selectInput("compound_column", "Select Compound Column", 
+                                                        choices = NULL, width = "100%"))
                         ),
                         
                         actionButton("run_gather_identifiers", "Gather Identifiers", width = "100%"),
