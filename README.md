@@ -1,4 +1,4 @@
-[![bio.tools](https://img.shields.io/badge/bio.tools-metaboLink-blue)](https://bio.tools/metaboLink)
+[![bio.tools](https://img.shields.io/badge/bio.tools-MetaboLink-blue)](https://bio.tools/metaboLink)
 
 # MetaboLink
 
