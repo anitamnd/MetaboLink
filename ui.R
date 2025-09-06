@@ -1180,19 +1180,29 @@ shinyUI(dashboardPage(
                          
                          # Row 3: Heatmap Plot & Results
                          fluidRow(
-                           column(
-                             width = 12,
-                             box(
-                               width = NULL,
-                               title = "Heatmap Plot",
-                               status = "primary",
-                               solidHeader = TRUE,
-                               collapsible = TRUE,
+                          #   box(
+                          #     width = NULL,
+                          #     title = "Heatmap Plot",
+                          #     status = "primary",
+                          #     solidHeader = TRUE,
+                          #     collapsible = TRUE,
                                
-                               plotOutput("heatmap_plot", height = "600px") %>% withSpinner(color = "steelblue"),
-                             )
+                          #     plotOutput("heatmap_plot", height = "600px") %>% withSpinner(color = "steelblue"),
+                               
+                          #  ),
+                           box(
+                              title = "Interactive Heatmap", width = 12, status = "primary", solidHeader = TRUE,
+                              originalHeatmapOutput("heatmap_interactive")
+                           ),
+                           #box(
+                           #   title = "Sub-heatmap", width = 12, solidHeader = TRUE, status = "primary",
+                           #   subHeatmapOutput("heatmap_interactive", title = NULL)
+                           #),
+                           box(
+                             title = "Ouput", width = 12, status = "primary", solidHeader = TRUE,
+                             HeatmapInfoOutput("heatmap_interactive", title = NULL)
                            )
-                         ),
+                        ),
                          fluidRow(
                            column(
                              width = 12,

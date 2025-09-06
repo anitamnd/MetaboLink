@@ -2868,13 +2868,16 @@ shinyServer(function(session, input, output) {
       
       heatmap_plot <- result$heatmap
       top_stats <- result$top_stats
-      
+
       # Render the heatmap
-      output$heatmap_plot <- renderPlot({
-        if (!is.null(heatmap_plot)) {
-          draw(heatmap_plot)
-        }
-      }, height = 600)
+      #output$heatmap_plot <- renderPlot({
+      #  if (!is.null(heatmap_plot)) {
+      #    draw(heatmap_plot)
+      #  }
+      #}, height = heatmap_height)
+
+      ht1 <- draw(heatmap_plot)
+      makeInteractiveComplexHeatmap(input, output, session, ht1, "heatmap_interactive")
       
       # Render the table of top features
       output$heatmap_table <- DT::renderDataTable({

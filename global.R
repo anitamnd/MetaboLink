@@ -34,6 +34,7 @@ library(car)
 # for heatmap 
 library(stringr)
 library(ComplexHeatmap)
+library(InteractiveComplexHeatmap)
 library(circlize)    # for colorRamp2
 library(grid)        # for manual text annotation
 library(stats)       # for t.test, aov
