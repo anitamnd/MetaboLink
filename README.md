@@ -1,3 +1,5 @@
+[![bio.tools](https://img.shields.io/badge/bio.tools-MetaboLink-005472)](https://bio.tools/metabolink)
+
 # MetaboLink
 
 MetaboLink is a web-based application created with shiny R and it is available at http://computproteomics.bmb.sdu.dk/Metabolomics/.
