@@ -5,7 +5,7 @@
 
 # MetaboLink
 
-MetaboLink is a web-based application created with shiny R and it is available at http://computproteomics.bmb.sdu.dk/Metabolomics/.
+MetaboLink is a web-based application created with shiny R and it is available at http://computproteomics.bmb.sdu.dk/MetaboLink/.
 Documentation on how to use the app can be found in [Wiki MetaboLink](https://github.com/anitamnd/MetaboLink/wiki).
 
 Example files to be used with the app are included in the folder _example_files_.
@@ -42,7 +42,7 @@ library(BiocManager)
 BiocManager::install(c('dplyr','plotly','shiny','shinyBS','shinydashboard','shinycssloaders','limma','shinyjs','shinyalert','shinyWidgets','spsComps','ggplot2','ggrepel','gridExtra','impute','randomForest','writexl','stringi','igraph'), ask=F)
 ```
 
-You can then run the app from the server.R or ui.R files using RStudio or run the app on a shiny-server.
+You can then run the app from the server.R, ui.R, or global.R files or run the app on a shiny-server.
 
 ---
 
